@@ -1,0 +1,13 @@
+# Development / test dependencies for the NavTrack worker
+# Install with:  pip install -r requirements-dev.txt
+
+# Runtime deps (pulled in transitively by worker.py)
+-r requirements.txt
+
+# Test framework
+pytest>=8.3
+pytest-cov>=6.0
+
+# Mocking helpers
+responses>=0.25          # HTTP mocking for requests-based calls
+pytest-mock>=3.14        # provides the `mocker` fixture

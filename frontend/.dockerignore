@@ -1,0 +1,17 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+.env
+.env.local
+.env.*.local
+dist
+.coverage
+.eslintcache
+*.swp
+*.swo
+*~
+.DS_Store
+.vite
+coverage
+.vitest
