@@ -42,21 +42,40 @@ async function requestText(path: string, init?: RequestInit): Promise<string> {
   return res.text();
 }
 
+export interface InstrumentImportResult {
+  imported: number;
+  skipped: number;
+  skippedIsins: string[];
+}
+
+export interface TemplateImportResult {
+  imported: number;
+  skipped: number;
+  skippedCodes: string[];
+  missingIsins: string[];
+}
+
 export const api = {
-  // ── Instruments ──────────────────────────────────────────────────────────────
+  // ── Instruments ─────────────────────────────────────────────────────────
   instruments: {
-    list:   ()                              => request<Instrument[]>('/instruments'),
-    get:    (id: string)                    => request<Instrument>(`/instruments/${id}`),
-    create: (p: CreateInstrumentPayload)    => request<Instrument>('/instruments', { method: 'POST', body: JSON.stringify(p) }),
-    update: (id: string, p: Partial<CreateInstrumentPayload>) =>
+    list:       ()                               => request<Instrument[]>('/instruments'),
+    get:        (id: string)                     => request<Instrument>(`/instruments/${id}`),
+    create:     (p: CreateInstrumentPayload)     => request<Instrument>('/instruments', { method: 'POST', body: JSON.stringify(p) }),
+    update:     (id: string, p: Partial<CreateInstrumentPayload>) =>
       request<Instrument>(`/instruments/${id}`, { method: 'PUT', body: JSON.stringify(p) }),
-    delete: (id: string)                    => request<void>(`/instruments/${id}`, { method: 'DELETE' }),
-    navHistory: (id: string)                => request<NavPrice[]>(`/instruments/${id}/nav`),
-    addNav: (id: string, entries: NavEntryPayload[]) =>
+    delete:     (id: string)                     => request<void>(`/instruments/${id}`, { method: 'DELETE' }),
+    navHistory: (id: string)                     => request<NavPrice[]>(`/instruments/${id}/nav`),
+    addNav:     (id: string, entries: NavEntryPayload[]) =>
       request<{ upserted: number }>(`/instruments/${id}/nav`, { method: 'POST', body: JSON.stringify({ entries }) }),
+    exportJson: ()                               => request<any[]>('/instruments/export/json'),
+    exportCsv:  ()                               => requestText('/instruments/export/csv'),
+    importJson: (instruments: any[])             =>
+      request<InstrumentImportResult>('/instruments/import/json', { method: 'POST', body: JSON.stringify({ instruments }) }),
+    importCsv:  (csv: string)                    =>
+      request<InstrumentImportResult>('/instruments/import/csv', { method: 'POST', body: JSON.stringify({ csv }) }),
   },
 
-  // ── Portfolios ───────────────────────────────────────────────────────────────
+  // ── Portfolios ─────────────────────────────────────────────────────────
   portfolios: {
     list:   ()                              => request<Portfolio[]>('/portfolios'),
     get:    (id: string)                    => request<Portfolio>(`/portfolios/${id}`),
@@ -77,7 +96,7 @@ export const api = {
       request<ImportSummary>('/portfolios/import/csv', { method: 'POST', body: JSON.stringify({ csv }) }),
   },
 
-  // ── Positions ────────────────────────────────────────────────────────────────
+  // ── Positions ─────────────────────────────────────────────────────────
   positions: {
     list:   (portfolioId: string)           => request<PortfolioPosition[]>(`/portfolios/${portfolioId}/positions`),
     upsert: (portfolioId: string, p: UpsertPositionPayload) =>
@@ -90,7 +109,7 @@ export const api = {
       request<PortfolioPosition[]>(`/portfolios/${portfolioId}/positions/recalculate`, { method: 'POST' }),
   },
 
-  // ── Transactions ─────────────────────────────────────────────────────────────
+  // ── Transactions ─────────────────────────────────────────────────────────
   transactions: {
     list:   (portfolioId: string)           => request<Transaction[]>(`/portfolios/${portfolioId}/transactions`),
     create: (portfolioId: string, p: CreateTransactionPayload) =>
@@ -108,21 +127,28 @@ export const api = {
       request<{ deleted: number }>(`/portfolios/${portfolioId}/transactions`, { method: 'DELETE' }),
   },
 
-  // ── Valuation ────────────────────────────────────────────────────────────────
+  // ── Valuation ─────────────────────────────────────────────────────────
   valuation: {
     get: (portfolioId: string, date?: string) =>
       request<ValuationResult>(`/portfolios/${portfolioId}/valuation${date ? `?date=${date}` : ''}`),
   },
 
+  // ── Templates ─────────────────────────────────────────────────────────
   templates: {
-    list: () => request<AllocationTemplate[]>('/templates'),
-    get: (id: string) => request<AllocationTemplate>(`/templates/${id}`),
-    navPreview: (id: string, tradeDate: string) =>
+    list:       ()                               => request<AllocationTemplate[]>('/templates'),
+    get:        (id: string)                     => request<AllocationTemplate>(`/templates/${id}`),
+    navPreview: (id: string, tradeDate: string)  =>
       request<TemplateNavPreview>(`/templates/${id}/nav-preview?tradeDate=${encodeURIComponent(tradeDate)}`),
-    create: (p: CreateAllocationTemplatePayload) =>
+    create:     (p: CreateAllocationTemplatePayload) =>
       request<AllocationTemplate>('/templates', { method: 'POST', body: JSON.stringify(p) }),
-    update: (id: string, p: Partial<CreateAllocationTemplatePayload>) =>
+    update:     (id: string, p: Partial<CreateAllocationTemplatePayload>) =>
       request<AllocationTemplate>(`/templates/${id}`, { method: 'PUT', body: JSON.stringify(p) }),
-    delete: (id: string) => request<void>(`/templates/${id}`, { method: 'DELETE' }),
+    delete:     (id: string)                     => request<void>(`/templates/${id}`, { method: 'DELETE' }),
+    exportJson: ()                               => request<any[]>('/templates/export/json'),
+    exportCsv:  ()                               => requestText('/templates/export/csv'),
+    importJson: (templates: any[])               =>
+      request<TemplateImportResult>('/templates/import/json', { method: 'POST', body: JSON.stringify({ templates }) }),
+    importCsv:  (csv: string)                    =>
+      request<TemplateImportResult>('/templates/import/csv', { method: 'POST', body: JSON.stringify({ csv }) }),
   },
 };

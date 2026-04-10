@@ -15,6 +15,19 @@ import {
   UpdateAllocationTemplateDto,
 } from './template.dto';
 
+export interface TemplateExportRow {
+  code: string;
+  description: string | null;
+  items: Array<{ isin: string; weight: number }>;
+}
+
+export interface TemplateImportResult {
+  imported: number;
+  skipped: number;
+  skippedCodes: string[];
+  missingIsins: string[];
+}
+
 @Injectable()
 export class TemplatesService {
   constructor(
@@ -155,6 +168,94 @@ export class TemplatesService {
     };
   }
 
+  // ── Export ──────────────────────────────────────────────────────────────────
+
+  async exportJson(): Promise<TemplateExportRow[]> {
+    const all = await this.templateRepo.find({
+      relations: ['items', 'items.instrument'],
+      order: { code: 'ASC' },
+    });
+    return all.map((t) => ({
+      code: t.code,
+      description: t.description ?? null,
+      items: t.items.map((i) => ({
+        isin: i.instrument.isin,
+        weight: Number(i.weight),
+      })),
+    }));
+  }
+
+  async exportCsv(): Promise<string> {
+    const rows = await this.exportJson();
+    // One row per template item: code, description, isin, weight
+    const header = 'code,description,isin,weight';
+    const lines: string[] = [];
+    for (const t of rows) {
+      for (const item of t.items) {
+        lines.push(
+          [
+            csvEscape(t.code),
+            csvEscape(t.description ?? ''),
+            csvEscape(item.isin),
+            String(item.weight),
+          ].join(','),
+        );
+      }
+    }
+    return [header, ...lines].join('\n');
+  }
+
+  // ── Import ──────────────────────────────────────────────────────────────────
+
+  async importJson(rows: TemplateExportRow[]): Promise<TemplateImportResult> {
+    let imported = 0;
+    const skippedCodes: string[] = [];
+    const missingIsins: string[] = [];
+
+    for (const row of rows) {
+      const code = row.code?.trim();
+      if (!code) continue;
+
+      const existing = await this.templateRepo.findOneBy({ code });
+      if (existing) { skippedCodes.push(code); continue; }
+
+      // Resolve ISINs → instrument IDs
+      const items: AllocationTemplateItemDto[] = [];
+      let skip = false;
+      for (const item of row.items ?? []) {
+        const inst = await this.instrumentRepo.findOneBy({ isin: item.isin?.toUpperCase() });
+        if (!inst) { missingIsins.push(item.isin); skip = true; break; }
+        items.push({ instrumentId: inst.id, weight: Number(item.weight) });
+      }
+      if (skip) continue;
+
+      try {
+        await this.create({ code, description: row.description ?? '', items });
+        imported++;
+      } catch {
+        skippedCodes.push(code);
+      }
+    }
+
+    return { imported, skipped: skippedCodes.length, skippedCodes, missingIsins };
+  }
+
+  async importCsv(csv: string): Promise<TemplateImportResult> {
+    const lines = csv.split('\n').map((l) => l.trim()).filter(Boolean);
+    if (lines.length < 2) return { imported: 0, skipped: 0, skippedCodes: [], missingIsins: [] };
+
+    // Group rows by code to rebuild template objects
+    const map = new Map<string, TemplateExportRow>();
+    for (const line of lines.slice(1)) {
+      const [code, description, isin, weight] = parseCsvLine(line);
+      if (!code || !isin) continue;
+      if (!map.has(code)) map.set(code, { code, description: description || null, items: [] });
+      map.get(code)!.items.push({ isin, weight: Number(weight) });
+    }
+
+    return this.importJson([...map.values()]);
+  }
+
   private validateItems(items: AllocationTemplateItemDto[]) {
     if (!items?.length) {
       throw new BadRequestException('Template must include at least one fund');
@@ -189,4 +290,29 @@ function round4(value: number): number {
 
 function isIsoDate(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function csvEscape(value: string): string {
+  if (/[,"\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
+  return value;
+}
+
+function parseCsvLine(line: string): string[] {
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"' && line[i + 1] === '"') { current += '"'; i++; }
+      else if (ch === '"') inQuotes = false;
+      else current += ch;
+    } else {
+      if (ch === '"') inQuotes = true;
+      else if (ch === ',') { result.push(current); current = ''; }
+      else current += ch;
+    }
+  }
+  result.push(current);
+  return result;
 }
