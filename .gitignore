@@ -1,0 +1,38 @@
+# Environment
+.env
+*.env.local
+
+# Secrets / certs
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Node
+node_modules/
+dist/
+.npm/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+
+# Build artefacts
+frontend/dist/
+backend/dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+*.log
+db-data/
