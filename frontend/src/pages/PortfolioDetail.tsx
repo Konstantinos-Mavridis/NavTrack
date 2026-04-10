@@ -10,6 +10,7 @@ import TransactionFormModal from '../components/TransactionFormModal';
 import TemplateBuyModal from '../components/TemplateBuyModal';
 import PortfolioFormModal from '../components/PortfolioFormModal';
 import ConfirmDialog from '../components/ConfirmDialog';
+import PortfolioImportExport from '../components/PortfolioImportExport';
 import { fmtEur, fmtUnits, today } from '../utils/format';
 
 type Tab = 'positions' | 'transactions';
@@ -65,7 +66,7 @@ export default function PortfolioDetail() {
     finally { setRefreshing(false); }
   }, [id, date]);
 
-  // ── Transaction actions ────────────────────────────────────────────────────
+  // ── Transaction actions ──────────────────────────────────────────────────────
   function handleTxnSaved(t: Transaction) {
     setModal(null);
     if (modal?.type === 'editTxn') {
@@ -106,7 +107,7 @@ export default function PortfolioDetail() {
     finally { setActionWorking(false); }
   }
 
-  // ── Portfolio actions ──────────────────────────────────────────────────────
+  // ── Portfolio actions ─────────────────────────────────────────────────────
   function handlePortfolioSaved(p: Portfolio) {
     setPortfolio(p);
     setModal(null);
@@ -211,7 +212,7 @@ export default function PortfolioDetail() {
           <p className="text-4xl mb-3">📋</p>
           <p className="font-semibold text-gray-700 mb-1">No positions yet</p>
           <p className="text-sm text-gray-400 mb-4">
-            Add transactions below, then click "Recalculate Positions" to derive your holdings.
+            Add transactions below, then click “Recalculate Positions” to derive your holdings.
           </p>
           <div className="flex justify-center gap-2 flex-wrap">
             <button
@@ -277,6 +278,7 @@ export default function PortfolioDetail() {
                 <button onClick={() => setModal({ type: 'buyTemplate' })} className="btn-secondary text-sm py-1.5">
                   + Buy Template
                 </button>
+                <PortfolioImportExport onImported={() => { reload().catch(() => {}); }} />
                 {transactions.length > 0 && (
                   <button
                     onClick={() => setModal({ type: 'deleteAllTxn' })}
