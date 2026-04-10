@@ -8,7 +8,6 @@ import { Spinner, ErrorBanner } from '../components/ui';
 import PortfolioFormModal from '../components/PortfolioFormModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import PortfolioAggregateChart from '../components/PortfolioAggregateChart';
-import PortfolioImportExport from '../components/PortfolioImportExport';
 import { fmtEur, fmtPct, today } from '../utils/format';
 
 interface PortfolioRow extends Portfolio {
@@ -124,12 +123,9 @@ export default function PortfolioList() {
           <h1 className="text-3xl font-bold text-gray-900">Portfolios</h1>
           <p className="text-gray-500 mt-1">Overview of all tracked model portfolios</p>
         </div>
-        <div className="flex flex-col items-end gap-3">
-          <PortfolioImportExport onImported={() => { setLoading(true); void loadPortfolios(); }} />
-          <button onClick={() => setModal({ type: 'create' })} className="btn-primary flex items-center gap-2">
-            <span className="text-lg leading-none">+</span> New Portfolio
-          </button>
-        </div>
+        <button onClick={() => setModal({ type: 'create' })} className="btn-primary flex items-center gap-2">
+          <span className="text-lg leading-none">+</span> New Portfolio
+        </button>
       </div>
 
       {/* Aggregate history chart */}
