@@ -1,0 +1,67 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+    paths:
+      # Re-run only when source code actually changes
+      - 'backend/**'
+      - 'frontend/**'
+      - 'worker/**'
+      - '.github/workflows/codeql.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'worker/**'
+      - '.github/workflows/codeql.yml'
+  schedule:
+    # Full weekly scan every Monday 08:00 UTC regardless of path changes
+    - cron: '0 8 * * 1'
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # TypeScript covers both backend (NestJS) and frontend (React/Vite)
+          - language: javascript-typescript
+            build-mode: none
+          # Python covers the APScheduler worker
+          - language: python
+            build-mode: none
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          # Do not persist credentials beyond this job — reduces attack surface
+          # for any code execution that might occur during analysis
+          persist-credentials: false
+
+      - name: Initialise CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          # security-and-quality includes both the default security queries
+          # and additional quality / maintainability checks
+          queries: security-and-quality
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: '/language:${{ matrix.language }}'
