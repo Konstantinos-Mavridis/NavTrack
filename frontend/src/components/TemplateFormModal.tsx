@@ -1,0 +1,203 @@
+import { useEffect, useMemo, useState } from 'react';
+import Modal from './Modal';
+import { api } from '../api/client';
+import type { AllocationTemplate, Instrument, TemplateItemPayload } from '../types';
+
+interface Props {
+  template?: AllocationTemplate;
+  onSaved: (t: AllocationTemplate) => void;
+  onClose: () => void;
+}
+
+interface RowState {
+  instrumentId: string;
+  weight: string;
+}
+
+export default function TemplateFormModal({ template, onSaved, onClose }: Props) {
+  const isEdit = !!template;
+
+  const [instruments, setInstruments] = useState<Instrument[]>([]);
+  const [code, setCode] = useState(template?.code ?? '');
+  const [description, setDescription] = useState(template?.description ?? '');
+  const [rows, setRows] = useState<RowState[]>(
+    template?.items?.length
+      ? template.items.map((i) => ({ instrumentId: i.instrumentId, weight: String(i.weight) }))
+      : [{ instrumentId: '', weight: '' }],
+  );
+
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    api.instruments.list().then(setInstruments).catch(() => setInstruments([]));
+  }, []);
+
+  const totalWeight = useMemo(
+    () => rows.reduce((acc, r) => acc + (parseFloat(r.weight) || 0), 0),
+    [rows],
+  );
+
+  function updateRow(idx: number, patch: Partial<RowState>) {
+    setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+  }
+
+  function removeRow(idx: number) {
+    setRows((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev));
+  }
+
+  function addRow() {
+    setRows((prev) => [...prev, { instrumentId: '', weight: '' }]);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError('');
+
+    const cleanCode = code.trim();
+    if (!cleanCode) {
+      setError('Template code is required');
+      return;
+    }
+
+    const items: TemplateItemPayload[] = rows
+      .filter((r) => r.instrumentId && (parseFloat(r.weight) || 0) > 0)
+      .map((r) => ({ instrumentId: r.instrumentId, weight: parseFloat(r.weight) }));
+
+    if (items.length === 0) {
+      setError('Please add at least one fund with positive weight');
+      return;
+    }
+
+    const unique = new Set(items.map((i) => i.instrumentId));
+    if (unique.size !== items.length) {
+      setError('Each fund can only appear once');
+      return;
+    }
+
+    const sum = items.reduce((acc, i) => acc + i.weight, 0);
+    if (Math.abs(sum - 100) > 0.01) {
+      setError(`Weights must add up to 100 (currently ${sum.toFixed(4)})`);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const payload = {
+        code: cleanCode,
+        description: description.trim() || undefined,
+        items,
+      };
+
+      const saved = isEdit
+        ? await api.templates.update(template!.id, payload)
+        : await api.templates.create(payload);
+
+      onSaved(saved);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal
+      title={isEdit ? 'Edit Template' : 'New Template'}
+      subtitle={isEdit ? template!.code : 'Define funds and target weights'}
+      onClose={onClose}
+      width="max-w-3xl"
+    >
+      <form onSubmit={handleSubmit} className="space-y-5">
+        {error && (
+          <div className="rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">
+            {error}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Template Code *</label>
+            <input
+              className="input"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="e.g. FlexibleGreek20260218"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <input
+              className="input"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Optional"
+            />
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-gray-200 overflow-hidden">
+          <div className="bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+            Funds & Weights
+          </div>
+          <div className="p-3 space-y-2">
+            {rows.map((row, idx) => (
+              <div key={idx} className="grid grid-cols-12 gap-2 items-center">
+                <div className="col-span-8">
+                  <select
+                    className="input"
+                    value={row.instrumentId}
+                    onChange={(e) => updateRow(idx, { instrumentId: e.target.value })}
+                  >
+                    <option value="">Select fund...</option>
+                    {instruments.map((i) => (
+                      <option key={i.id} value={i.id}>{i.name} ({i.isin.trim()})</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="col-span-3">
+                  <input
+                    type="number"
+                    step="0.0001"
+                    min="0"
+                    className="input"
+                    value={row.weight}
+                    onChange={(e) => updateRow(idx, { weight: e.target.value })}
+                    placeholder="Weight %"
+                  />
+                </div>
+                <div className="col-span-1 text-right">
+                  <button
+                    type="button"
+                    onClick={() => removeRow(idx)}
+                    className="text-gray-400 hover:text-red-500 text-sm"
+                    title="Remove row"
+                  >
+                    x
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            <div className="flex items-center justify-between pt-1">
+              <button type="button" onClick={addRow} className="btn-secondary text-sm py-1.5">
+                + Add Fund
+              </button>
+              <p className={`text-sm font-medium ${Math.abs(totalWeight - 100) <= 0.01 ? 'text-emerald-600' : 'text-gray-500'}`}>
+                Total: {totalWeight.toFixed(4)}%
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 pt-2">
+          <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
+          <button type="submit" disabled={saving} className="btn-primary">
+            {saving ? 'Saving...' : isEdit ? 'Save Template' : 'Create Template'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
