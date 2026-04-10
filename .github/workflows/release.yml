@@ -1,0 +1,187 @@
+name: Release
+
+# Manually triggered by a developer.
+# Input: the new version string (e.g. 1.3.0 — without the leading 'v').
+#
+# What it does:
+#   1. Validates the version looks like SemVer (X.Y.Z).
+#   2. Bumps `version` in backend/package.json and frontend/package.json.
+#   3. Writes the new version into worker/VERSION.
+#   4. Commits the changes and pushes to main [skip ci].
+#   5. Creates and pushes an annotated Git tag vX.Y.Z.
+#   6. Creates a GitHub Release for the tag (visible on the Releases page).
+#   7. Triggers docker-backend, docker-frontend, docker-worker (which pick
+#      up type=semver tags from docker/metadata-action automatically).
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'New version (SemVer, no leading v — e.g. 1.3.0)'
+        required: true
+        type: string
+      release_notes:
+        description: 'Release notes (Markdown supported)'
+        required: false
+        default: ''
+        type: string
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: release
+  cancel-in-progress: false   # Never cancel a release mid-flight
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  release:
+    name: Bump, Tag & Dispatch
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # push commit + tag + create release
+      actions: write    # dispatch docker workflows
+
+    steps:
+      # ------------------------------------------------------------------ #
+      # 1. Validate version format
+      # ------------------------------------------------------------------ #
+      - name: Validate version format
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Version '$VERSION' is not valid SemVer (expected X.Y.Z)"
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      # ------------------------------------------------------------------ #
+      # 2. Checkout main with full history
+      # ------------------------------------------------------------------ #
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # ------------------------------------------------------------------ #
+      # 3. Configure git identity
+      # ------------------------------------------------------------------ #
+      - name: Configure git
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # ------------------------------------------------------------------ #
+      # 4. Check the tag does not already exist
+      # ------------------------------------------------------------------ #
+      - name: Ensure tag is free
+        run: |
+          if git rev-parse "v${{ env.VERSION }}" >/dev/null 2>&1; then
+            echo "::error::Tag v${{ env.VERSION }} already exists."
+            exit 1
+          fi
+
+      # ------------------------------------------------------------------ #
+      # 5. Bump versions in source files
+      # ------------------------------------------------------------------ #
+      - name: Bump backend/package.json
+        run: |
+          node -e "
+            const fs = require('fs');
+            const p = JSON.parse(fs.readFileSync('backend/package.json', 'utf8'));
+            p.version = '${{ env.VERSION }}';
+            fs.writeFileSync('backend/package.json', JSON.stringify(p, null, 2) + '\n');
+          "
+
+      - name: Bump frontend/package.json
+        run: |
+          node -e "
+            const fs = require('fs');
+            const p = JSON.parse(fs.readFileSync('frontend/package.json', 'utf8'));
+            p.version = '${{ env.VERSION }}';
+            fs.writeFileSync('frontend/package.json', JSON.stringify(p, null, 2) + '\n');
+          "
+
+      - name: Bump worker/VERSION
+        run: echo "${{ env.VERSION }}" > worker/VERSION
+
+      # ------------------------------------------------------------------ #
+      # 6. Commit bumped files
+      #    [skip ci] prevents CI Gate from re-triggering Docker builds for
+      #    this commit — the tagged builds are dispatched explicitly in step 9.
+      # ------------------------------------------------------------------ #
+      - name: Commit version bump
+        run: |
+          git add backend/package.json frontend/package.json worker/VERSION
+          git diff --cached --quiet && echo "Nothing to commit" && exit 0
+          git commit -m "chore(release): bump version to ${{ env.VERSION }} [skip ci]"
+          git push origin main
+
+      # ------------------------------------------------------------------ #
+      # 7. Create annotated tag
+      # ------------------------------------------------------------------ #
+      - name: Create and push tag
+        run: |
+          NOTES="${{ github.event.inputs.release_notes }}"
+          MESSAGE="v${{ env.VERSION }}"
+          if [ -n "$NOTES" ]; then
+            MESSAGE="$MESSAGE\n\n$NOTES"
+          fi
+          git tag -a "v${{ env.VERSION }}" -m "$(printf '%b' "$MESSAGE")"
+          git push origin "v${{ env.VERSION }}"
+
+      # ------------------------------------------------------------------ #
+      # 8. Create GitHub Release
+      # ------------------------------------------------------------------ #
+      - name: Create GitHub Release
+        uses: actions/github-script@v7.0.1
+        with:
+          script: |
+            const version  = '${{ env.VERSION }}';
+            const notes    = `${{ github.event.inputs.release_notes }}`;
+            const pre      = ${{ github.event.inputs.prerelease }};
+
+            const body = notes.trim()
+              ? notes.trim()
+              : `## NavTrack v${version}\n\nSee [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.`;
+
+            const { data: release } = await github.rest.repos.createRelease({
+              owner:            context.repo.owner,
+              repo:             context.repo.repo,
+              tag_name:         `v${version}`,
+              name:             `v${version}`,
+              body,
+              draft:            false,
+              prerelease:       pre,
+              make_latest:      pre ? 'false' : 'true',
+            });
+            core.info(`GitHub Release created: ${release.html_url}`);
+            core.setOutput('release_url', release.html_url);
+
+      # ------------------------------------------------------------------ #
+      # 9. Dispatch Docker builds (they read the tag via docker/metadata-action)
+      # ------------------------------------------------------------------ #
+      - name: Dispatch Docker builds
+        uses: actions/github-script@v7.0.1
+        with:
+          script: |
+            const workflows = [
+              'docker-backend.yml',
+              'docker-frontend.yml',
+              'docker-worker.yml',
+            ];
+            for (const wf of workflows) {
+              await github.rest.actions.createWorkflowDispatch({
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                workflow_id: wf,
+                ref: `refs/tags/v${{ env.VERSION }}`,
+              });
+              core.info(`Dispatched ${wf} at refs/tags/v${{ env.VERSION }}`);
+            }
