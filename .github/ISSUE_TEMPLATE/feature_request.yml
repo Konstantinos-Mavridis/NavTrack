@@ -1,0 +1,79 @@
+name: "✨ Feature Request"
+description: Suggest a new feature or improvement for NavTrack.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea to make NavTrack better? Describe it below.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: "Problem or motivation"
+      description: "What problem does this solve, or what opportunity does it open up?"
+      placeholder: "e.g. I can't easily see how my portfolio's asset allocation has drifted over time."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: "Proposed solution"
+      description: "Describe the feature you'd like. Be as specific as possible."
+      placeholder: "e.g. Add a time-series allocation chart on the Portfolio Detail page showing monthly asset-class weights."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: service
+    attributes:
+      label: "Affected service(s)"
+      multiple: true
+      options:
+        - backend (NestJS API)
+        - frontend (React UI)
+        - worker (Python / APScheduler)
+        - db (PostgreSQL / schema)
+        - CI / workflows
+        - Docker Compose / deployment
+        - Documentation
+    validations:
+      required: true
+
+  - type: dropdown
+    id: semver
+    attributes:
+      label: "Likely SemVer impact"
+      description: "Your best guess at the version bump this would require."
+      options:
+        - "PATCH — internal / non-breaking improvement"
+        - "MINOR — new feature, non-breaking"
+        - "MAJOR — breaking API or schema change"
+        - "Not sure"
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "Alternatives considered"
+      description: "Any alternative approaches you've thought of?"
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: "Additional context"
+      description: "Screenshots, mockups, references to similar features in other tools, etc."
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: "Before submitting"
+      options:
+        - label: "I searched existing issues and this has not already been requested."
+          required: true

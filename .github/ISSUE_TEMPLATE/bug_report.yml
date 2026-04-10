@@ -1,0 +1,91 @@
+name: "🐛 Bug Report"
+description: Report a bug or unexpected behaviour in NavTrack.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please fill in as much detail as possible so it can be reproduced and fixed quickly.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "What happened?"
+      description: "A clear and concise description of the bug."
+      placeholder: "e.g. The portfolio valuation returns 0 after adding a SELL transaction."
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: "Steps to reproduce"
+      description: "Step-by-step instructions to reproduce the behaviour."
+      placeholder: |
+        1. Go to Portfolio Detail
+        2. Add a SELL transaction
+        3. Click 'Recalculate'
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: "Expected behaviour"
+      description: "What did you expect to happen?"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: service
+    attributes:
+      label: "Affected service"
+      description: "Which part of the stack is affected?"
+      multiple: true
+      options:
+        - backend (NestJS API)
+        - frontend (React UI)
+        - worker (Python / APScheduler)
+        - db (PostgreSQL / schema)
+        - CI / workflows
+        - Docker Compose / deployment
+        - Unknown
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: "NavTrack version"
+      description: "Check the GitHub Releases page or the image tag you are running."
+      placeholder: "e.g. v0.0.4"
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: "Relevant logs or screenshots"
+      description: "Paste any relevant container logs (`docker compose logs <service>`) or attach screenshots."
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: "Additional context"
+      description: "Anything else that might be relevant (OS, browser, Docker version, custom env vars, etc.)."
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: "Before submitting"
+      options:
+        - label: "I searched existing issues and this is not a duplicate."
+          required: true
+        - label: "I am running the latest release."
+          required: false
