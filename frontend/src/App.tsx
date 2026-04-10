@@ -1,10 +1,9 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
-import PortfolioList   from './pages/PortfolioList';
-import PortfolioDetail from './pages/PortfolioDetail';
-import InstrumentList  from './pages/InstrumentList';
+import PortfolioList    from './pages/PortfolioList';
+import PortfolioDetail  from './pages/PortfolioDetail';
+import InstrumentList   from './pages/InstrumentList';
 import InstrumentDetail from './pages/InstrumentDetail';
-import TemplatesPage from './pages/TemplatesPage';
 
 export default function App() {
   return (
@@ -12,12 +11,13 @@ export default function App() {
       <Navbar />
       <main className="flex-1">
         <Routes>
-          <Route path="/"                        element={<PortfolioList />} />
-          <Route path="/portfolios/:id"          element={<PortfolioDetail />} />
-          <Route path="/instruments"             element={<InstrumentList />} />
-          <Route path="/instruments/:id"         element={<InstrumentDetail />} />
-          <Route path="/templates"               element={<TemplatesPage />} />
-          <Route path="*"                        element={<Navigate to="/" replace />} />
+          <Route path="/"                element={<PortfolioList />} />
+          <Route path="/portfolios/:id" element={<PortfolioDetail />} />
+          <Route path="/instruments"    element={<InstrumentList />} />
+          <Route path="/instruments/:id" element={<InstrumentDetail />} />
+          {/* Legacy redirect — keep old /templates links working */}
+          <Route path="/templates"      element={<Navigate to="/instruments" replace />} />
+          <Route path="*"               element={<Navigate to="/" replace />} />
         </Routes>
       </main>
       <footer className="border-t border-gray-100 py-4 text-center text-xs text-gray-400">
