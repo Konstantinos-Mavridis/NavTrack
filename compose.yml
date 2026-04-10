@@ -1,0 +1,92 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# NavTrack – Docker Compose (production / deploy)
+# Usage:
+#   cp .env.example .env
+#   docker compose up -d
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  db:
+    image: postgres:18.3-alpine3.23
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:               ${POSTGRES_DB}
+      POSTGRES_USER:             ${POSTGRES_USER}
+      POSTGRES_PASSWORD:         ${POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS:      "--locale=C.UTF-8 --encoding=UTF8"
+      LANG:                      C.UTF-8
+      LC_ALL:                    C.UTF-8
+    volumes:
+      - db-data:/var/lib/postgresql
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  # ── Backend (NestJS) ────────────────────────────────────────────────────────
+  backend:
+    image: ghcr.io/${CONTAINER_REGISTRY_NAMESPACE}/${COMPOSE_PROJECT_NAME}-backend:latest
+    pull_policy: always
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST:     db
+      POSTGRES_PORT:     5432
+      POSTGRES_DB:       ${POSTGRES_DB}
+      POSTGRES_USER:     ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      BACKEND_PORT:      8080
+      NODE_ENV:          production
+    networks:
+      - app-network
+
+  # ── Frontend (React → nginx) ────────────────────────────────────────────────
+  frontend:
+    image: ghcr.io/${CONTAINER_REGISTRY_NAMESPACE}/${COMPOSE_PROJECT_NAME}-frontend:latest
+    pull_policy: always
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-3000}:8080"
+    networks:
+      - app-network
+
+  # ── Worker (Python / APScheduler) ────────────────────────────────────────────
+  worker:
+    image: ghcr.io/${CONTAINER_REGISTRY_NAMESPACE}/${COMPOSE_PROJECT_NAME}-worker:latest
+    pull_policy: always
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST:     db
+      POSTGRES_PORT:     5432
+      POSTGRES_DB:       ${POSTGRES_DB}
+      POSTGRES_USER:     ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      SYNC_ON_STARTUP:   ${SYNC_ON_STARTUP:-false}
+      TZ:                Europe/Athens
+    networks:
+      - app-network
+
+# ─────────────────────────────────────────────────────────────────────────────
+volumes:
+  db-data:
+    name: ${POSTGRES_DB}_data
+
+networks:
+  app-network:
+    driver: bridge
+    name: ${COMPOSE_PROJECT_NAME}_net

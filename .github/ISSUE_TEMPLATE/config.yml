@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: "📖 Documentation"
+    url: https://github.com/Konstantinos-Mavridis/NavTrack/blob/main/README.md
+    about: Check the README for setup, API reference, and usage guides.
+  - name: "📄 Changelog"
+    url: https://github.com/Konstantinos-Mavridis/NavTrack/blob/main/CHANGELOG.md
+    about: See what has changed in each release.
