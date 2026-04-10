@@ -1,0 +1,37 @@
+name: All Containers – Docker Images
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_all:
+        description: 'Manually trigger a build of all three images'
+        required: false
+        default: 'true'
+        type: boolean
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  dispatch:
+    name: Dispatch all image builds
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    strategy:
+      matrix:
+        workflow:
+          - docker-backend.yml
+          - docker-frontend.yml
+          - docker-worker.yml
+    steps:
+      - uses: actions/github-script@v7.0.1
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              workflow_id: '${{ matrix.workflow }}',
+              ref: 'main',
+            });
+            console.log('Triggered ${{ matrix.workflow }}');
