@@ -1,5 +1,5 @@
 psycopg2-binary==2.9.9
-APScheduler==3.10.4
+APScheduler==3.11.2
 python-dotenv==1.0.1
 yfinance==0.2.54
 requests==2.33.0
