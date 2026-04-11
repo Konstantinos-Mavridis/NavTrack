@@ -1,7 +1,10 @@
 # NavTrack
 
-A full-stack mutual fund portfolio tracker for Eurobank funds (NavTrack), built with
-NestJS · React · PostgreSQL · Docker Compose.
+A full-stack mutual fund portfolio tracker built for Eurobank funds.
+Track holdings, record transactions, monitor NAV prices, and get instant
+P&L valuations — all in a self-hosted Docker Compose stack.
+
+**Stack:** NestJS · React 18 · PostgreSQL 16 · Python worker · Docker Compose
 
 ---
 
@@ -11,11 +14,13 @@ NestJS · React · PostgreSQL · Docker Compose.
 - [Architecture](#architecture)
 - [Services](#services)
 - [Environment Variables](#environment-variables)
+- [Frontend Pages](#frontend-pages)
 - [API Reference](#api-reference)
 - [Example curl Calls](#example-curl-calls)
-- [Frontend Pages](#frontend-pages)
 - [Database Schema](#database-schema)
 - [Seed Data](#seed-data)
+- [Import & Export](#import--export)
+- [Allocation Templates](#allocation-templates)
 - [Extending the App](#extending-the-app)
 - [Production Notes](#production-notes)
 
@@ -38,27 +43,26 @@ docker-compose up --build
 open http://localhost:3000
 ```
 
-First boot takes ~2-3 minutes (npm/pip install inside containers).
-On subsequent starts without `--build`, it takes ~15 seconds.
+First boot takes **2–3 minutes** (npm/pip installs inside containers).
+Subsequent starts without `--build` take ~15 seconds.
 
-### Upgrade existing DB volume
+### Default Access
 
-If your Postgres volume was created before templates/import-export support,
-run the migrations once against the running database:
+| Service | URL / Value |
+|---|---|
+| Frontend (UI) | http://localhost:3000 |
+| Backend API | http://localhost:8080/api |
+| PostgreSQL | localhost:5432 — db: `portfolio_db`, user: `portfolio_user`, pass: `portfolio_pass` |
+
+### Upgrading an Existing Database Volume
+
+If your volume pre-dates the templates / import-export / precision migrations,
+run these once against the live database:
 
 ```bash
 docker compose exec -T db psql -U portfolio_user -d portfolio_db < db/migration_templates.sql
 docker compose exec -T db psql -U portfolio_user -d portfolio_db < db/migration_precision_6.sql
 ```
-
-### Default Credentials
-
-| Service    | Value                                      |
-|------------|--------------------------------------------|
-| Postgres   | db=`portfolio_db` user=`portfolio_user` pass=`portfolio_pass` |
-| Frontend   | http://localhost:3000                      |
-| Backend    | http://localhost:8080/api                  |
-| Postgres   | localhost:5432 (pgAdmin / DBeaver)         |
 
 ---
 
@@ -92,58 +96,52 @@ docker compose exec -T db psql -U portfolio_user -d portfolio_db < db/migration_
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Request flow for a browser page load
+### Request Flow
 
-1. Browser → `nginx :80` → serves `index.html` + static assets (React SPA)
-2. React SPA → `nginx /api/*` → proxied to `backend :8080/api/*`
+1. Browser → `nginx :80` → serves `index.html` + React SPA assets
+2. React → `nginx /api/*` → proxied to `backend :8080/api/*`
 3. NestJS queries PostgreSQL via TypeORM
-4. JSON response returns through the same chain
+4. Response returns through the same chain
 
-The nginx proxy means the browser only ever talks to one origin (`:3000`),
-eliminating CORS issues in development and keeping the same pattern in
-production.
+The nginx reverse-proxy means the browser always talks to a single origin
+(`:3000`), eliminating CORS issues in both development and production.
 
 ---
 
 ## Services
 
-### `db` – PostgreSQL 16
+### `db` — PostgreSQL 16
 
-- Mounts `./db/init.sql` as an init script: runs once on a fresh volume to
-  create the schema, seed portfolios, instruments, and 30 days of synthetic
-  NAV data.
-- Data persists in the named volume `portfolio_tracker_db_data`.
+- Mounts `./db/init.sql` as an init script: runs **once** on a fresh volume
+  to create the full schema, seed instruments, portfolios, positions, and
+  ~30 days of synthetic NAV data.
+- Data persists in the named Docker volume `portfolio_tracker_db_data`.
 
-### `backend` – NestJS 10 / TypeScript
+### `backend` — NestJS 10 / TypeScript
 
 | Module | Responsibility |
 |---|---|
-| `InstrumentsModule` | CRUD for funds/instruments |
-| `PortfoliosModule` | CRUD for portfolios + positions |
-| `TransactionsModule` | Record BUY/SELL/SWITCH/DIVIDEND_REINVEST |
-| `NavPricesModule` | Time-series NAV storage (bulk upsert) |
-| `ValuationModule` | On-demand portfolio valuation & analytics |
+| `InstrumentsModule` | CRUD for funds/instruments; NAV price bulk-upsert |
+| `PortfoliosModule` | CRUD for portfolios; positions recalculation from ledger |
+| `TransactionsModule` | Record & manage BUY / SELL / SWITCH / DIVIDEND_REINVEST |
+| `TemplatesModule` | Allocation templates for bulk BUY transactions |
+| `NavPricesModule` | Time-series NAV storage |
+| `ValuationModule` | On-demand P&L valuation at any historical date |
+| `SyncModule` | NAV sync trigger (used by the UI "Sync All" button) |
 
-TypeORM is configured with `synchronize: false` — the database schema is
-owned by `init.sql`, not by the ORM, so schema drift is impossible.
+TypeORM is configured with `synchronize: false` — the schema is owned by
+`init.sql` and migration files, not by the ORM.
 
-### `frontend` – React 18 / Vite / Tailwind
+### `frontend` — React 18 / Vite / Tailwind CSS
 
-| Page | Route |
-|---|---|
-| Portfolio list | `/` |
-| Portfolio detail | `/portfolios/:id` |
-| Instrument list | `/instruments` |
-| Instrument detail | `/instruments/:id` |
+Multi-stage Docker build: Vite compiles to static files, nginx serves them.
+`VITE_API_BASE_URL` defaults to `/api` so nginx's proxy handles routing
+transparently.
 
-Multi-stage build: Vite compiles to static files, nginx serves them.
-The `VITE_API_BASE_URL` build arg defaults to `/api` so nginx's proxy
-handles routing transparently.
+### `worker` — Python 3.12 / APScheduler
 
-### `worker` – Python 3.12 / APScheduler
-
-- Starts, waits for Postgres to be ready (retry loop), validates seed data.
-- Runs an immediate full-portfolio valuation pass on startup.
+- On startup: waits for Postgres, validates seed data, runs an immediate
+  full-portfolio valuation pass.
 - Schedules a daily valuation log at **18:30 Europe/Athens** (after European
   fund NAV publication cutoff).
 
@@ -151,7 +149,7 @@ handles routing transparently.
 
 ## Environment Variables
 
-Copy `.env.example` to `.env` and adjust as needed.
+Copy `.env.example` → `.env` and adjust as needed.
 
 | Variable | Default | Description |
 |---|---|---|
@@ -161,6 +159,50 @@ Copy `.env.example` to `.env` and adjust as needed.
 | `POSTGRES_EXPOSE_PORT` | `5432` | Host port for direct DB access |
 | `BACKEND_PORT` | `8080` | Host port for the NestJS API |
 | `FRONTEND_PORT` | `3000` | Host port for the nginx frontend |
+
+---
+
+## Frontend Pages
+
+### Portfolio List (`/`)
+- Cards for each portfolio showing total value, unrealised P&L, return %,
+  and a mini weighted allocation bar by asset class.
+- Valuations load in parallel after the initial portfolio list fetch.
+- Create new portfolios from the header.
+
+### Portfolio Detail (`/portfolios/:id`)
+- **Summary stat cards** — total value, total cost, unrealised P&L, return %.
+- **Date picker** — recompute the entire valuation at any historical date.
+- **Allocation charts** — two pie charts: by asset class and by instrument.
+- **Positions tab** — table sorted by value; shows asset-class chip, units,
+  NAV, value, cost, P&L, and portfolio weight per position. A "View →" link
+  on hover navigates to the instrument detail page.
+- **Transactions tab** — full ledger with type badges (BUY / SELL / SWITCH /
+  DIVIDEND_REINVEST); inline edit and delete per row; "+ Add Transaction",
+  "+ Buy Template", and "Clear All" actions in the tab header.
+- **Import / Export** — button at the bottom of the Transactions tab to
+  import or export the full portfolio (transactions + positions) as JSON or CSV.
+- Positions **recalculate automatically** after every transaction mutation
+  (add, edit, delete, import, buy template, clear all) — no manual step needed.
+
+### Instrument List (`/instruments`)
+- Searchable table by name, ISIN, or asset class.
+- Risk level badges (1–7) and coloured asset-class chips.
+- **Import / Export** button at the bottom of the Instruments table for
+  bulk JSON or CSV import/export.
+- **Allocation Templates** section below the instruments table:
+  - Create, edit, and delete named templates (e.g. "BALANCED_60_40").
+  - Each template defines a set of ISINs with percentage weights.
+  - Used from the Portfolio Detail page via "+ Buy Template" to execute
+    a proportional bulk BUY across all funds in the template.
+  - Import / Export button at the bottom of the Templates section.
+
+### Instrument Detail (`/instruments/:id`)
+- Info cards: currency, asset class, risk level, latest NAV.
+- 30-day NAV line chart.
+- Form to add a new NAV data point manually.
+- Table of recent NAV prices with day-over-day change %.
+- Links to external data sources (Financial Times, Eurobank AM).
 
 ---
 
@@ -177,23 +219,30 @@ All endpoints are prefixed with `/api`.
 | `POST` | `/instruments` | Create instrument |
 | `PUT` | `/instruments/:id` | Update instrument |
 | `DELETE` | `/instruments/:id` | Delete instrument |
+| `POST` | `/instruments/sync-all` | Trigger NAV sync for all instruments |
 | `GET` | `/instruments/:id/nav` | NAV price history (ASC) |
 | `POST` | `/instruments/:id/nav` | Bulk upsert NAV prices |
+| `GET` | `/instruments/export/json` | Export all instruments as JSON |
+| `GET` | `/instruments/export/csv` | Export all instruments as CSV |
+| `POST` | `/instruments/import/json` | Import instruments from JSON |
+| `POST` | `/instruments/import/csv` | Import instruments from CSV |
 
 **POST /instruments body:**
 ```json
 {
   "name": "Eurobank (LF) Equity – Greek Equities Fund",
   "isin": "LU0273962166",
+  "currency": "EUR",
   "assetClass": "GREEK_EQUITY",
   "riskLevel": 6,
   "dataSources": ["https://markets.ft.com/data/funds/tearsheet/summary?s=LU0273962166:EUR"]
 }
 ```
 
-Valid `assetClass` values: `GREEK_EQUITY`, `GLOBAL_EQUITY`, `GREEK_GOV_BOND`,
-`GREEK_CORP_BOND`, `GLOBAL_BOND`, `HIGH_YIELD`, `FUND_OF_FUNDS`,
-`ABSOLUTE_RETURN`, `RESERVE_MONEY_MARKET`
+Valid `assetClass` values:
+`GREEK_EQUITY`, `GLOBAL_EQUITY`, `GREEK_GOV_BOND`, `GREEK_CORP_BOND`,
+`GLOBAL_BOND`, `HIGH_YIELD`, `FUND_OF_FUNDS`, `ABSOLUTE_RETURN`,
+`RESERVE_MONEY_MARKET`
 
 **POST /instruments/:id/nav body:**
 ```json
@@ -205,8 +254,8 @@ Valid `assetClass` values: `GREEK_EQUITY`, `GLOBAL_EQUITY`, `GREEK_GOV_BOND`,
 }
 ```
 
-Upsert semantics: re-posting an existing `(instrument_id, date)` pair updates
-the NAV value rather than creating a duplicate.
+Upsert semantics: re-posting an existing `(instrument_id, date)` pair
+updates the NAV value rather than creating a duplicate.
 
 ---
 
@@ -219,6 +268,10 @@ the NAV value rather than creating a duplicate.
 | `POST` | `/portfolios` | Create portfolio |
 | `PUT` | `/portfolios/:id` | Update portfolio |
 | `DELETE` | `/portfolios/:id` | Delete portfolio |
+| `GET` | `/portfolios/export/json` | Export all portfolios + transactions as JSON |
+| `GET` | `/portfolios/export/csv` | Export all portfolios + transactions as CSV |
+| `POST` | `/portfolios/import/json` | Import portfolios + transactions from JSON |
+| `POST` | `/portfolios/import/csv` | Import portfolios + transactions from CSV |
 
 ---
 
@@ -227,21 +280,13 @@ the NAV value rather than creating a duplicate.
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/portfolios/:id/positions` | List positions |
-| `POST` | `/portfolios/:id/positions` | Add or update a position |
+| `POST` | `/portfolios/:id/positions` | Add or update a position (upsert) |
 | `DELETE` | `/portfolios/:id/positions/:posId` | Remove a position |
+| `POST` | `/portfolios/:id/positions/recalculate` | Recalculate positions from transaction ledger |
 
-**POST /portfolios/:id/positions body:**
-```json
-{
-  "instrumentId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-  "units": 1250.5,
-  "costBasisPerUnit": 8.20,
-  "notes": "Initial purchase batch"
-}
-```
-
-Upsert semantics: posting for an existing `(portfolio, instrument)` pair
-updates `units`, `costBasisPerUnit`, and `notes` in place.
+The **recalculate** endpoint replaces current positions with values derived
+from the full transaction ledger (summed units, weighted average cost basis).
+The frontend calls this automatically after every transaction mutation.
 
 ---
 
@@ -251,6 +296,9 @@ updates `units`, `costBasisPerUnit`, and `notes` in place.
 |---|---|---|
 | `GET` | `/portfolios/:id/transactions` | List transactions (newest first) |
 | `POST` | `/portfolios/:id/transactions` | Record a transaction |
+| `PUT` | `/portfolios/:id/transactions/:txId` | Update a transaction |
+| `DELETE` | `/portfolios/:id/transactions/:txId` | Delete a transaction |
+| `DELETE` | `/portfolios/:id/transactions` | Clear all transactions |
 
 **POST /portfolios/:id/transactions body:**
 ```json
@@ -267,6 +315,48 @@ updates `units`, `costBasisPerUnit`, and `notes` in place.
 ```
 
 Valid `type` values: `BUY`, `SELL`, `SWITCH`, `DIVIDEND_REINVEST`
+
+---
+
+### Allocation Templates
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/templates` | List all templates |
+| `POST` | `/templates` | Create a template |
+| `PUT` | `/templates/:id` | Update a template |
+| `DELETE` | `/templates/:id` | Delete a template |
+| `POST` | `/templates/:id/apply` | Execute a bulk BUY from a template |
+| `GET` | `/templates/export/json` | Export all templates as JSON |
+| `GET` | `/templates/export/csv` | Export all templates as CSV |
+| `POST` | `/templates/import/json` | Import templates from JSON |
+| `POST` | `/templates/import/csv` | Import templates from CSV |
+
+**POST /templates body:**
+```json
+{
+  "code": "BALANCED_60_40",
+  "description": "60% equity, 40% bonds",
+  "items": [
+    { "isin": "LU0273962166", "weight": 60.0 },
+    { "isin": "GRF0000083591", "weight": 40.0 }
+  ]
+}
+```
+
+**POST /templates/:id/apply body:**
+```json
+{
+  "portfolioId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "totalAmount": 10000.00,
+  "tradeDate": "2026-04-08",
+  "valuationDate": "2026-04-08"
+}
+```
+
+The apply endpoint distributes `totalAmount` across each template item
+proportionally by weight, looks up the latest NAV on or before `valuationDate`
+for each instrument, computes units, and records a BUY transaction for each.
 
 ---
 
@@ -303,116 +393,54 @@ Valid `type` values: `BUY`, `SELL`, `SWITCH`, `DIVIDEND_REINVEST`
   ],
   "allocationByAssetClass": {
     "GREEK_EQUITY": 39.32,
-    "GREEK_GOV_BOND": 23.87,
-    "GREEK_CORP_BOND": 18.11,
-    "RESERVE_MONEY_MARKET": 18.70
-  },
-  "allocationByInstrument": {
-    "instrument-uuid-1": 39.32,
-    "instrument-uuid-2": 23.87
+    "GREEK_GOV_BOND": 23.87
   }
 }
 ```
 
 The valuation endpoint uses the most recent NAV **on or before** the requested
-date, so querying for a weekend or holiday returns the last business day's
-prices automatically.
+date, so querying for a weekend or public holiday returns the last business
+day's prices automatically.
 
 ---
 
 ## Example curl Calls
 
 ```bash
-# ── List portfolios ───────────────────────────────────────
+# List portfolios
 curl http://localhost:8080/api/portfolios | jq .
 
-# ── Get portfolio IDs ─────────────────────────────────────
+# Get a portfolio ID
 PORTFOLIO_ID=$(curl -s http://localhost:8080/api/portfolios | jq -r '.[0].id')
 
-# ── Get today's valuation ─────────────────────────────────
+# Today's valuation
 curl "http://localhost:8080/api/portfolios/$PORTFOLIO_ID/valuation" | jq .
 
-# ── Get historical valuation ──────────────────────────────
+# Historical valuation
 curl "http://localhost:8080/api/portfolios/$PORTFOLIO_ID/valuation?date=2026-03-15" | jq .
 
-# ── List all instruments ──────────────────────────────────
-curl http://localhost:8080/api/instruments | jq '.[].isin'
+# Get instrument ID by ISIN
+INST_ID=$(curl -s http://localhost:8080/api/instruments \
+  | jq -r '.[] | select(.isin=="LU0273962166") | .id')
 
-# ── Get instrument ID by ISIN ─────────────────────────────
-INST_ID=$(curl -s http://localhost:8080/api/instruments | jq -r '.[] | select(.isin=="LU0273962166") | .id')
-
-# ── Add a single NAV point ────────────────────────────────
+# Bulk-load NAV history
 curl -X POST "http://localhost:8080/api/instruments/$INST_ID/nav" \
   -H "Content-Type: application/json" \
-  -d '{"entries": [{"date": "2026-04-08", "nav": 9.1234}]}'
+  -d '{"entries":[{"date":"2026-04-07","nav":9.1000},{"date":"2026-04-08","nav":9.1234}]}'
 
-# ── Bulk-load NAV history ─────────────────────────────────
-curl -X POST "http://localhost:8080/api/instruments/$INST_ID/nav" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "entries": [
-      {"date": "2026-04-01", "nav": 8.9800},
-      {"date": "2026-04-02", "nav": 9.0100},
-      {"date": "2026-04-03", "nav": 9.0550},
-      {"date": "2026-04-07", "nav": 9.1000},
-      {"date": "2026-04-08", "nav": 9.1234}
-    ]
-  }'
-
-# ── Record a BUY transaction ──────────────────────────────
+# Record a BUY transaction
 curl -X POST "http://localhost:8080/api/portfolios/$PORTFOLIO_ID/transactions" \
   -H "Content-Type: application/json" \
-  -d "{
-    \"instrumentId\": \"$INST_ID\",
-    \"type\": \"BUY\",
-    \"tradeDate\": \"2026-04-08\",
-    \"units\": 150,
-    \"pricePerUnit\": 9.10,
-    \"fees\": 5.00
-  }"
+  -d "{\"instrumentId\":\"$INST_ID\",\"type\":\"BUY\",\"tradeDate\":\"2026-04-08\",\"units\":150,\"pricePerUnit\":9.10,\"fees\":5.00}"
 
-# ── Update a position ────────────────────────────────────
-curl -X POST "http://localhost:8080/api/portfolios/$PORTFOLIO_ID/positions" \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"instrumentId\": \"$INST_ID\",
-    \"units\": 1400,
-    \"costBasisPerUnit\": 8.32
-  }"
+# Recalculate positions from ledger
+curl -X POST "http://localhost:8080/api/portfolios/$PORTFOLIO_ID/positions/recalculate"
 
-# ── Create a new portfolio ────────────────────────────────
+# Create a new portfolio
 curl -X POST http://localhost:8080/api/portfolios \
   -H "Content-Type: application/json" \
-  -d '{"name": "Aggressive Growth", "description": "High-equity exposure"}'
+  -d '{"name":"Aggressive Growth","description":"High-equity exposure"}'
 ```
-
----
-
-## Frontend Pages
-
-### Portfolio List (`/`)
-- Cards for each portfolio with total value, unrealised P&L, P&L %, and a
-  mini weighted allocation bar.
-- Valuations load in parallel after the portfolio list.
-
-### Portfolio Detail (`/portfolios/:id`)
-- Summary stat cards (value, cost, P&L, return %).
-- Two allocation pie charts: by asset class and by instrument.
-- Positions table sorted by value, with asset-class chips, NAV, P&L per
-  position, and portfolio weight.
-- Transactions tab with type badges (BUY/SELL/etc.).
-- Date picker to recompute the entire valuation at any historical date.
-
-### Instrument List (`/instruments`)
-- Searchable table (name, ISIN, asset class) with risk badges and asset-class
-  colour chips.
-
-### Instrument Detail (`/instruments/:id`)
-- Info cards (currency, class, risk, latest NAV).
-- 30-day NAV line chart.
-- Form to add a new NAV data point.
-- Table of recent NAV prices with day-over-day change.
-- Links to external data sources (FT, Eurobank AM).
 
 ---
 
@@ -427,6 +455,7 @@ instruments
   asset_class    ENUM
   risk_level     SMALLINT (1–7)
   data_sources   TEXT[]
+  external_ids   JSONB
   created_at / updated_at
 
 portfolios
@@ -437,7 +466,7 @@ portfolios
 
 portfolio_positions
   id                   UUID PK
-  portfolio_id         UUID FK → portfolios
+  portfolio_id         UUID FK → portfolios  (CASCADE DELETE)
   instrument_id        UUID FK → instruments
   units                NUMERIC(18,6)
   cost_basis_per_unit  NUMERIC(18,6)
@@ -446,7 +475,7 @@ portfolio_positions
 
 transactions
   id               UUID PK
-  portfolio_id     UUID FK → portfolios
+  portfolio_id     UUID FK → portfolios  (CASCADE DELETE)
   instrument_id    UUID FK → instruments
   type             ENUM (BUY|SELL|SWITCH|DIVIDEND_REINVEST)
   trade_date       DATE
@@ -454,70 +483,129 @@ transactions
   units            NUMERIC(18,6)
   price_per_unit   NUMERIC(18,6)
   fees             NUMERIC(18,6)
+  notes            TEXT
 
 nav_prices
   id             UUID PK
-  instrument_id  UUID FK → instruments
+  instrument_id  UUID FK → instruments  (CASCADE DELETE)
   date           DATE
   nav            NUMERIC(18,6)
   source         ENUM (MANUAL|FT|EUROBANK|OTHER)
   UNIQUE (instrument_id, date)
+
+allocation_templates
+  id          UUID PK
+  code        TEXT UNIQUE
+  description TEXT
+  created_at / updated_at
+
+allocation_template_items
+  id          UUID PK
+  template_id UUID FK → allocation_templates  (CASCADE DELETE)
+  instrument_id UUID FK → instruments
+  weight      NUMERIC(10,4)   -- percentage, e.g. 60.0000
 ```
 
 All monetary columns use `NUMERIC(18,6)` to avoid floating-point rounding
-errors. `ON DELETE CASCADE` ensures that deleting a portfolio cleans up
-positions and transactions automatically.
+errors. `ON DELETE CASCADE` ensures that deleting a portfolio automatically
+cleans up its positions and transactions.
 
 ---
 
 ## Seed Data
 
-`db/init.sql` seeds on first boot (fresh volume):
+`db/init.sql` runs once on a fresh Docker volume:
 
-- **11 Eurobank instruments** with ISINs, asset classes, and FT data-source URLs
+- **11 Eurobank instruments** with ISINs, asset classes, risk levels, and
+  Financial Times data-source URLs
 - **2 portfolios**: *Flexible Greek* (4 positions) and *Moderate* (9 positions)
 - **~30 business days** of synthetic NAV data per instrument (random walk,
-  ±1.5% per day, seeded with realistic base NAVs)
+  ±1.5%/day, realistic base NAVs)
 
-To re-seed a clean DB:
+To start completely fresh:
+
 ```bash
-docker-compose down -v          # removes the db-data volume
-docker-compose up --build db    # recreates volume, runs init.sql
-docker-compose up               # starts remaining services
+docker-compose down -v        # destroys db-data volume
+docker-compose up --build     # recreates everything from scratch
 ```
+
+---
+
+## Import & Export
+
+Every major data type supports JSON and CSV import/export from the UI:
+
+| Section | Location in UI | Formats |
+|---|---|---|
+| Instruments | Bottom of Instruments table | JSON, CSV |
+| Allocation Templates | Bottom of Templates section | JSON, CSV |
+| Portfolio transactions | Bottom of Transactions tab (Portfolio Detail) | JSON, CSV |
+
+**Import behaviour:**
+- Duplicate detection: instruments matched by ISIN, templates by code,
+  transactions by a composite key — existing records are skipped, not
+  overwritten.
+- Missing ISINs in template imports are reported in the response.
+
+**CSV column reference:**
+
+| Type | Required columns |
+|---|---|
+| Instruments | `name, isin, currency, assetClass, riskLevel, dataSources, externalIds` |
+| Templates | `code, description, isin, weight` (one row per fund per template) |
+| Portfolio | `portfolioName, isin, type, tradeDate, units, pricePerUnit, fees` |
+
+---
+
+## Allocation Templates
+
+Templates let you define a named set of funds with target percentage weights
+and execute a proportional bulk BUY with a single click.
+
+**Workflow:**
+1. Go to **Instruments → Templates** section.
+2. Click **+ New Template**, give it a code (e.g. `BALANCED_60_40`) and add
+   fund/weight rows.
+3. On any Portfolio Detail page, click **+ Buy Template** in the Transactions
+   tab, pick the template, set a total EUR amount and trade date.
+4. The backend distributes the amount by weight, looks up each fund's NAV,
+   computes units, and records one BUY transaction per fund.
+5. Positions update automatically — no further action needed.
+
+**Weights do not need to sum to exactly 100** — amounts are distributed
+proportionally based on each item's share of the total weight.
 
 ---
 
 ## Extending the App
 
-### Automated NAV fetching
+### Automated NAV Fetching
 
-Each instrument stores `data_sources` (array of URLs). The FT tearsheet URLs
-are already populated for all seeded instruments. A future scraper would:
+All seeded instruments already have Financial Times tearsheet URLs in
+`data_sources`. A future scraper would:
 
-1. Add a scheduled job in `worker/worker.py` (e.g., weekdays at 19:00)
+1. Add a scheduled job in `worker/worker.py` (e.g. weekdays at 19:00)
 2. For each instrument, fetch the FT JSON endpoint derived from the ISIN
-3. Parse the `nav` field from the response
+3. Parse the NAV field from the response
 4. POST to `/api/instruments/:id/nav` with `{ entries: [{ date, nav }] }`
 
-The upsert semantics mean the job is safe to run multiple times.
+The upsert semantics make the job safe to run multiple times.
 
-### Adding authentication
+### Adding Authentication
 
-The backend is stateless and easy to secure. Suggested approach:
+The backend is stateless and straightforward to secure:
+
 1. Add `@nestjs/passport` + `passport-jwt`
 2. Guard all write endpoints with `@UseGuards(JwtAuthGuard)`
-3. Add a `POST /api/auth/login` endpoint returning a signed JWT
+3. Add `POST /api/auth/login` returning a signed JWT
 4. Pass the token in `Authorization: Bearer <token>` from the frontend
 
-### Adding a reverse proxy (Traefik / external nginx)
+### Adding a Reverse Proxy
 
-The current setup serves the frontend on `:3000` and the backend on `:8080`.
-To serve both under a single domain:
 1. Add a `proxy` service in `docker-compose.yml` (nginx or Traefik)
-2. Route `example.com/` → `frontend:80`
-3. Route `example.com/api/` → `backend:8080/api/`
-4. Remove the per-service `ports:` entries and keep only `expose:`
+2. Route `yourdomain.com/` → `frontend:80`
+3. Route `yourdomain.com/api/` → `backend:8080/api/`
+4. Remove per-service `ports:` entries, keep only `expose:`
 
 ---
 
@@ -527,7 +615,7 @@ To serve both under a single domain:
 |---|---|
 | Secrets | Use Docker secrets or a vault — never commit `.env` |
 | TLS | Terminate SSL at a load balancer or Traefik in front of nginx |
-| DB backups | Mount a backup sidecar or use `pg_dump` on a cron |
+| DB backups | `pg_dump` on a cron, or mount a backup sidecar |
 | Scaling | Backend is stateless — run multiple replicas behind a load balancer |
-| Schema migrations | Replace `init.sql` with Flyway or Liquibase for versioned migrations |
-| Observability | Add Prometheus metrics endpoint (`@willsoto/nestjs-prometheus`) and ship logs to Loki |
+| Schema migrations | Replace ad-hoc SQL files with Flyway or Liquibase |
+| Observability | Add `@willsoto/nestjs-prometheus` and ship logs to Loki/Grafana |
