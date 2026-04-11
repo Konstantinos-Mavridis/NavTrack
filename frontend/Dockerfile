@@ -1,5 +1,5 @@
 # ── Stage 1: build ───────────────────────────────────────────────────────
-FROM node:22-alpine AS builder
+FROM node:25-alpine AS builder
 WORKDIR /app
 
 ARG VITE_API_BASE_URL=/api
@@ -12,7 +12,7 @@ COPY . .
 RUN npm run build
 
 # ── Stage 2: serve ───────────────────────────────────────────────────────
-FROM nginx:1.25-alpine AS runtime
+FROM nginx:1.29-alpine AS runtime
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
