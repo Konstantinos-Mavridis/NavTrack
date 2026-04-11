@@ -1,5 +1,5 @@
 # ── Stage 1: build ──────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:25-alpine AS builder
 WORKDIR /app
 
 COPY package*.json nest-cli.json tsconfig.json ./
@@ -9,7 +9,7 @@ COPY src ./src
 RUN npm run build
 
 # ── Stage 2: runtime ────────────────────────────────────
-FROM node:20-alpine AS runtime
+FROM node:25-alpine AS runtime
 WORKDIR /app
 
 ENV NODE_ENV=production
