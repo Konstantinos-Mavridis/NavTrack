@@ -350,7 +350,11 @@ export class PortfoliosService {
   }
 
   importPortfoliosFromCsv(csv: string): Promise<ImportSummary> {
-    if (!csv?.trim()) {
+    if (typeof csv !== 'string') {
+      throw new BadRequestException('CSV content must be a string');
+    }
+
+    if (!csv.trim()) {
       throw new BadRequestException('CSV content is empty');
     }
 
