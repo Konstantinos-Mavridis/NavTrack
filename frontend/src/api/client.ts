@@ -67,7 +67,7 @@ const RANGE_DAYS: Record<Exclude<TemplateRange, 'CUSTOM'>, number> = {
 };
 
 export const api = {
-  // ── Instruments ───────────────────────────────────────────────────────────────────
+  // ── Instruments ───────────────────────────────────────────────────────────
   instruments: {
     list:       ()                               => request<Instrument[]>('/instruments'),
     get:        (id: string)                     => request<Instrument>(`/instruments/${id}`),
@@ -76,6 +76,12 @@ export const api = {
       request<Instrument>(`/instruments/${id}`, { method: 'PUT', body: JSON.stringify(p) }),
     delete:     (id: string)                     => request<void>(`/instruments/${id}`, { method: 'DELETE' }),
     navHistory: (id: string)                     => request<NavPrice[]>(`/instruments/${id}/nav`),
+    /**
+     * Returns the most recent NAV on or before `date`, or null if none exists.
+     * Used to auto-populate the Price/Unit field in the Add Transaction modal.
+     */
+    navOnDate:  (id: string, date: string)       =>
+      request<NavPrice | null>(`/instruments/${id}/nav/on-date?date=${encodeURIComponent(date)}`),
     addNav:     (id: string, entries: NavEntryPayload[]) =>
       request<{ upserted: number }>(`/instruments/${id}/nav`, { method: 'POST', body: JSON.stringify({ entries }) }),
     exportJson: ()                               => request<any[]>('/instruments/export/json'),
@@ -86,7 +92,7 @@ export const api = {
       request<InstrumentImportResult>('/instruments/import/csv', { method: 'POST', body: JSON.stringify({ csv }) }),
   },
 
-  // ── Portfolios ───────────────────────────────────────────────────────────────────
+  // ── Portfolios ────────────────────────────────────────────────────────────
   portfolios: {
     list:   ()                              => request<Portfolio[]>('/portfolios'),
     get:    (id: string)                    => request<Portfolio>(`/portfolios/${id}`),
@@ -115,7 +121,7 @@ export const api = {
       request<ImportSummary>('/portfolios/import/csv', { method: 'POST', body: JSON.stringify({ csv }) }),
   },
 
-  // ── Positions ───────────────────────────────────────────────────────────────────
+  // ── Positions ─────────────────────────────────────────────────────────────
   positions: {
     list:   (portfolioId: string)           => request<PortfolioPosition[]>(`/portfolios/${portfolioId}/positions`),
     upsert: (portfolioId: string, p: UpsertPositionPayload) =>
@@ -128,7 +134,7 @@ export const api = {
       request<PortfolioPosition[]>(`/portfolios/${portfolioId}/positions/recalculate`, { method: 'POST' }),
   },
 
-  // ── Transactions ───────────────────────────────────────────────────────────────────
+  // ── Transactions ──────────────────────────────────────────────────────────
   transactions: {
     list:   (portfolioId: string)           => request<Transaction[]>(`/portfolios/${portfolioId}/transactions`),
     create: (portfolioId: string, p: CreateTransactionPayload) =>
@@ -146,13 +152,13 @@ export const api = {
       request<{ deleted: number }>(`/portfolios/${portfolioId}/transactions`, { method: 'DELETE' }),
   },
 
-  // ── Valuation ───────────────────────────────────────────────────────────────────
+  // ── Valuation ─────────────────────────────────────────────────────────────
   valuation: {
     get: (portfolioId: string, date?: string) =>
       request<ValuationResult>(`/portfolios/${portfolioId}/valuation${date ? `?date=${date}` : ''}`),
   },
 
-  // ── Templates ───────────────────────────────────────────────────────────────────
+  // ── Templates ─────────────────────────────────────────────────────────────
   templates: {
     list:       ()                               => request<AllocationTemplate[]>('/templates'),
     get:        (id: string)                     => request<AllocationTemplate>(`/templates/${id}`),
