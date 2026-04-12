@@ -144,7 +144,6 @@ export default function PortfolioList() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-10">
-      {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Portfolios</h1>
@@ -191,17 +190,17 @@ export default function PortfolioList() {
                 }`}
               >
                 {/*
-                  Card layout — 2 column grid: `1fr auto`
+                  2-column grid: `1fr auto`
 
-                  Row 1  [left]  name + description
-                         [right] [✎][✕] hover-only, right-aligned
+                  Row 1  left:  name + description
+                         right: [✎][✕] hover-only
 
-                  Row 2  [left]  Total Value | Unrealised P&L | positions bar
-                         [right] INCLUDE label + slider
+                  Row 2  left:  Total Value | Unrealised P&L | positions bar
+                         right: INCLUDE label (top-aligned) + slider below
                 */}
                 <div className="grid gap-x-4" style={{ gridTemplateColumns: '1fr auto' }}>
 
-                  {/* ── ROW 1 LEFT: name ── */}
+                  {/* ROW 1 LEFT: name */}
                   <Link to={`/portfolios/${row.id}`} className="min-w-0 mb-4 block">
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
                       {row.name}
@@ -211,7 +210,7 @@ export default function PortfolioList() {
                     )}
                   </Link>
 
-                  {/* ── ROW 1 RIGHT: edit / delete ── */}
+                  {/* ROW 1 RIGHT: edit / delete */}
                   <div className="flex items-start justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={() => setModal({ type: 'edit', portfolio: row })}
@@ -225,7 +224,7 @@ export default function PortfolioList() {
                     >✕</button>
                   </div>
 
-                  {/* ── ROW 2 LEFT: valuation numbers + bar ── */}
+                  {/* ROW 2 LEFT: valuation numbers + bar */}
                   <Link to={`/portfolios/${row.id}`} className="block min-w-0">
                     {row.valLoading ? (
                       <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
@@ -274,14 +273,15 @@ export default function PortfolioList() {
                     )}
                   </Link>
 
-                  {/* ── ROW 2 RIGHT: INCLUDE label + slider ── */}
-                  <div className="flex flex-col items-center justify-center gap-1">
+                  {/* ROW 2 RIGHT: INCLUDE — label top-aligned, slider below */}
+                  <div className="flex flex-col items-center justify-start gap-1">
                     <span className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide leading-none">Include</span>
                     <button
                       onClick={() => toggleExcluded(row.id)}
                       title={isIncluded ? 'Exclude from Total Portfolio' : 'Include in Total Portfolio'}
                       aria-label={isIncluded ? 'Exclude from Total Portfolio' : 'Include in Total Portfolio'}
                       aria-pressed={isIncluded}
+                      className="mt-0.5"
                     >
                       <span className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 ${
                         isIncluded ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
