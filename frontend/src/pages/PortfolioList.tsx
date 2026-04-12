@@ -41,13 +41,6 @@ export default function PortfolioList() {
   // IDs excluded from the aggregate chart. All portfolios are included by default.
   const [excludedIds, setExcludedIds] = useState<Set<string>>(new Set());
 
-  // Derive the included-ID list to pass to the API.
-  // undefined = all portfolios (no ?ids param) for backwards-compat.
-  function includedIds(currentRows: PortfolioRow[]): string[] | undefined {
-    if (excludedIds.size === 0) return undefined;
-    return currentRows.map((r) => r.id).filter((id) => !excludedIds.has(id));
-  }
-
   async function loadAggregateSeries(
     range: PerformanceRange,
     currentRows: PortfolioRow[],
