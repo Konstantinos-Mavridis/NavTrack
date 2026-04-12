@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Modal from './Modal';
 import { api } from '../api/client';
 import type { AllocationTemplate, ApplyTemplateBuyResult, TemplateNavPreview } from '../types';
