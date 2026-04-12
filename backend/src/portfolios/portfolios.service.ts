@@ -47,11 +47,15 @@ export class PortfoliosService {
   }
 
   /**
-   * Aggregate portfolio performance across all portfolios for each day in range.
+   * Aggregate portfolio performance across selected (or all) portfolios for
+   * each day in range.
    *
    * When `days` is provided the window is [toDate - days + 1 … toDate].
    * When `days` is undefined ("ALL" range) the window starts at the earliest
    * trade_date found across all transactions, so every data point is included.
+   *
+   * When `ids` is provided only those portfolios contribute to the totals.
+   * When `ids` is omitted every portfolio is included (existing behaviour).
    *
    * - totalValue    – derived from transaction-ledger units (historical holdings)
    * - netInvested   – cumulative net cash invested
@@ -60,6 +64,7 @@ export class PortfoliosService {
   async aggregateValuationSeries(
     days?: number,
     toDate?: string,
+    ids?: string[],
   ): Promise<Array<{
     date: string;
     totalValue: number;
@@ -79,6 +84,17 @@ export class PortfoliosService {
     const useDays = days !== undefined;
     const safeDays = useDays ? Math.min(Math.max(days!, 2), 3650) : null;
 
+    // Build an optional portfolio-filter clause.
+    // We pass the IDs as a properly-parameterised array ($3) so user-supplied
+    // strings never touch the SQL text itself.
+    const hasIdFilter = Array.isArray(ids) && ids.length > 0;
+    // $1 = safeDays (int | null), $2 = endDate (date), $3 = ids (uuid[] | null)
+    const params: (number | string | string[] | null)[] = [safeDays, endDate, hasIdFilter ? ids : null];
+
+    // The clause is injected into every CTE that reads from `transactions`.
+    // When $3 IS NULL the condition short-circuits to TRUE (all portfolios).
+    const idFilter = `AND ($3::uuid[] IS NULL OR t.portfolio_id = ANY($3::uuid[]))`;
+
     const rows: Array<{
       date: string | Date;
       total_value: string;
@@ -93,7 +109,8 @@ export class PortfoliosService {
             WHEN $1::int IS NULL
               -- ALL range: anchor to earliest transaction date
               THEN COALESCE(
-                (SELECT MIN(trade_date)::date FROM transactions),
+                (SELECT MIN(trade_date)::date FROM transactions
+                 WHERE ($3::uuid[] IS NULL OR portfolio_id = ANY($3::uuid[]))),
                 $2::date
               )
             ELSE
@@ -113,6 +130,7 @@ export class PortfoliosService {
       instruments AS (
         SELECT DISTINCT t.instrument_id
         FROM transactions t
+        WHERE TRUE ${idFilter}
       ),
       opening_units AS (
         SELECT
@@ -129,6 +147,7 @@ export class PortfoliosService {
         FROM transactions t
         CROSS JOIN bounds b
         WHERE t.trade_date < b.start_day
+          ${idFilter}
         GROUP BY t.instrument_id
       ),
       tx_by_day_instrument AS (
@@ -148,6 +167,7 @@ export class PortfoliosService {
         CROSS JOIN bounds b
         WHERE t.trade_date >= b.start_day
           AND t.trade_date <= b.end_day
+          ${idFilter}
         GROUP BY t.trade_date::date, t.instrument_id
       ),
       opening_cash AS (
@@ -164,6 +184,7 @@ export class PortfoliosService {
         FROM transactions t
         CROSS JOIN bounds b
         WHERE t.trade_date < b.start_day
+          ${idFilter}
       ),
       tx_cash_by_day AS (
         SELECT
@@ -181,6 +202,7 @@ export class PortfoliosService {
         CROSS JOIN bounds b
         WHERE t.trade_date >= b.start_day
           AND t.trade_date <= b.end_day
+          ${idFilter}
         GROUP BY t.trade_date::date
       ),
       grid AS (
@@ -251,7 +273,7 @@ export class PortfoliosService {
       INNER JOIN invested_by_day i ON i.date = v.date
       ORDER BY v.date ASC
       `,
-      [safeDays, endDate],
+      params,
     );
 
     return rows.map((r) => ({
