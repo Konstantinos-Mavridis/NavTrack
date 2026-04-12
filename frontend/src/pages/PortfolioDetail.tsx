@@ -179,7 +179,7 @@ export default function PortfolioDetail() {
         </div>
       </div>
 
-      {/* Date selector — no Update button; fetch fires automatically on change */}
+      {/* Date selector */}
       <div className="flex items-center gap-2 flex-wrap">
         <label className="text-sm text-gray-500 dark:text-gray-400 font-medium">Valuation as of</label>
         <input
@@ -300,16 +300,22 @@ export default function PortfolioDetail() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 dark:bg-gray-800/60">
                     <tr>
-                      {['Fund', 'ISIN', 'Asset Class', 'Units', 'NAV (EUR)', 'Value (EUR)', 'Cost (EUR)', 'P&L (EUR)', 'Weight', ''].map((h) => (
+                      {['Fund', 'ISIN', 'Asset Class', 'Units', 'NAV (EUR)', 'Value (EUR)', 'Cost (EUR)', 'P&L (EUR)', 'Weight'].map((h) => (
                         <th key={h} className="table-th whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
                     {[...valuation.positions].sort((a, b) => (b.value ?? 0) - (a.value ?? 0)).map((pos) => (
-                      <tr key={pos.positionId} className="group hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                        <td className="table-td font-medium text-gray-900 dark:text-gray-100 max-w-xs">
-                          <div className="truncate" title={pos.instrumentName}>{pos.instrumentName}</div>
+                      <tr key={pos.positionId} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                        <td className="table-td font-medium max-w-xs">
+                          <Link
+                            to={`/instruments/${pos.instrumentId}`}
+                            className="truncate block text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                            title={pos.instrumentName}
+                          >
+                            {pos.instrumentName}
+                          </Link>
                         </td>
                         <td className="table-td font-mono text-xs text-gray-400 dark:text-gray-500">{pos.isin}</td>
                         <td className="table-td"><AssetClassChip ac={pos.assetClass} /></td>
@@ -319,14 +325,6 @@ export default function PortfolioDetail() {
                         <td className="table-td tabular-nums text-gray-500 dark:text-gray-400">{pos.cost != null ? `€${fmtEur(pos.cost)}` : '—'}</td>
                         <td className="table-td"><PnlCell value={pos.pnl} /></td>
                         <td className="table-td text-gray-600 dark:text-gray-400 font-medium">{pos.weightPct != null ? `${pos.weightPct.toFixed(1)}%` : '—'}</td>
-                        <td className="table-td">
-                          <Link
-                            to={`/instruments/${pos.instrumentId}`}
-                            className="text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap"
-                          >
-                            View →
-                          </Link>
-                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -337,7 +335,6 @@ export default function PortfolioDetail() {
                       <td className="table-td text-gray-500 dark:text-gray-400">€{fmtEur(valuation.totalCost)}</td>
                       <td className="table-td"><PnlCell value={valuation.unrealisedPnl} /></td>
                       <td className="table-td text-gray-600 dark:text-gray-400">100%</td>
-                      <td className="table-td" />
                     </tr>
                   </tfoot>
                 </table>
