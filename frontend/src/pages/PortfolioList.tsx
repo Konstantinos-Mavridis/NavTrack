@@ -193,118 +193,129 @@ export default function PortfolioList() {
             return (
               <div
                 key={row.id}
-                className={`card p-6 hover:shadow-md transition-all group relative ${
+                className={`card p-6 hover:shadow-md transition-all group ${
                   isIncluded
                     ? 'hover:border-blue-200 dark:hover:border-blue-800'
                     : 'opacity-60'
                 }`}
               >
                 {/*
-                  Top-right column: edit/delete (hover-only) on the first row,
-                  then INCLUDE label + slider directly below.
+                  Card body: two-column grid.
+                  Left col  (grow): name + valuation numbers.
+                  Right col (fixed width): [✎][✕] on top, INCLUDE toggle below.
                 */}
-                <div className="absolute top-4 right-4 flex flex-col items-center gap-1.5">
-                  {/* Edit / delete row */}
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={(e) => { e.preventDefault(); setModal({ type: 'edit', portfolio: row }); }}
-                      className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40 transition-colors"
-                      title="Edit portfolio"
-                    >
-                      ✎
-                    </button>
-                    <button
-                      onClick={(e) => { e.preventDefault(); setModal({ type: 'delete', portfolio: row }); }}
-                      className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/40 transition-colors"
-                      title="Delete portfolio"
-                    >
-                      ✕
-                    </button>
+                <div className="grid gap-x-3" style={{ gridTemplateColumns: '1fr auto' }}>
+
+                  {/* ── LEFT: title ── */}
+                  <div className="min-w-0 mb-4">
+                    <Link to={`/portfolios/${row.id}`} className="block">
+                      <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
+                        {row.name}
+                      </h2>
+                      {row.description && (
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 line-clamp-2">{row.description}</p>
+                      )}
+                    </Link>
                   </div>
 
-                  {/* INCLUDE label + toggle */}
-                  <div className="flex flex-col items-center gap-1">
-                    <span className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide leading-none">
-                      Include
-                    </span>
-                    <button
-                      onClick={(e) => { e.preventDefault(); toggleExcluded(row.id); }}
-                      title={isIncluded ? 'Exclude from Total Portfolio' : 'Include in Total Portfolio'}
-                      aria-label={isIncluded ? 'Exclude from Total Portfolio' : 'Include in Total Portfolio'}
-                      aria-pressed={isIncluded}
-                    >
-                      <span
-                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 ${
-                          isIncluded
-                            ? 'bg-blue-500 dark:bg-blue-500'
-                            : 'bg-gray-300 dark:bg-gray-600'
-                        }`}
+                  {/* ── RIGHT: edit/delete + INCLUDE ── */}
+                  <div className="flex flex-col items-center gap-2">
+                    {/* Edit / delete — hover only */}
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => setModal({ type: 'edit', portfolio: row })}
+                        className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40 transition-colors"
+                        title="Edit portfolio"
                       >
-                        <span
-                          className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-200 ${
+                        ✎
+                      </button>
+                      <button
+                        onClick={() => setModal({ type: 'delete', portfolio: row })}
+                        className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/40 transition-colors"
+                        title="Delete portfolio"
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    {/* INCLUDE label + toggle — always visible */}
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide leading-none">Include</span>
+                      <button
+                        onClick={() => toggleExcluded(row.id)}
+                        title={isIncluded ? 'Exclude from Total Portfolio' : 'Include in Total Portfolio'}
+                        aria-label={isIncluded ? 'Exclude from Total Portfolio' : 'Include in Total Portfolio'}
+                        aria-pressed={isIncluded}
+                      >
+                        <span className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 ${
+                          isIncluded ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
+                        }`}>
+                          <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-200 ${
                             isIncluded ? 'translate-x-4' : 'translate-x-0.5'
-                          }`}
-                        />
-                      </span>
-                    </button>
-                  </div>
-                </div>
-
-                <Link to={`/portfolios/${row.id}`} className="block">
-                  {/* pr-16 keeps title clear of the right-side controls */}
-                  <div className="mb-4 pr-16">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                      {row.name}
-                    </h2>
-                    {row.description && (
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 line-clamp-2">{row.description}</p>
-                    )}
-                  </div>
-
-                  {row.valLoading ? (
-                    <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
-                      <div className="h-3 w-3 rounded-full border-2 border-blue-400 border-t-transparent animate-spin" />
-                      Loading valuation…
+                          }`} />
+                        </span>
+                      </button>
                     </div>
-                  ) : row.valError ? (
-                    <p className="text-xs text-red-400 dark:text-red-500">{row.valError}</p>
-                  ) : v ? (
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide">Total Value</p>
-                        <p className="text-xl font-bold text-gray-900 dark:text-gray-100 mt-0.5">€{fmtEur(v.totalValue)}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide">Unrealised P&L</p>
-                        <p className={`text-xl font-bold mt-0.5 ${pnlPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
-                          {pnlPositive ? '+' : ''}€{fmtEur(v.unrealisedPnl)}
-                        </p>
-                        <p className={`text-xs mt-0.5 ${pnlPositive ? 'text-emerald-500 dark:text-emerald-400' : 'text-red-400 dark:text-red-500'}`}>
-                          {fmtPct(v.unrealisedPnlPct)}
-                        </p>
-                      </div>
-                      <div className="col-span-2 mt-1">
-                        <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">
-                          {v.positions.length} position{v.positions.length !== 1 ? 's' : ''}
-                        </p>
-                        <div className="h-1.5 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden flex">
-                          {v.positions
-                            .filter((p) => p.weightPct && p.weightPct > 0)
-                            .sort((a, b) => (b.weightPct ?? 0) - (a.weightPct ?? 0))
-                            .map((p) => (
-                              <div
-                                key={p.positionId}
-                                style={{ width: `${p.weightPct}%`, backgroundColor: acColor(p.assetClass) }}
-                                title={`${p.instrumentName}: ${p.weightPct}%`}
-                              />
-                            ))}
+                  </div>
+
+                  {/* ── LEFT: valuation (spans only left col, so toggle stays top-right) ── */}
+                  <div className="min-w-0">
+                    <Link to={`/portfolios/${row.id}`} className="block">
+                      {row.valLoading ? (
+                        <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
+                          <div className="h-3 w-3 rounded-full border-2 border-blue-400 border-t-transparent animate-spin" />
+                          Loading valuation…
                         </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-gray-400 dark:text-gray-500">No positions yet — add transactions to get started.</p>
-                  )}
-                </Link>
+                      ) : row.valError ? (
+                        <p className="text-xs text-red-400 dark:text-red-500">{row.valError}</p>
+                      ) : v ? (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide">Total Value</p>
+                            <p className="text-xl font-bold text-gray-900 dark:text-gray-100 mt-0.5">€{fmtEur(v.totalValue)}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide">Unrealised P&L</p>
+                            <p className={`text-xl font-bold mt-0.5 ${pnlPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                              {pnlPositive ? '+' : ''}€{fmtEur(v.unrealisedPnl)}
+                            </p>
+                            <p className={`text-xs mt-0.5 ${pnlPositive ? 'text-emerald-500 dark:text-emerald-400' : 'text-red-400 dark:text-red-500'}`}>
+                              {fmtPct(v.unrealisedPnlPct)}
+                            </p>
+                          </div>
+                          <div className="col-span-2 mt-1">
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">
+                              {v.positions.length} position{v.positions.length !== 1 ? 's' : ''}
+                            </p>
+                            <div className="h-1.5 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden flex">
+                              {v.positions
+                                .filter((p) => p.weightPct && p.weightPct > 0)
+                                .sort((a, b) => (b.weightPct ?? 0) - (a.weightPct ?? 0))
+                                .map((p) => (
+                                  <div
+                                    key={p.positionId}
+                                    style={{ width: `${p.weightPct}%`, backgroundColor: acColor(p.assetClass) }}
+                                    title={`${p.instrumentName}: ${p.weightPct}%`}
+                                  />
+                                ))}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-gray-400 dark:text-gray-500">No positions yet — add transactions to get started.</p>
+                      )}
+                    </Link>
+                  </div>
+
+                  {/*
+                    RIGHT: empty cell in the valuation row — keeps the right column
+                    present so the grid doesn't collapse, but the INCLUDE toggle
+                    above already occupies this visual space via `items-center`
+                    on the right column flex container.
+                  */}
+                  <div />
+
+                </div>
               </div>
             );
           })}
