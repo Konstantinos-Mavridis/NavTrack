@@ -16,6 +16,10 @@ interface Props {
 
 const RANGE_OPTIONS: PerformanceRange[] = ['1M', '3M', '6M', '1Y', 'ALL'];
 
+// Total fixed height of the content area beneath the header row.
+// = KPI row (56px) + period change (24px) + chart (280px) + gaps (~16px) = 376px
+const CONTENT_H = 376;
+
 export default function PortfolioAggregateChart({
   data,
   loading,
@@ -26,14 +30,14 @@ export default function PortfolioAggregateChart({
   const { theme } = useTheme();
   const dark = theme === 'dark';
 
-  const gridColor    = dark ? '#374151' : '#f3f4f6';
-  const tickColor    = dark ? '#6b7280' : '#9ca3af';
+  const gridColor = dark ? '#374151' : '#f3f4f6';
+  const tickColor = dark ? '#6b7280' : '#9ca3af';
 
   const latest = data[data.length - 1];
-  const first = data[0];
+  const first  = data[0];
 
-  const totalStart = first?.totalValue ?? 0;
-  const totalEnd = latest?.totalValue ?? 0;
+  const totalStart   = first?.totalValue ?? 0;
+  const totalEnd     = latest?.totalValue ?? 0;
   const periodChange = totalEnd - totalStart;
 
   const minSeries = data.length
@@ -48,6 +52,7 @@ export default function PortfolioAggregateChart({
 
   return (
     <div className="card p-6">
+      {/* ── Header row: title + range buttons ── */}
       <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
         <div>
           <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200">
@@ -79,106 +84,117 @@ export default function PortfolioAggregateChart({
         </div>
       </div>
 
-      {loading ? (
-        <div className="h-64 flex items-center justify-center text-sm text-gray-400 dark:text-gray-500">
-          <div className="flex items-center gap-2">
-            <div className="h-4 w-4 rounded-full border-2 border-blue-400 border-t-transparent animate-spin" />
-            Loading history...
+      {/* ── Fixed-height content area — never changes size ── */}
+      <div style={{ height: CONTENT_H }} className="relative">
+
+        {loading ? (
+          <div className="absolute inset-0 flex items-center justify-center text-sm text-gray-400 dark:text-gray-500">
+            <div className="flex items-center gap-2">
+              <div className="h-4 w-4 rounded-full border-2 border-blue-400 border-t-transparent animate-spin" />
+              Loading history...
+            </div>
           </div>
-        </div>
-      ) : error ? (
-        <div className="h-64 flex items-center justify-center text-sm text-red-500 dark:text-red-400">{error}</div>
-      ) : !data.length ? (
-        <div className="h-64 flex items-center justify-center text-sm text-gray-400 dark:text-gray-500">
-          No data available yet
-        </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            <div className="rounded-lg border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 px-3 py-2">
-              <p className="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Portfolio Value</p>
-              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 mt-0.5">EUR {fmtEur(totalEnd)}</p>
+        ) : error ? (
+          <div className="absolute inset-0 flex items-center justify-center text-sm text-red-500 dark:text-red-400">
+            {error}
+          </div>
+        ) : !data.length ? (
+          <div className="absolute inset-0 flex items-center justify-center text-sm text-gray-400 dark:text-gray-500">
+            No data available yet
+          </div>
+        ) : (
+          <div className="flex flex-col h-full">
+            {/* KPI pills */}
+            <div className="grid grid-cols-3 gap-3 mb-2">
+              <div className="rounded-lg border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 px-3 py-2">
+                <p className="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Portfolio Value</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 mt-0.5">EUR {fmtEur(totalEnd)}</p>
+              </div>
+              <div className="rounded-lg border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 px-3 py-2">
+                <p className="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Net Invested</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 mt-0.5">EUR {fmtEur(latest.netInvested)}</p>
+              </div>
+              <div className="rounded-lg border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 px-3 py-2">
+                <p className="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Current Return</p>
+                <p className={`text-sm font-semibold mt-0.5 ${
+                  latest.pnl >= 0
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : 'text-red-500 dark:text-red-400'
+                }`}>
+                  {latest.pnl >= 0 ? '+' : ''}EUR {fmtEur(latest.pnl)} ({fmtPct(latest.pnlPct)})
+                </p>
+              </div>
             </div>
-            <div className="rounded-lg border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 px-3 py-2">
-              <p className="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Net Invested</p>
-              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 mt-0.5">EUR {fmtEur(latest.netInvested)}</p>
-            </div>
-            <div className="rounded-lg border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 px-3 py-2">
-              <p className="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Current Return</p>
-              <p className={`text-sm font-semibold mt-0.5 ${
-                latest.pnl >= 0
+
+            {/* Period change */}
+            <div className="mb-2 text-xs text-gray-400 dark:text-gray-500">
+              Period change:{' '}
+              <span className={
+                periodChange >= 0
                   ? 'text-emerald-600 dark:text-emerald-400'
                   : 'text-red-500 dark:text-red-400'
-              }`}>
-                {latest.pnl >= 0 ? '+' : ''}EUR {fmtEur(latest.pnl)} ({fmtPct(latest.pnlPct)})
-              </p>
+              }>
+                {periodChange >= 0 ? '+' : ''}EUR {fmtEur(periodChange)}
+              </span>
+            </div>
+
+            {/* Chart — flex-1 fills whatever height remains */}
+            <div className="flex-1 min-h-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                  <XAxis
+                    dataKey="date"
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fontSize: 10, fill: tickColor }}
+                    tickFormatter={(date: string) => formatShortDate(date, selectedRange)}
+                    interval="preserveStartEnd"
+                  />
+                  <YAxis
+                    domain={[yMin, yMax]}
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fontSize: 10, fill: tickColor }}
+                    tickFormatter={(v: number) => fmtCompact(v)}
+                    width={60}
+                  />
+                  <Tooltip
+                    content={<PerformanceTooltip dark={dark} />}
+                    labelFormatter={(label) => formatLongDate(String(label))}
+                  />
+                  <Legend
+                    iconType="line"
+                    iconSize={12}
+                    formatter={(value) => (
+                      <span style={{ fontSize: 11, color: dark ? '#9ca3af' : '#6b7280' }}>{value}</span>
+                    )}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="totalValue"
+                    name="Portfolio Value"
+                    stroke="#2563eb"
+                    strokeWidth={2.5}
+                    dot={false}
+                    activeDot={{ r: 4, fill: '#2563eb' }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="netInvested"
+                    name="Net Invested"
+                    stroke="#64748b"
+                    strokeWidth={2}
+                    strokeDasharray="6 4"
+                    dot={false}
+                    activeDot={{ r: 3, fill: '#64748b' }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
             </div>
           </div>
-
-          <div className="mb-2 text-xs text-gray-400 dark:text-gray-500">
-            Period change:{' '}
-            <span className={
-              periodChange >= 0
-                ? 'text-emerald-600 dark:text-emerald-400'
-                : 'text-red-500 dark:text-red-400'
-            }>
-              {periodChange >= 0 ? '+' : ''}EUR {fmtEur(periodChange)}
-            </span>
-          </div>
-
-          <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-              <XAxis
-                dataKey="date"
-                tickLine={false}
-                axisLine={false}
-                tick={{ fontSize: 10, fill: tickColor }}
-                tickFormatter={(date: string) => formatShortDate(date, selectedRange)}
-                interval="preserveStartEnd"
-              />
-              <YAxis
-                domain={[yMin, yMax]}
-                tickLine={false}
-                axisLine={false}
-                tick={{ fontSize: 10, fill: tickColor }}
-                tickFormatter={(v: number) => fmtCompact(v)}
-                width={60}
-              />
-              <Tooltip
-                content={<PerformanceTooltip dark={dark} />}
-                labelFormatter={(label) => formatLongDate(String(label))}
-              />
-              <Legend
-                iconType="line"
-                iconSize={12}
-                formatter={(value) => (
-                  <span style={{ fontSize: 11, color: dark ? '#9ca3af' : '#6b7280' }}>{value}</span>
-                )}
-              />
-              <Line
-                type="monotone"
-                dataKey="totalValue"
-                name="Portfolio Value"
-                stroke="#2563eb"
-                strokeWidth={2.5}
-                dot={false}
-                activeDot={{ r: 4, fill: '#2563eb' }}
-              />
-              <Line
-                type="monotone"
-                dataKey="netInvested"
-                name="Net Invested"
-                stroke="#64748b"
-                strokeWidth={2}
-                strokeDasharray="6 4"
-                dot={false}
-                activeDot={{ r: 3, fill: '#64748b' }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </>
-      )}
+        )}
+      </div>
     </div>
   );
 }
