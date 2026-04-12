@@ -4,7 +4,8 @@ import type {
   CreateInstrumentPayload, UpsertPositionPayload,
   CreateTransactionPayload, NavEntryPayload,
   AllocationTemplate, CreateAllocationTemplatePayload,
-  ApplyTemplateBuyPayload, ApplyTemplateBuyResult, ImportSummary, TemplateNavPreview,
+  ApplyTemplateBuyPayload, ApplyTemplateBuyResult, ImportSummary,
+  TemplateNavPreview, TemplateNavSeriesPoint,
 } from '../types';
 
 const BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '/api';
@@ -54,6 +55,13 @@ export interface TemplateImportResult {
   skippedCodes: string[];
   missingIsins: string[];
 }
+
+const RANGE_DAYS: Record<string, number> = {
+  '1M': 30,
+  '3M': 90,
+  '6M': 180,
+  '1Y': 365,
+};
 
 export const api = {
   // ── Instruments ───────────────────────────────────────────────────────────────────
@@ -149,6 +157,8 @@ export const api = {
     get:        (id: string)                     => request<AllocationTemplate>(`/templates/${id}`),
     navPreview: (id: string, tradeDate: string)  =>
       request<TemplateNavPreview>(`/templates/${id}/nav-preview?tradeDate=${encodeURIComponent(tradeDate)}`),
+    navSeries:  (id: string, range: '1M' | '3M' | '6M' | '1Y') =>
+      request<TemplateNavSeriesPoint[]>(`/templates/${id}/nav-series?days=${RANGE_DAYS[range]}`),
     create:     (p: CreateAllocationTemplatePayload) =>
       request<AllocationTemplate>('/templates', { method: 'POST', body: JSON.stringify(p) }),
     update:     (id: string, p: Partial<CreateAllocationTemplatePayload>) =>

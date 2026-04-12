@@ -129,6 +129,7 @@ export interface ValuationResult {
 
 // ── Aggregate chart ───────────────────────────────────────────────────────────
 export type PerformanceRange = '1M' | '3M' | '6M' | '1Y' | 'ALL';
+export type TemplateRange = '1M' | '3M' | '6M' | '1Y';
 
 export interface AggregatePortfolioValuePoint {
   date: string;
@@ -136,6 +137,15 @@ export interface AggregatePortfolioValuePoint {
   netInvested: number;
   pnl: number;
   pnlPct: number;
+}
+
+/** One data point from GET /templates/:id/nav-series */
+export interface TemplateNavSeriesPoint {
+  date: string;
+  /** Index rebased to 100 on the first day with full NAV coverage. */
+  indexValue: number;
+  /** Raw EUR-weighted NAV sum. */
+  weightedNav: number;
 }
 
 // ── Import / Export ───────────────────────────────────────────────────────────

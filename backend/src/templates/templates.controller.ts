@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseIntPipe,
   ParseUUIDPipe,
   Post,
   Put,
@@ -55,6 +56,18 @@ export class TemplatesController {
     @Param('id', ParseUUIDPipe) id: string,
     @Query('tradeDate') tradeDate?: string,
   ) { return this.svc.navPreview(id, tradeDate); }
+
+  /**
+   * GET /templates/:id/nav-series?days=30
+   *
+   * Returns a daily weighted-NAV index series for the template.
+   * `days` maps to UI ranges: 1M=30, 3M=90, 6M=180, 1Y=365.
+   */
+  @Get(':id/nav-series')
+  navSeries(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('days', new ParseIntPipe({ optional: true })) days = 30,
+  ) { return this.svc.navSeries(id, days); }
 
   @Post()
   create(@Body() dto: CreateAllocationTemplateDto) { return this.svc.create(dto); }

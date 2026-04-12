@@ -28,6 +28,15 @@ export interface TemplateImportResult {
   missingIsins: string[];
 }
 
+/** One point in the template NAV-weighted performance series. */
+export interface TemplateNavSeriesPoint {
+  date: string;
+  /** Weighted-average NAV index (rebased to 100 on the first date). */
+  indexValue: number;
+  /** Raw weighted NAV sum (EUR-weighted by template weights). */
+  weightedNav: number;
+}
+
 @Injectable()
 export class TemplatesService {
   constructor(
@@ -168,6 +177,102 @@ export class TemplatesService {
     };
   }
 
+  /**
+   * Returns a daily weighted-NAV series for a template over a date window.
+   *
+   * For each calendar day in the window:
+   *   weightedNav = SUM over funds of (latestNavOnOrBefore(day) * weight / 100)
+   *
+   * The series is rebased so that `indexValue` starts at 100 on the first
+   * day that has full coverage across all funds, making templates with
+   * different absolute NAV levels directly comparable.
+   *
+   * days=30  → 1M,  days=90 → 3M,  days=180 → 6M,  days=365 → 1Y
+   */
+  async navSeries(
+    id: string,
+    days: number,
+  ): Promise<TemplateNavSeriesPoint[]> {
+    const safeDays = Math.min(Math.max(Math.round(days), 2), 3650);
+    const template = await this.findOne(id);
+
+    if (!template.items.length) return [];
+
+    const endDate = new Date().toISOString().slice(0, 10);
+    const startDate = subtractDays(endDate, safeDays - 1);
+
+    // Fetch NAV history for every instrument in the template in one query.
+    const instrumentIds = template.items.map((i) => i.instrumentId);
+
+    const navRows: Array<{ instrument_id: string; date: string; nav: string }> =
+      await this.dataSource.query(
+        `
+        SELECT instrument_id, date::text AS date, nav::text AS nav
+        FROM nav_prices
+        WHERE instrument_id = ANY($1::uuid[])
+          AND date <= $2::date
+        ORDER BY instrument_id, date ASC
+        `,
+        [instrumentIds, endDate],
+      );
+
+    // Build a map: instrumentId → sorted array of { date, nav }
+    const navByInstrument = new Map<string, Array<{ date: string; nav: number }>>();
+    for (const row of navRows) {
+      if (!navByInstrument.has(row.instrument_id)) {
+        navByInstrument.set(row.instrument_id, []);
+      }
+      navByInstrument.get(row.instrument_id)!.push({
+        date: row.date.slice(0, 10),
+        nav: Number(row.nav),
+      });
+    }
+
+    // Build weight map (percentage → fraction)
+    const weights = new Map<string, number>();
+    for (const item of template.items) {
+      weights.set(item.instrumentId, Number(item.weight) / 100);
+    }
+
+    // Walk each day in the window and compute the weighted NAV.
+    const points: TemplateNavSeriesPoint[] = [];
+    let baseWeightedNav: number | null = null;
+
+    let cursor = startDate;
+    while (cursor <= endDate) {
+      let weightedNav = 0;
+      let hasAllNavs = true;
+
+      for (const instrumentId of instrumentIds) {
+        const history = navByInstrument.get(instrumentId);
+        const nav = findLatestNavOnOrBefore(history ?? [], cursor);
+        if (nav === null) {
+          hasAllNavs = false;
+          break;
+        }
+        weightedNav += nav * (weights.get(instrumentId) ?? 0);
+      }
+
+      if (hasAllNavs) {
+        if (baseWeightedNav === null) baseWeightedNav = weightedNav;
+        const indexValue =
+          baseWeightedNav > 0
+            ? Math.round((weightedNav / baseWeightedNav) * 10_000) / 100
+            : 100;
+
+        points.push({
+          date: cursor,
+          indexValue,
+          weightedNav: Math.round(weightedNav * 100) / 100,
+        });
+      }
+
+      cursor = addOneDay(cursor);
+    }
+
+    return points;
+  }
+
   // ── Export ──────────────────────────────────────────────────────────────────
 
   async exportJson(): Promise<TemplateExportRow[]> {
@@ -291,6 +396,8 @@ export class TemplatesService {
   }
 }
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
 function round4(value: number): number {
   return Math.round(value * 10_000) / 10_000;
 }
@@ -329,4 +436,42 @@ function parseCsvLine(line: string): string[] {
   }
   result.push(current);
   return result;
+}
+
+/**
+ * Binary-search the sorted NAV array for the most recent entry on or before
+ * `date`. Returns null if no such entry exists.
+ */
+function findLatestNavOnOrBefore(
+  history: Array<{ date: string; nav: number }>,
+  date: string,
+): number | null {
+  if (!history.length) return null;
+  let lo = 0;
+  let hi = history.length - 1;
+  let result: number | null = null;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (history[mid].date <= date) {
+      result = history[mid].nav;
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return result;
+}
+
+/** Add one calendar day to a YYYY-MM-DD string. */
+function addOneDay(date: string): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Subtract N calendar days from a YYYY-MM-DD string. */
+function subtractDays(date: string, n: number): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - n);
+  return d.toISOString().slice(0, 10);
 }
