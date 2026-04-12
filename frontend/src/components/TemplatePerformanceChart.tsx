@@ -217,11 +217,9 @@ export default function TemplatePerformanceChart({ templateId, paused }: Props) 
               Cancel
             </button>
           </div>
-          {available && (
-            <p className="w-full text-[10px] text-gray-400 dark:text-gray-500">
-              Available: {formatDisplayDate(available.from)} – {formatDisplayDate(available.to)}
-            </p>
-          )}
+          <p className="w-full text-[10px] text-gray-400 dark:text-gray-500">
+            Available: {formatDisplayDate(available.from)} – {formatDisplayDate(available.to)}
+          </p>
         </div>
       )}
 
