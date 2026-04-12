@@ -162,16 +162,22 @@ export default function InstrumentList() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 dark:bg-gray-800/60">
                 <tr>
-                  {['Fund Name', 'ISIN', 'Asset Class', 'Risk', 'Currency', ''].map((h) => (
+                  {['Fund Name', 'ISIN', 'Asset Class', 'Risk', 'Currency'].map((h) => (
                     <th key={h} className="table-th">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
                 {filtered.map((inst) => (
-                  <tr key={inst.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
-                    <td className="table-td font-medium text-gray-900 dark:text-gray-100 max-w-xs">
-                      <div className="truncate" title={inst.name}>{inst.name}</div>
+                  <tr key={inst.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                    <td className="table-td font-medium max-w-xs">
+                      <Link
+                        to={`/instruments/${inst.id}`}
+                        className="truncate block text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                        title={inst.name}
+                      >
+                        {inst.name}
+                      </Link>
                     </td>
                     <td className="table-td font-mono text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
                       {inst.isin}
@@ -179,14 +185,6 @@ export default function InstrumentList() {
                     <td className="table-td"><AssetClassChip ac={inst.assetClass} /></td>
                     <td className="table-td"><RiskBadge level={inst.riskLevel ?? 0} /></td>
                     <td className="table-td text-gray-500 dark:text-gray-400">{inst.currency}</td>
-                    <td className="table-td">
-                      <Link
-                        to={`/instruments/${inst.id}`}
-                        className="text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        View →
-                      </Link>
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -228,7 +226,6 @@ export default function InstrumentList() {
         <div className="grid gap-4">
           {templates.map((template) => {
             const totalWeight = template.items.reduce((acc, i) => acc + Number(i.weight), 0);
-            // Pause chart fetching while the edit modal is open for this template.
             const isEditing = modal?.type === 'edit' && modal.template.id === template.id;
             return (
               <div key={template.id} className="card p-5">
