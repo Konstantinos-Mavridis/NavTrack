@@ -13,17 +13,20 @@ export default defineConfig({
     },
   },
   build: {
-    // Raise the warning threshold to 600 kB (default is 500 kB).
-    // The remaining large chunk after splitting is recharts + d3 deps which
-    // cannot be split further without dynamic imports.
     chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
-        manualChunks: {
-          // React runtime — changes least often, best for long-term caching
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          // Charting library — large but infrequently updated
-          'vendor-recharts': ['recharts'],
+        manualChunks(id) {
+          if (id.includes('node_modules/recharts') || id.includes('node_modules/d3')) {
+            return 'vendor-recharts';
+          }
+          if (
+            id.includes('node_modules/react/') ||
+            id.includes('node_modules/react-dom/') ||
+            id.includes('node_modules/react-router-dom/')
+          ) {
+            return 'vendor-react';
+          }
         },
       },
     },
