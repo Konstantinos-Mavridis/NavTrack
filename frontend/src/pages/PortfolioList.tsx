@@ -38,12 +38,40 @@ export default function PortfolioList() {
   const [aggregateLoading, setAggregateLoading] = useState(true);
   const [aggregateError, setAggregateError] = useState('');
   const [selectedRange, setSelectedRange] = useState<PerformanceRange>('1M');
+  // IDs excluded from the aggregate chart. All portfolios are included by default.
+  const [excludedIds, setExcludedIds] = useState<Set<string>>(new Set());
 
-  async function loadAggregateSeries(range: PerformanceRange) {
+  // Derive the included-ID list to pass to the API.
+  // undefined = all portfolios (no ?ids param) for backwards-compat.
+  function includedIds(currentRows: PortfolioRow[]): string[] | undefined {
+    if (excludedIds.size === 0) return undefined;
+    return currentRows.map((r) => r.id).filter((id) => !excludedIds.has(id));
+  }
+
+  async function loadAggregateSeries(
+    range: PerformanceRange,
+    currentRows: PortfolioRow[],
+    excluded: Set<string>,
+  ) {
+    // Compute included IDs from the snapshot passed in (avoids stale-closure
+    // issues when called right after setRows / setExcludedIds).
+    const ids =
+      excluded.size === 0
+        ? undefined
+        : currentRows.map((r) => r.id).filter((id) => !excluded.has(id));
+
+    // If every portfolio has been excluded, show an empty chart.
+    if (ids !== undefined && ids.length === 0) {
+      setAggregateSeries([]);
+      setAggregateLoading(false);
+      setAggregateError('');
+      return;
+    }
+
     setAggregateLoading(true);
     setAggregateError('');
     try {
-      const series = await api.portfolios.aggregateSeries(RANGE_DAYS[range], today());
+      const series = await api.portfolios.aggregateSeries(RANGE_DAYS[range], today(), ids);
       setAggregateSeries(series);
     } catch (e: any) {
       setAggregateError(e.message);
@@ -55,7 +83,8 @@ export default function PortfolioList() {
   async function loadPortfolios() {
     try {
       const portfolios = await api.portfolios.list();
-      setRows(portfolios.map((p) => ({ ...p, valLoading: true })));
+      const initialRows = portfolios.map((p) => ({ ...p, valLoading: true }));
+      setRows(initialRows);
       setLoading(false);
       if (portfolios.length === 0) {
         setAggregateSeries([]);
@@ -78,9 +107,11 @@ export default function PortfolioList() {
 
   useEffect(() => { loadPortfolios(); }, []);
 
+  // Re-fetch the chart whenever the portfolio list, selected range, or
+  // excluded-ID set changes.
   useEffect(() => {
-    if (rows.length > 0) void loadAggregateSeries(selectedRange);
-  }, [rows.length, selectedRange]);
+    if (rows.length > 0) void loadAggregateSeries(selectedRange, rows, excludedIds);
+  }, [rows.length, selectedRange, excludedIds]);
 
   function handleSaved(p: Portfolio) {
     setModal(null);
@@ -98,6 +129,12 @@ export default function PortfolioList() {
       await api.portfolios.delete(modal.portfolio.id);
       const remaining = rows.filter((r) => r.id !== modal.portfolio.id);
       setRows(remaining);
+      // Also remove from excluded set so it doesn't linger.
+      setExcludedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(modal.portfolio.id);
+        return next;
+      });
       if (remaining.length === 0) {
         setAggregateSeries([]);
         setAggregateLoading(false);
@@ -109,6 +146,18 @@ export default function PortfolioList() {
     } finally {
       setDeleting(false);
     }
+  }
+
+  function toggleExcluded(id: string) {
+    setExcludedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
   }
 
   if (loading) return <Spinner />;
@@ -158,28 +207,64 @@ export default function PortfolioList() {
           {rows.map((row) => {
             const v = row.valuation;
             const pnlPositive = (v?.unrealisedPnl ?? 0) >= 0;
+            const isIncluded = !excludedIds.has(row.id);
             return (
-              <div key={row.id} className="card p-6 hover:shadow-md hover:border-blue-200 dark:hover:border-blue-800 transition-all group relative">
-                {/* Action buttons */}
-                <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div
+                key={row.id}
+                className={`card p-6 hover:shadow-md transition-all group relative ${
+                  isIncluded
+                    ? 'hover:border-blue-200 dark:hover:border-blue-800'
+                    : 'opacity-60'
+                }`}
+              >
+                {/* Top-right controls: aggregate toggle + edit/delete */}
+                <div className="absolute top-4 right-4 flex items-center gap-2">
+                  {/* Include-in-aggregate toggle */}
                   <button
-                    onClick={(e) => { e.preventDefault(); setModal({ type: 'edit', portfolio: row }); }}
-                    className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40 transition-colors"
-                    title="Edit portfolio"
+                    onClick={(e) => { e.preventDefault(); toggleExcluded(row.id); }}
+                    title={isIncluded ? 'Exclude from Total Portfolio' : 'Include in Total Portfolio'}
+                    aria-label={isIncluded ? 'Exclude from Total Portfolio' : 'Include in Total Portfolio'}
+                    aria-pressed={isIncluded}
+                    className="flex items-center gap-1.5 shrink-0"
                   >
-                    ✎
+                    {/* Pill track */}
+                    <span
+                      className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors duration-200 ${
+                        isIncluded
+                          ? 'bg-blue-500 dark:bg-blue-500'
+                          : 'bg-gray-300 dark:bg-gray-600'
+                      }`}
+                    >
+                      {/* Thumb */}
+                      <span
+                        className={`inline-block h-3 w-3 rounded-full bg-white shadow transition-transform duration-200 ${
+                          isIncluded ? 'translate-x-3.5' : 'translate-x-0.5'
+                        }`}
+                      />
+                    </span>
                   </button>
-                  <button
-                    onClick={(e) => { e.preventDefault(); setModal({ type: 'delete', portfolio: row }); }}
-                    className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/40 transition-colors"
-                    title="Delete portfolio"
-                  >
-                    ✕
-                  </button>
+
+                  {/* Edit / delete — only appear on hover */}
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => { e.preventDefault(); setModal({ type: 'edit', portfolio: row }); }}
+                      className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40 transition-colors"
+                      title="Edit portfolio"
+                    >
+                      ✎
+                    </button>
+                    <button
+                      onClick={(e) => { e.preventDefault(); setModal({ type: 'delete', portfolio: row }); }}
+                      className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/40 transition-colors"
+                      title="Delete portfolio"
+                    >
+                      ✕
+                    </button>
+                  </div>
                 </div>
 
                 <Link to={`/portfolios/${row.id}`} className="block">
-                  <div className="mb-4 pr-14">
+                  <div className="mb-4 pr-24">
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                       {row.name}
                     </h2>

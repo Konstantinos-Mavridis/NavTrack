@@ -85,15 +85,17 @@ export const api = {
       request<Portfolio>(`/portfolios/${id}`, { method: 'PUT', body: JSON.stringify(p) }),
     delete: (id: string)                    => request<void>(`/portfolios/${id}`, { method: 'DELETE' }),
     // days=undefined means "ALL" — the backend anchors to the first transaction date.
-    aggregateSeries: (days?: number, toDate?: string) =>
+    // ids=undefined means all portfolios (existing behaviour).
+    aggregateSeries: (days?: number, toDate?: string, ids?: string[]) =>
       request<AggregatePortfolioValuePoint[]>(
         `/portfolios/aggregate/valuation-series${
-          days !== undefined || toDate
-            ? `?${[
-                days !== undefined ? `days=${days}` : null,
-                toDate ? `to=${encodeURIComponent(toDate)}` : null,
-              ].filter(Boolean).join('&')}`
-            : ''
+          (() => {
+            const parts: string[] = [];
+            if (days !== undefined) parts.push(`days=${days}`);
+            if (toDate)             parts.push(`to=${encodeURIComponent(toDate)}`);
+            if (ids && ids.length)  parts.push(`ids=${ids.map(encodeURIComponent).join(',')}`);
+            return parts.length ? `?${parts.join('&')}` : '';
+          })()
         }`,
       ),
     exportJson: () => request<any>('/portfolios/export/json'),

@@ -22,9 +22,13 @@ export class PortfoliosController {
     // earliest transaction date ("ALL" range) rather than a fixed day window.
     @Query('days') daysRaw?: string,
     @Query('to') to?: string,
+    // Comma-separated list of portfolio UUIDs to include.
+    // When omitted every portfolio is included (existing behaviour).
+    @Query('ids') idsRaw?: string,
   ) {
     const days = daysRaw !== undefined ? parseInt(daysRaw, 10) : undefined;
-    return this.svc.aggregateValuationSeries(days, to);
+    const ids  = idsRaw ? idsRaw.split(',').map((s) => s.trim()).filter(Boolean) : undefined;
+    return this.svc.aggregateValuationSeries(days, to, ids);
   }
 
   @Get('export/json')
