@@ -7,6 +7,7 @@ import SyncAllButton from '../components/SyncAllButton';
 import TemplateFormModal from '../components/TemplateFormModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import ImportExportModal from '../components/ImportExportModal';
+import TemplatePerformanceChart from '../components/TemplatePerformanceChart';
 
 type ModalState =
   | { type: 'create' }
@@ -227,8 +228,11 @@ export default function InstrumentList() {
         <div className="grid gap-4">
           {templates.map((template) => {
             const totalWeight = template.items.reduce((acc, i) => acc + Number(i.weight), 0);
+            // Pause chart fetching while the edit modal is open for this template.
+            const isEditing = modal?.type === 'edit' && modal.template.id === template.id;
             return (
               <div key={template.id} className="card p-5">
+                {/* Header: name + actions */}
                 <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{template.code}</h3>
@@ -254,6 +258,14 @@ export default function InstrumentList() {
                     </button>
                   </div>
                 </div>
+
+                {/* ── Aggregate performance chart ── */}
+                <TemplatePerformanceChart
+                  templateId={template.id}
+                  paused={isEditing}
+                />
+
+                {/* ── Fund table ── */}
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50 dark:bg-gray-800/60">
