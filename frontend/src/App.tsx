@@ -22,7 +22,7 @@ export default function App() {
             <Route path="*"               element={<Navigate to="/" replace />} />
           </Routes>
         </main>
-        <footer className="border-t border-gray-100 dark:border-gray-800 py-4 text-center text-xs text-gray-400 dark:text-gray-500 dark:bg-gray-900">
+        <footer className="sticky bottom-0 z-10 border-t border-gray-100 dark:border-gray-800 py-4 text-center text-xs text-gray-400 dark:text-gray-500 bg-white dark:bg-gray-900">
           NavTrack Portfolio Tracker &middot; Author:{' '}
           <a
             href="https://www.linkedin.com/in/konstantinos-mavridis"
