@@ -46,14 +46,11 @@ export default function PortfolioList() {
     currentRows: PortfolioRow[],
     excluded: Set<string>,
   ) {
-    // Compute included IDs from the snapshot passed in (avoids stale-closure
-    // issues when called right after setRows / setExcludedIds).
     const ids =
       excluded.size === 0
         ? undefined
         : currentRows.map((r) => r.id).filter((id) => !excluded.has(id));
 
-    // If every portfolio has been excluded, show an empty chart.
     if (ids !== undefined && ids.length === 0) {
       setAggregateSeries([]);
       setAggregateLoading(false);
@@ -100,8 +97,6 @@ export default function PortfolioList() {
 
   useEffect(() => { loadPortfolios(); }, []);
 
-  // Re-fetch the chart whenever the portfolio list, selected range, or
-  // excluded-ID set changes.
   useEffect(() => {
     if (rows.length > 0) void loadAggregateSeries(selectedRange, rows, excludedIds);
   }, [rows.length, selectedRange, excludedIds]);
@@ -122,7 +117,6 @@ export default function PortfolioList() {
       await api.portfolios.delete(modal.portfolio.id);
       const remaining = rows.filter((r) => r.id !== modal.portfolio.id);
       setRows(remaining);
-      // Also remove from excluded set so it doesn't linger.
       setExcludedIds((prev) => {
         const next = new Set(prev);
         next.delete(modal.portfolio.id);
@@ -144,11 +138,7 @@ export default function PortfolioList() {
   function toggleExcluded(id: string) {
     setExcludedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
+      if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
   }
@@ -210,54 +200,27 @@ export default function PortfolioList() {
                     : 'opacity-60'
                 }`}
               >
-                {/* Top-right controls: aggregate toggle + edit/delete */}
-                <div className="absolute top-4 right-4 flex items-center gap-2">
-                  {/* Include-in-aggregate toggle */}
+                {/* Top-right: edit / delete (hover only) */}
+                <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
-                    onClick={(e) => { e.preventDefault(); toggleExcluded(row.id); }}
-                    title={isIncluded ? 'Exclude from Total Portfolio' : 'Include in Total Portfolio'}
-                    aria-label={isIncluded ? 'Exclude from Total Portfolio' : 'Include in Total Portfolio'}
-                    aria-pressed={isIncluded}
-                    className="flex items-center gap-1.5 shrink-0"
+                    onClick={(e) => { e.preventDefault(); setModal({ type: 'edit', portfolio: row }); }}
+                    className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40 transition-colors"
+                    title="Edit portfolio"
                   >
-                    {/* Pill track */}
-                    <span
-                      className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors duration-200 ${
-                        isIncluded
-                          ? 'bg-blue-500 dark:bg-blue-500'
-                          : 'bg-gray-300 dark:bg-gray-600'
-                      }`}
-                    >
-                      {/* Thumb */}
-                      <span
-                        className={`inline-block h-3 w-3 rounded-full bg-white shadow transition-transform duration-200 ${
-                          isIncluded ? 'translate-x-3.5' : 'translate-x-0.5'
-                        }`}
-                      />
-                    </span>
+                    ✎
                   </button>
-
-                  {/* Edit / delete — only appear on hover */}
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={(e) => { e.preventDefault(); setModal({ type: 'edit', portfolio: row }); }}
-                      className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40 transition-colors"
-                      title="Edit portfolio"
-                    >
-                      ✎
-                    </button>
-                    <button
-                      onClick={(e) => { e.preventDefault(); setModal({ type: 'delete', portfolio: row }); }}
-                      className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/40 transition-colors"
-                      title="Delete portfolio"
-                    >
-                      ✕
-                    </button>
-                  </div>
+                  <button
+                    onClick={(e) => { e.preventDefault(); setModal({ type: 'delete', portfolio: row }); }}
+                    className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/40 transition-colors"
+                    title="Delete portfolio"
+                  >
+                    ✕
+                  </button>
                 </div>
 
                 <Link to={`/portfolios/${row.id}`} className="block">
-                  <div className="mb-4 pr-24">
+                  {/* Title row — keep right padding so it never overlaps edit/delete */}
+                  <div className="mb-4 pr-16">
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                       {row.name}
                     </h2>
@@ -274,11 +237,14 @@ export default function PortfolioList() {
                   ) : row.valError ? (
                     <p className="text-xs text-red-400 dark:text-red-500">{row.valError}</p>
                   ) : v ? (
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
+                      {/* Total Value */}
                       <div>
                         <p className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide">Total Value</p>
                         <p className="text-xl font-bold text-gray-900 dark:text-gray-100 mt-0.5">€{fmtEur(v.totalValue)}</p>
                       </div>
+
+                      {/* Unrealised P&L */}
                       <div>
                         <p className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide">Unrealised P&L</p>
                         <p className={`text-xl font-bold mt-0.5 ${pnlPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
@@ -288,7 +254,37 @@ export default function PortfolioList() {
                           {fmtPct(v.unrealisedPnlPct)}
                         </p>
                       </div>
-                      <div className="col-span-2 mt-1">
+
+                      {/* INCLUDE toggle — same row, vertically aligned with the numbers */}
+                      <div className="flex flex-col">
+                        <p className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide">Include</p>
+                        <div className="mt-0.5 flex items-center" style={{ height: '1.75rem' }}>
+                          <button
+                            onClick={(e) => { e.preventDefault(); toggleExcluded(row.id); }}
+                            title={isIncluded ? 'Exclude from Total Portfolio' : 'Include in Total Portfolio'}
+                            aria-label={isIncluded ? 'Exclude from Total Portfolio' : 'Include in Total Portfolio'}
+                            aria-pressed={isIncluded}
+                            className="flex items-center shrink-0"
+                          >
+                            <span
+                              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 ${
+                                isIncluded
+                                  ? 'bg-blue-500 dark:bg-blue-500'
+                                  : 'bg-gray-300 dark:bg-gray-600'
+                              }`}
+                            >
+                              <span
+                                className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-200 ${
+                                  isIncluded ? 'translate-x-4' : 'translate-x-0.5'
+                                }`}
+                              />
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Positions bar — spans all 3 columns */}
+                      <div className="col-span-3 mt-1">
                         <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">
                           {v.positions.length} position{v.positions.length !== 1 ? 's' : ''}
                         </p>
