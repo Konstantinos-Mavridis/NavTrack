@@ -1,8 +1,16 @@
 name: All Containers – Docker Images
 
 on:
-  push:
-    tags: ['v*.*.*']
+  # Fires on version tags — but only after both CI workflows pass on main.
+  # The tag push itself is on the default branch, so workflow_run fires
+  # for the head commit that the tag points to.
+  workflow_run:
+    workflows:
+      - "SonarQube Analysis"
+      - "CodeQL"
+    branches: [main]
+    types: [completed]
+  # Manual override: useful for hotfix re-publishes.
   workflow_dispatch:
     inputs:
       push_images:
@@ -19,6 +27,9 @@ jobs:
   build-and-push:
     name: ${{ matrix.service }} – Build & Push
     runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
     permissions:
       contents: read
       packages: write
