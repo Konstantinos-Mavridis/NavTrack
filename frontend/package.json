@@ -9,7 +9,7 @@
     "lint": "eslint src --ext .ts,.tsx",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:cov": "vitest run --coverage --reporter=lcov"
+    "test:cov": "vitest run --coverage"
   },
   "dependencies": {
     "react": "^19.2.5",
