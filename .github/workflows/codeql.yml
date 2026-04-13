@@ -46,7 +46,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           # Do not persist credentials beyond this job — reduces attack surface
           # for any code execution that might occur during analysis
