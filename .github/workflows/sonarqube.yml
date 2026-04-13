@@ -142,7 +142,8 @@ jobs:
         run: npm install --prefer-offline
 
       - name: Run tests with coverage
-        run: npm run test:cov -- --coverage.reporter=lcov
+        # test:cov already passes --coverage --reporter=lcov; no extra flags needed.
+        run: npm run test:cov
 
       - name: SonarQube Scan – frontend
         uses: SonarSource/sonarqube-scan-action@v6
