@@ -1,5 +1,6 @@
 /**
- * Tests for generic Modal component
+ * Modal has no `open` prop — it renders unconditionally when mounted.
+ * The parent conditionally renders it.
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
@@ -7,50 +8,38 @@ import userEvent from '@testing-library/user-event';
 import Modal from './Modal';
 
 describe('Modal', () => {
-  it('renders nothing when open=false', () => {
-    const { container } = render(
-      <Modal open={false} onClose={vi.fn()} title="Test">
-        <p>Content</p>
-      </Modal>,
-    );
-    expect(container).toBeEmptyDOMElement();
+  it('renders title and children', () => {
+    render(<Modal title="Test Modal" onClose={vi.fn()}><p>body text</p></Modal>);
+    expect(screen.getByText('Test Modal')).toBeInTheDocument();
+    expect(screen.getByText('body text')).toBeInTheDocument();
   });
 
-  it('renders title and children when open=true', () => {
-    render(
-      <Modal open={true} onClose={vi.fn()} title="Test Modal">
-        <p>Modal body text</p>
-      </Modal>,
-    );
-    expect(screen.getByText('Test Modal')).toBeInTheDocument();
-    expect(screen.getByText('Modal body text')).toBeInTheDocument();
+  it('renders an optional subtitle', () => {
+    render(<Modal title="T" subtitle="Sub" onClose={vi.fn()}><p>b</p></Modal>);
+    expect(screen.getByText('Sub')).toBeInTheDocument();
   });
 
   it('calls onClose when the close button is clicked', async () => {
     const onClose = vi.fn();
-    render(
-      <Modal open={true} onClose={onClose} title="Close me">
-        <p>body</p>
-      </Modal>,
-    );
-    const closeBtn = screen.getByRole('button', { name: /close/i });
-    await userEvent.click(closeBtn);
+    render(<Modal title="Close me" onClose={onClose}><p>b</p></Modal>);
+    await userEvent.click(screen.getByRole('button', { name: /close/i }));
     expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it('calls onClose when clicking the backdrop overlay', async () => {
+  it('does NOT call onClose when closeable=false', async () => {
     const onClose = vi.fn();
-    render(
-      <Modal open={true} onClose={onClose} title="Backdrop test">
-        <p>body</p>
-      </Modal>,
-    );
-    // The backdrop is the outermost div with a click handler
-    const backdrop = screen.getByRole('dialog') ?? document.querySelector('[data-backdrop]');
-    if (backdrop) {
-      await userEvent.click(backdrop);
-      // onClose may or may not have been called depending on implementation
-      // — just assert no exception was thrown
-    }
+    render(<Modal title="Locked" onClose={onClose} closeable={false}><p>b</p></Modal>);
+    await userEvent.click(screen.getByRole('button', { name: /close/i }));
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('applies default width class max-w-lg', () => {
+    const { container } = render(<Modal title="W" onClose={vi.fn()}><p>b</p></Modal>);
+    expect(container.querySelector('.max-w-lg')).toBeInTheDocument();
+  });
+
+  it('applies a custom width class', () => {
+    const { container } = render(<Modal title="W" onClose={vi.fn()} width="max-w-2xl"><p>b</p></Modal>);
+    expect(container.querySelector('.max-w-2xl')).toBeInTheDocument();
   });
 });

@@ -1,7 +1,6 @@
 /**
- * Tests for ConfirmDialog
- *
- * Verifies rendering, button labelling, and callback invocation.
+ * ConfirmDialog has no `open` prop — visibility is controlled by the parent
+ * mounting or unmounting the component. It always renders when in the tree.
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
@@ -9,7 +8,6 @@ import userEvent from '@testing-library/user-event';
 import ConfirmDialog from './ConfirmDialog';
 
 const baseProps = {
-  open: true,
   title: 'Delete portfolio',
   message: 'Are you sure you want to delete this portfolio?',
   onConfirm: vi.fn(),
@@ -17,36 +15,46 @@ const baseProps = {
 };
 
 describe('ConfirmDialog', () => {
-  it('renders nothing when open=false', () => {
-    const { container } = render(<ConfirmDialog {...baseProps} open={false} />);
-    expect(container).toBeEmptyDOMElement();
-  });
-
-  it('renders title and message when open=true', () => {
+  it('renders title and message', () => {
     render(<ConfirmDialog {...baseProps} />);
     expect(screen.getByText('Delete portfolio')).toBeInTheDocument();
     expect(screen.getByText(/are you sure/i)).toBeInTheDocument();
   });
 
-  it('calls onConfirm when the confirm button is clicked', async () => {
-    const onConfirm = vi.fn();
+  it('renders Cancel and Confirm buttons', () => {
+    render(<ConfirmDialog {...baseProps} />);
+    expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /confirm/i })).toBeInTheDocument();
+  });
+
+  it('calls onConfirm when confirm button is clicked', async () => {
+    const onConfirm = vi.fn().mockResolvedValue(undefined);
     render(<ConfirmDialog {...baseProps} onConfirm={onConfirm} />);
-    await userEvent.click(screen.getByRole('button', { name: /confirm|delete|yes/i }));
+    await userEvent.click(screen.getByRole('button', { name: /confirm/i }));
     expect(onConfirm).toHaveBeenCalledOnce();
   });
 
-  it('calls onCancel when the cancel button is clicked', async () => {
+  it('calls onCancel when cancel button is clicked', async () => {
     const onCancel = vi.fn();
     render(<ConfirmDialog {...baseProps} onCancel={onCancel} />);
-    await userEvent.click(screen.getByRole('button', { name: /cancel|no/i }));
+    await userEvent.click(screen.getByRole('button', { name: /cancel/i }));
     expect(onCancel).toHaveBeenCalledOnce();
   });
 
   it('does not call onConfirm when cancel is clicked', async () => {
     const onConfirm = vi.fn();
-    const onCancel  = vi.fn();
-    render(<ConfirmDialog {...baseProps} onConfirm={onConfirm} onCancel={onCancel} />);
-    await userEvent.click(screen.getByRole('button', { name: /cancel|no/i }));
+    render(<ConfirmDialog {...baseProps} onConfirm={onConfirm} />);
+    await userEvent.click(screen.getByRole('button', { name: /cancel/i }));
     expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it('renders a custom confirmLabel', () => {
+    render(<ConfirmDialog {...baseProps} confirmLabel="Remove" />);
+    expect(screen.getByRole('button', { name: /remove/i })).toBeInTheDocument();
+  });
+
+  it('applies btn-danger class by default', () => {
+    render(<ConfirmDialog {...baseProps} />);
+    expect(screen.getByRole('button', { name: /confirm/i }).className).toMatch(/btn-danger/);
   });
 });
