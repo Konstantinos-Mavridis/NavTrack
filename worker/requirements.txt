@@ -4,3 +4,4 @@ python-dotenv==1.2.2
 yfinance==0.2.66
 requests==2.33.1
 protobuf>=4.25.8 # not directly required, pinned by Snyk to avoid a vulnerability
+numpy>=1.22.0 # not directly required, pinned by Snyk to avoid a vulnerability
