@@ -23,7 +23,7 @@ on:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
-# ── 0. Detect which service trees changed ─────────────────────────────────────
+# ── 0. Detect which service trees changed ─────────────────────────────────────────────
 jobs:
   changes:
     name: Detect changed services
@@ -40,7 +40,7 @@ jobs:
 
       - name: Detect changed paths
         id: filter
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4.0.1
         with:
           filters: |
             backend:
@@ -50,7 +50,7 @@ jobs:
             worker:
               - 'worker/**'
 
-  # ── 1. Backend (NestJS / TypeScript) ────────────────────────────────────────
+  # ── 1. Backend (NestJS / TypeScript) ───────────────────────────────────────────────
   sonar-backend:
     name: Sonar – backend
     runs-on: ubuntu-latest
@@ -105,7 +105,7 @@ jobs:
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
             -Dsonar.typescript.tsconfigPath=tsconfig.json
 
-  # ── 2. Frontend (React / TypeScript / Vite) ──────────────────────────────────
+  # ── 2. Frontend (React / TypeScript / Vite) ──────────────────────────────────────────────
   sonar-frontend:
     name: Sonar – frontend
     runs-on: ubuntu-latest
@@ -160,7 +160,7 @@ jobs:
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
             -Dsonar.typescript.tsconfigPath=tsconfig.json
 
-  # ── 3. Worker (Python 3.14 / APScheduler) ────────────────────────────────────
+  # ── 3. Worker (Python 3.14 / APScheduler) ────────────────────────────────────────────────
   sonar-worker:
     name: Sonar – worker
     runs-on: ubuntu-latest
@@ -186,11 +186,9 @@ jobs:
           cache: 'pip'
           cache-dependency-path: worker/requirements-dev.txt
 
-      # Install dev deps (includes pytest, pytest-cov, pytest-mock)
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
 
-      # Failing tests now fail the workflow — || true guards removed.
       - name: Run tests with coverage
         run: pytest --cov=. --cov-report=xml:coverage.xml
 
