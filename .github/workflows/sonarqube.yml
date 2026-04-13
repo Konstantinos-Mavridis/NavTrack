@@ -190,7 +190,10 @@ jobs:
         run: pip install -r requirements-dev.txt
 
       - name: Run tests with coverage
-        run: pytest --cov=. --cov-report=xml:coverage.xml
+        # --cov=worker targets worker.py by module name.
+        # --cov=. with --import-mode=importlib bypasses coverage's .pth hook
+        # and never instruments worker.py, producing 0% in the XML report.
+        run: pytest --cov=worker --cov-report=xml:coverage.xml
 
       - name: SonarQube Scan – worker
         uses: SonarSource/sonarqube-scan-action@v6
