@@ -18,6 +18,22 @@
 #
 # sonar-project.properties is NOT required — all configuration is passed
 # inline via -D flags so the repo stays clean.
+#
+# NOTE ON npm install vs npm ci
+# ──────────────────────────────────────────────────────────────────────────────
+# Both backend/package.json and frontend/package.json declare an `overrides`
+# block that forces a newer version of `glob` than the version currently
+# recorded in their respective package-lock.json files.  `npm ci` treats this
+# as a fatal mismatch and exits with EUSAGE.
+#
+# We therefore use `npm install --prefer-offline` here, which honours the
+# overrides and regenerates the lock file in the runner's working directory
+# without touching the committed file.  The cache is keyed on
+# package.json (not package-lock.json) so a stale lock file never poisons
+# the cache.
+#
+# Long-term fix: run `npm install` locally in each of backend/ and frontend/,
+# commit the updated package-lock.json files, then switch back to `npm ci`.
 # ─────────────────────────────────────────────────────────────────────────────
 
 name: SonarQube Analysis
@@ -67,11 +83,22 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: backend/package-lock.json
+
+      # Cache keyed on package.json because the committed package-lock.json
+      # is currently out of sync with the `overrides` block — see NOTE above.
+      - name: Cache npm dependencies
+        uses: actions/cache@v4
+        with:
+          path: backend/node_modules
+          key: sonar-backend-node-${{ hashFiles('backend/package.json') }}
+          restore-keys: sonar-backend-node-
 
       - name: Install dependencies
-        run: npm ci --prefer-offline
+        # `npm install` resolves the `overrides` block in package.json and
+        # writes a fresh lock into the runner's working directory.
+        # Switch back to `npm ci --prefer-offline` once the committed
+        # package-lock.json is regenerated locally and pushed.
+        run: npm install --prefer-offline
 
       # Run tests and produce a lcov coverage report for Sonar to import.
       # The || true prevents a zero-exit from blocking the Sonar step when
@@ -117,11 +144,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+
+      # Same cache strategy as backend — keyed on package.json
+      - name: Cache npm dependencies
+        uses: actions/cache@v4
+        with:
+          path: frontend/node_modules
+          key: sonar-frontend-node-${{ hashFiles('frontend/package.json') }}
+          restore-keys: sonar-frontend-node-
 
       - name: Install dependencies
-        run: npm ci --prefer-offline
+        run: npm install --prefer-offline
 
       # Vite / Vitest coverage report — same guard as backend
       - name: Run tests with coverage
