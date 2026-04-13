@@ -104,6 +104,8 @@ jobs:
             -Dsonar.test.inclusions=**/*.spec.ts,**/*.e2e-spec.ts
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
             -Dsonar.typescript.tsconfigPath=tsconfig.json
+            -Dsonar.qualitygate.wait=false
+            -Dsonar.pullrequest.github.summary_comment=false
 
   # ── 2. Frontend (React / TypeScript / Vite) ──────────────────────────────────────────────
   sonar-frontend:
@@ -159,6 +161,8 @@ jobs:
             -Dsonar.test.inclusions=**/*.test.ts,**/*.test.tsx
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
             -Dsonar.typescript.tsconfigPath=tsconfig.json
+            -Dsonar.qualitygate.wait=false
+            -Dsonar.pullrequest.github.summary_comment=false
 
   # ── 3. Worker (Python 3.14 / APScheduler) ────────────────────────────────────────────────
   sonar-worker:
@@ -212,3 +216,5 @@ jobs:
             -Dsonar.test.inclusions=tests/test_*.py
             -Dsonar.python.coverage.reportPaths=coverage.xml
             -Dsonar.python.version=3.14
+            -Dsonar.qualitygate.wait=false
+            -Dsonar.pullrequest.github.summary_comment=false
