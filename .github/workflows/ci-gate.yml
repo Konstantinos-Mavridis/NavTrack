@@ -1,0 +1,114 @@
+name: CI Gate
+
+# Fires whenever SonarQube OR CodeQL completes on main.
+# The second arrival (whichever finishes last) cancels the still-polling first
+# instance and runs the check itself — by then both results are available.
+on:
+  workflow_run:
+    workflows:
+      - "SonarQube Analysis"
+      - "CodeQL"
+    branches: [main]
+    types: [completed]
+
+concurrency:
+  group: ci-gate-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: true  # last arrival wins; kills any still-polling earlier run
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  gate:
+    name: Wait for SonarQube + CodeQL → dispatch builds
+    runs-on: ubuntu-latest
+    # Only run when the upstream workflow was triggered automatically (push,
+    # pull_request, or schedule).  A manual workflow_dispatch on SonarQube or
+    # CodeQL must not kick off docker builds.
+    if: |
+      github.event.workflow_run.event == 'push' ||
+      github.event.workflow_run.event == 'pull_request' ||
+      github.event.workflow_run.event == 'schedule'
+    permissions:
+      actions: write
+      contents: read
+
+    steps:
+      - name: Checkout (for path diffing)
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 2
+
+      - name: Check both gates and dispatch
+        uses: actions/github-script@v7.0.1
+        with:
+          script: |
+            const headSha = context.payload.workflow_run.head_sha;
+            const required = ['SonarQube Analysis', 'CodeQL'];
+
+            // Poll until both workflows have a completed run for this SHA
+            // (max ~10 min, checking every 30 s).
+            // In practice the last-arriving run finds both complete immediately.
+            const MAX_ATTEMPTS = 20;
+            const DELAY_MS    = 30_000;
+
+            async function getBothResults() {
+              const results = {};
+              for (const name of required) {
+                const runs = await github.rest.actions.listWorkflowRunsForRepo({
+                  owner: context.repo.owner,
+                  repo:  context.repo.repo,
+                  head_sha: headSha,
+                  status: 'completed',
+                  per_page: 10,
+                });
+                const match = runs.data.workflow_runs.find(r => r.name === name);
+                results[name] = match ? match.conclusion : null;
+              }
+              return results;
+            }
+
+            let results;
+            for (let i = 0; i < MAX_ATTEMPTS; i++) {
+              results = await getBothResults();
+              const pending = required.filter(n => results[n] === null);
+              if (pending.length === 0) break;
+              core.info(`Waiting for: ${pending.join(', ')} (attempt ${i+1}/${MAX_ATTEMPTS})`);
+              await new Promise(r => setTimeout(r, DELAY_MS));
+            }
+
+            // Fail if either didn't succeed
+            for (const name of required) {
+              if (results[name] !== 'success') {
+                core.setFailed(`${name} conclusion: ${results[name] ?? 'timed out'} — skipping docker builds.`);
+                return;
+              }
+            }
+            core.info('Both SonarQube and CodeQL passed ✓');
+
+            // Detect which service directories changed
+            const { execSync } = require('child_process');
+            const diff = execSync('git diff --name-only HEAD~1 HEAD').toString();
+            const files = diff.split('\n').filter(Boolean);
+            core.info('Changed files: ' + files.join(', '));
+
+            const services = {
+              'docker-backend.yml':  files.some(f => f.startsWith('backend/')),
+              'docker-frontend.yml': files.some(f => f.startsWith('frontend/')),
+              'docker-worker.yml':   files.some(f => f.startsWith('worker/')),
+            };
+
+            for (const [workflow, changed] of Object.entries(services)) {
+              if (!changed) {
+                core.info(`No changes for ${workflow} — skipping.`);
+                continue;
+              }
+              await github.rest.actions.createWorkflowDispatch({
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                workflow_id: workflow,
+                ref: 'main',
+              });
+              core.info(`Dispatched ${workflow}`);
+            }

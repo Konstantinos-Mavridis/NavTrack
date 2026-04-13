@@ -299,8 +299,14 @@ def _fetch_and_upsert(ticker: str, instrument_id: str, from_date: str, conn) -> 
         log.info("  Already up-to-date")
         return 0, 0
 
+    # yfinance .history(end=X) is EXCLUSIVE — the candle for date X is NOT
+    # included. Passing end=today would mean today's NAV is never fetched.
+    # We use tomorrow's date as the exclusive upper bound so today's candle
+    # always falls within the requested window.
+    end_date = (date.today() + timedelta(days=1)).isoformat()
+
     ticker_obj = yf.Ticker(ticker)
-    hist = ticker_obj.history(start=from_date, end=today_str, interval="1d", auto_adjust=False)
+    hist = ticker_obj.history(start=from_date, end=end_date, interval="1d", auto_adjust=False)
 
     if hist.empty:
         log.warning("  No data returned from Yahoo Finance for %s", ticker)
@@ -440,29 +446,52 @@ def main() -> None:
     # Scheduled jobs
     scheduler = BlockingScheduler(timezone="Europe/Athens")
 
+    # First NAV sync: 16:00 Athens (Mon–Fri).
+    # Greek mutual fund NAVs are typically published by fund administrators
+    # around 13:00–15:00 Athens. This run catches funds that publish early.
     scheduler.add_job(
-        run_valuation,
+        lambda: run_nav_sync(triggered_by="SCHEDULER_AFTERNOON"),
         trigger="cron",
-        hour=18, minute=30,
-        id="daily_valuation",
+        day_of_week="mon-fri",
+        hour=16, minute=0,
+        id="afternoon_nav_sync",
         max_instances=1,
         coalesce=True,
     )
 
+    # Second NAV sync: 20:00 Athens (Mon–Fri).
+    # Yahoo Finance ingests Greek mutual fund NAVs via a delayed batch process
+    # that typically completes around end-of-day UTC (22:00–00:00 Athens).
+    # The 16:00 sync often runs before Yahoo has today's candle available.
+    # This evening run acts as a safety net, ensuring today's prices are in
+    # the DB well before midnight, without waiting until the next morning.
     scheduler.add_job(
-        lambda: run_nav_sync(triggered_by="SCHEDULER"),
+        lambda: run_nav_sync(triggered_by="SCHEDULER_EVENING"),
         trigger="cron",
-        day_of_week="mon",
-        hour=7, minute=0,
-        id="weekly_nav_sync",
+        day_of_week="mon-fri",
+        hour=20, minute=0,
+        id="evening_nav_sync",
+        max_instances=1,
+        coalesce=True,
+    )
+
+    # Daily valuation: 21:00 Athens (every day).
+    # Runs after both NAV syncs have had a chance to complete, so the
+    # valuation always reflects today's latest available prices.
+    scheduler.add_job(
+        run_valuation,
+        trigger="cron",
+        hour=21, minute=0,
+        id="daily_valuation",
         max_instances=1,
         coalesce=True,
     )
 
     log.info(
         "Scheduler running:\n"
-        "  – Daily valuation  18:30 Europe/Athens\n"
-        "  – Weekly NAV sync  Monday 07:00 Europe/Athens"
+        "  – Afternoon NAV sync  Mon–Fri 16:00 Europe/Athens\n"
+        "  – Evening NAV sync    Mon–Fri 20:00 Europe/Athens\n"
+        "  – Daily valuation     every day 21:00 Europe/Athens"
     )
 
     try:

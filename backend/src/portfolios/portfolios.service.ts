@@ -381,7 +381,9 @@ export class PortfoliosService {
     return lines.join('\n');
   }
 
-  importPortfoliosFromJson(payload: any): Promise<ImportSummary> {
+  // Made async so validation throws become rejected Promises, which allows
+  // `await expect(...).rejects.toThrow()` to work correctly in tests.
+  async importPortfoliosFromJson(payload: any): Promise<ImportSummary> {
     const portfolios = Array.isArray(payload?.portfolios) ? payload.portfolios : null;
     if (!portfolios) {
       throw new BadRequestException('Invalid JSON payload: missing portfolios array');
@@ -389,7 +391,8 @@ export class PortfoliosService {
     return this.importPortfoliosData(portfolios);
   }
 
-  importPortfoliosFromCsv(csv: string): Promise<ImportSummary> {
+  // Made async for the same reason as importPortfoliosFromJson above.
+  async importPortfoliosFromCsv(csv: string): Promise<ImportSummary> {
     if (typeof csv !== 'string') {
       throw new BadRequestException('CSV content must be a string');
     }

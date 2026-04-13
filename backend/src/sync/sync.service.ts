@@ -109,8 +109,13 @@ export class SyncService {
       }
 
       // 3. Fetch from Yahoo Finance.
-      // Guard against invalid future-only windows (fromDate > toDate), which Yahoo rejects with HTTP 400.
+      // Use effectiveToDate for both the guard check AND the actual fetch call.
+      // Previously opts.toDate (undefined in normal syncs) was passed to
+      // fetchHistory, causing Yahoo's period2 to be a mid-day timestamp that
+      // excluded today's candle until after midnight UTC.
       const effectiveToDate = opts.toDate ?? new Date().toISOString().slice(0, 10);
+
+      // Guard against invalid future-only windows (fromDate > toDate), which Yahoo rejects with HTTP 400.
       if (fromDate && fromDate > effectiveToDate) {
         this.logger.log(
           `No sync needed for ${instrument.isin}: latest NAV already up to date (${fromDate} > ${effectiveToDate})`,
@@ -122,7 +127,8 @@ export class SyncService {
         });
       }
 
-      const points = await this.yahoo.fetchHistory(ticker, fromDate, opts.toDate);
+      // Pass effectiveToDate (not opts.toDate) so today's candle is always included.
+      const points = await this.yahoo.fetchHistory(ticker, fromDate, effectiveToDate);
       job.recordsFetched = points.length;
 
       if (!points.length) {
