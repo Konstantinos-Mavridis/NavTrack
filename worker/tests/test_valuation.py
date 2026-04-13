@@ -6,7 +6,6 @@ import types
 import sys
 import importlib
 from decimal import Decimal
-import pytest
 
 
 # ---------------------------------------------------------------------------
