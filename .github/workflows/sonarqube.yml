@@ -107,7 +107,7 @@ jobs:
         run: npm run test:cov -- --coverageReporters=lcov || true
 
       - name: SonarQube Scan – backend
-        uses: SonarSource/sonarqube-scan-action@v5
+        uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL || 'https://sonarcloud.io' }}
@@ -161,7 +161,7 @@ jobs:
         run: npm run test -- --coverage --reporter=lcov || true
 
       - name: SonarQube Scan – frontend
-        uses: SonarSource/sonarqube-scan-action@v5
+        uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL || 'https://sonarcloud.io' }}
@@ -213,7 +213,7 @@ jobs:
           pytest --cov=. --cov-report=xml:coverage.xml || true
 
       - name: SonarQube Scan – worker
-        uses: SonarSource/sonarqube-scan-action@v5
+        uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL || 'https://sonarcloud.io' }}
