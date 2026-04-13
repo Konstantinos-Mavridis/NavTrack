@@ -1,48 +1,9 @@
-# ─────────────────────────────────────────────────────────────────────────────
-# NavTrack – SonarQube Analysis
-#
-# Runs SonarQube/SonarCloud static analysis across the three source trees:
-#   backend/   (NestJS / TypeScript)
-#   frontend/  (React / TypeScript / Vite)
-#   worker/    (Python 3.14 / APScheduler)
-#
-# Prerequisites – set these in the repository's Secrets & Variables → Actions:
-#   SONAR_TOKEN   A SonarCloud user token (Project Analysis Token or Global
-#                 Analysis Token). Generate at:
-#                 https://sonarcloud.io/account/security
-#
-# Optional (SonarCloud auto-detects these from the project key if left unset,
-# but setting them explicitly is safer in a monorepo):
-#   SONAR_HOST_URL   Defaults to https://sonarcloud.io. Override only if you
-#                    are running a self-hosted SonarQube instance.
-#
-# sonar-project.properties is NOT required — all configuration is passed
-# inline via -D flags so the repo stays clean.
-#
-# NOTE ON npm install vs npm ci
-# ─────────────────────────────────────────────────────────────────────────────
-# Both backend/package.json and frontend/package.json declare an `overrides`
-# block that forces a newer version of `glob` than the version currently
-# recorded in their respective package-lock.json files.  `npm ci` treats this
-# as a fatal mismatch and exits with EUSAGE.
-#
-# We therefore use `npm install --prefer-offline` here, which honours the
-# overrides and regenerates the lock file in the runner's working directory
-# without touching the committed file.  The cache is keyed on
-# package.json (not package-lock.json) so a stale lock file never poisons
-# the cache.
-#
-# Long-term fix: run `npm install` locally in each of backend/ and frontend/,
-# commit the updated package-lock.json files, then switch back to `npm ci`.
-# ─────────────────────────────────────────────────────────────────────────────
-
 name: SonarQube Analysis
 
 on:
   push:
     branches: [main]
     paths:
-      # Re-run only when source code or this workflow actually changes
       - 'backend/**'
       - 'frontend/**'
       - 'worker/**'
@@ -57,35 +18,64 @@ on:
   schedule:
     # Full weekly scan every Monday 09:00 UTC (after CodeQL at 08:00)
     - cron: '0 9 * * 1'
-  workflow_dispatch:  # allow manual trigger from the Actions tab
+  workflow_dispatch:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
+# ── 0. Detect which service trees changed ─────────────────────────────────────
 jobs:
+  changes:
+    name: Detect changed services
+    runs-on: ubuntu-latest
+    # Always run so downstream jobs have their outputs available
+    outputs:
+      backend:  ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      worker:   ${{ steps.filter.outputs.worker }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Detect changed paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+            frontend:
+              - 'frontend/**'
+            worker:
+              - 'worker/**'
+
   # ── 1. Backend (NestJS / TypeScript) ────────────────────────────────────────
   sonar-backend:
     name: Sonar – backend
     runs-on: ubuntu-latest
+    needs: changes
+    # Run when backend changed, OR on a scheduled/manual trigger (full scan)
+    if: |
+      needs.changes.outputs.backend == 'true' ||
+      github.event_name == 'schedule'         ||
+      github.event_name == 'workflow_dispatch'
 
     defaults:
       run:
         working-directory: backend
 
     steps:
-      - name: Checkout (full history for blame & new-code detection)
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: '22'
 
-      # Cache keyed on package.json because the committed package-lock.json
-      # is currently out of sync with the `overrides` block — see NOTE above.
       - name: Cache npm dependencies
         uses: actions/cache@v4
         with:
@@ -94,15 +84,8 @@ jobs:
           restore-keys: sonar-backend-node-
 
       - name: Install dependencies
-        # `npm install` resolves the `overrides` block in package.json and
-        # writes a fresh lock into the runner's working directory.
-        # Switch back to `npm ci --prefer-offline` once the committed
-        # package-lock.json is regenerated locally and pushed.
         run: npm install --prefer-offline
 
-      # Run tests and produce a lcov coverage report for Sonar to import.
-      # The || true prevents a zero-exit from blocking the Sonar step when
-      # tests don't exist yet — remove once a real test suite is in place.
       - name: Run tests with coverage
         run: npm run test:cov -- --coverageReporters=lcov || true
 
@@ -128,24 +111,26 @@ jobs:
   sonar-frontend:
     name: Sonar – frontend
     runs-on: ubuntu-latest
+    needs: changes
+    if: |
+      needs.changes.outputs.frontend == 'true' ||
+      github.event_name == 'schedule'          ||
+      github.event_name == 'workflow_dispatch'
 
     defaults:
       run:
         working-directory: frontend
 
     steps:
-      - name: Checkout (full history)
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: '22'
 
-      # Same cache strategy as backend — keyed on package.json
       - name: Cache npm dependencies
         uses: actions/cache@v4
         with:
@@ -156,7 +141,6 @@ jobs:
       - name: Install dependencies
         run: npm install --prefer-offline
 
-      # Vite / Vitest coverage report — same guard as backend
       - name: Run tests with coverage
         run: npm run test -- --coverage --reporter=lcov || true
 
@@ -182,20 +166,23 @@ jobs:
   sonar-worker:
     name: Sonar – worker
     runs-on: ubuntu-latest
+    needs: changes
+    if: |
+      needs.changes.outputs.worker == 'true' ||
+      github.event_name == 'schedule'        ||
+      github.event_name == 'workflow_dispatch'
 
     defaults:
       run:
         working-directory: worker
 
     steps:
-      - name: Checkout (full history)
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.14'
           cache: 'pip'
@@ -204,9 +191,6 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      # Produce a coverage.xml report for Sonar to import.
-      # pytest is not a hard dependency yet — the || true guard prevents
-      # blocking. Remove the guard once tests are added.
       - name: Run tests with coverage
         run: |
           pip install pytest pytest-cov || true
