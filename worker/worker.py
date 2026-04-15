@@ -30,6 +30,12 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
+# yfinance emits its own ERROR-level "possibly delisted" messages via the
+# logging system when a ticker returns no history.  We handle that case
+# ourselves with a clearer WARNING, so silence the yfinance logger to avoid
+# duplicate, misleading noise in the output.
+logging.getLogger("yfinance").setLevel(logging.CRITICAL)
+
 SYNC_ON_STARTUP = os.getenv("SYNC_ON_STARTUP", "false").lower() == "true"
 
 
@@ -310,7 +316,11 @@ def _fetch_and_upsert(ticker: str, instrument_id: str, from_date: str, conn) -> 
     hist = ticker_obj.history(start=from_date, end=end_date, interval="1d", auto_adjust=False)
 
     if hist.empty:
-        log.warning("  No data returned from Yahoo Finance for %s", ticker)
+        log.warning(
+            "  No data returned from Yahoo Finance for %s (1d %s → %s);"
+            " NAV may not be published yet for this period",
+            ticker, from_date, today_str,
+        )
         return 0, 0
 
     # Access the Close column directly — safe against the 1.2.0 consolidated
