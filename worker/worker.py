@@ -8,6 +8,7 @@ Environment variables
 """
 
 import logging
+import math
 import os
 import time
 import uuid
@@ -320,7 +321,7 @@ def _fetch_and_upsert(ticker: str, instrument_id: str, from_date: str, conn) -> 
 
     points = []
     for ts, close in hist["Close"].items():
-        if close is None or (hasattr(close, '__float__') and close != close) or close <= 0:
+        if close is None or (hasattr(close, '__float__') and math.isnan(float(close))) or close <= 0:
             continue
         points.append({"date": ts.strftime("%Y-%m-%d"), "nav": round(float(close), 6)})
 
