@@ -234,13 +234,13 @@ export class TemplatesService {
    *
    * Priority:
    *   1. If from + to are provided (YYYY-MM-DD): use that explicit window.
-   *   2. If days > 0: fixed rolling window ending at the latest available NAV date.
-   *   3. If days <= 0: ALL — window starts from the first date every fund has data,
-   *      ending at the latest available NAV date.
+   *   2. If days > 0: fixed rolling window anchored to the latest NAV date.
+   *   3. If days <= 0: ALL — window starts from the first date every fund has data.
    *
-   * The end date is always derived from the data itself (MIN of each fund's
-   * MAX nav date), never from new Date() / "today".  This prevents the chart
-   * domain from extending beyond real data when NAV feeds are a few days behind.
+   * The right-hand boundary is always derived from the data itself
+   * (MIN of each fund's MAX nav_prices date) — never from today's calendar
+   * date. This prevents a flat phantom tail at the right edge of the chart
+   * when NAV data is a few days behind.
    */
   async navSeries(
     id: string,
@@ -253,9 +253,31 @@ export class TemplatesService {
 
     const instrumentIds = template.items.map((i) => i.instrumentId);
 
-    // Fetch full NAV history for all instruments.
-    // We no longer use `today` as an upper bound — the DB already contains
-    // only real data; capping at today was the source of stale tail days.
+    // Derive the true data ceiling: the earliest of each fund's latest NAV
+    // date, so every fund in the template is represented on the last point.
+    // We use a raw query here so we don't need an extra round-trip after
+    // fetching the full history below.
+    const ceilingRows: Array<{ instrument_id: string; max_date: string }> =
+      await this.dataSource.query(
+        `
+        SELECT instrument_id, MAX(date)::text AS max_date
+        FROM nav_prices
+        WHERE instrument_id = ANY($1::uuid[])
+        GROUP BY instrument_id
+        `,
+        [instrumentIds],
+      );
+
+    // If any fund has no data at all, return an empty series.
+    if (ceilingRows.length < instrumentIds.length) return [];
+
+    // latestNavDate = MIN of each fund's max_date (all must have data up to this point).
+    const latestNavDate = ceilingRows.reduce(
+      (acc, r) => (r.max_date < acc ? r.max_date : acc),
+      ceilingRows[0].max_date,
+    ).slice(0, 10);
+
+    // Fetch full NAV history for all instruments up to the true ceiling.
     const navRows: Array<{ instrument_id: string; date: string; nav: string }> =
       await this.dataSource.query(
         `
@@ -264,7 +286,7 @@ export class TemplatesService {
         WHERE instrument_id = ANY($1::uuid[])
         ORDER BY instrument_id, date ASC
         `,
-        [instrumentIds],
+        [instrumentIds, latestNavDate],
       );
 
     // Build map: instrumentId → sorted { date, nav }[]
@@ -297,7 +319,7 @@ export class TemplatesService {
     let endDate: string;
 
     if (from && to && isIsoDate(from) && isIsoDate(to) && from <= to) {
-      // Explicit custom range — clamp the ceiling to the real data boundary.
+      // Explicit custom range — honour caller bounds but cap at the data ceiling.
       startDate = from;
       endDate = to > latestNavDate ? latestNavDate : to;
     } else if (days <= 0) {
@@ -314,7 +336,7 @@ export class TemplatesService {
       startDate = latestFirstDate!;
       endDate = latestNavDate;
     } else {
-      // Fixed rolling window — end at the real data boundary, not today.
+      // Fixed rolling window — anchor right edge to latest nav data, not today.
       const safeDays = Math.min(Math.max(Math.round(days), 2), 3650);
       startDate = subtractDays(latestNavDate, safeDays - 1);
       endDate = latestNavDate;
