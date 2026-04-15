@@ -60,6 +60,10 @@ export class PortfoliosService {
    * - totalValue    – derived from transaction-ledger units (historical holdings)
    * - netInvested   – cumulative net cash invested
    * - pnl / pnlPct  – value relative to invested capital
+   *
+   * The end date is anchored to the latest NAV date available in the DB for
+   * the requested portfolios — never to today — so the chart domain never
+   * extends beyond real data.
    */
   async aggregateValuationSeries(
     days?: number,
@@ -72,7 +76,42 @@ export class PortfoliosService {
     pnl: number;
     pnlPct: number;
   }>> {
-    const endDate = toDate ?? new Date().toISOString().slice(0, 10);
+    // Build an optional portfolio-filter clause.
+    const hasIdFilter = Array.isArray(ids) && ids.length > 0;
+
+    // Resolve the right-hand boundary of the chart.
+    // If the caller supplies an explicit `toDate` we honour it; otherwise we
+    // anchor to MAX(nav_prices.date) across instruments that appear in the
+    // requested portfolios.  This prevents the domain from extending beyond
+    // the last real data point when NAV data lags today by several days.
+    let endDate: string;
+    if (toDate) {
+      endDate = toDate;
+    } else {
+      const maxRows: Array<{ d: string | Date | null }> = await this.dataSource.query(
+        `
+        SELECT MAX(n.date)::date AS d
+        FROM nav_prices n
+        WHERE n.instrument_id IN (
+          SELECT DISTINCT instrument_id
+          FROM transactions
+          WHERE ($1::uuid[] IS NULL OR portfolio_id = ANY($1::uuid[]))
+        )
+        `,
+        [hasIdFilter ? ids : null],
+      );
+      const raw = maxRows[0]?.d;
+      if (raw) {
+        endDate =
+          typeof raw === 'string'
+            ? raw.slice(0, 10)
+            : (raw as Date).toISOString().slice(0, 10);
+      } else {
+        // No NAV data exists at all — fall back to today so the query still
+        // runs and returns an empty series rather than throwing.
+        endDate = new Date().toISOString().slice(0, 10);
+      }
+    }
 
     if (!/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
       throw new BadRequestException('to must be in YYYY-MM-DD format');
@@ -84,10 +123,6 @@ export class PortfoliosService {
     const useDays = days !== undefined;
     const safeDays = useDays ? Math.min(Math.max(days!, 2), 3650) : null;
 
-    // Build an optional portfolio-filter clause.
-    // We pass the IDs as a properly-parameterised array ($3) so user-supplied
-    // strings never touch the SQL text itself.
-    const hasIdFilter = Array.isArray(ids) && ids.length > 0;
     // $1 = safeDays (int | null), $2 = endDate (date), $3 = ids (uuid[] | null)
     const params: (number | string | string[] | null)[] = [safeDays, endDate, hasIdFilter ? ids : null];
 

@@ -234,8 +234,13 @@ export class TemplatesService {
    *
    * Priority:
    *   1. If from + to are provided (YYYY-MM-DD): use that explicit window.
-   *   2. If days > 0: fixed rolling window.
-   *   3. If days <= 0: ALL — window starts from the first date every fund has data.
+   *   2. If days > 0: fixed rolling window ending at the latest available NAV date.
+   *   3. If days <= 0: ALL — window starts from the first date every fund has data,
+   *      ending at the latest available NAV date.
+   *
+   * The end date is always derived from the data itself (MIN of each fund's
+   * MAX nav date), never from new Date() / "today".  This prevents the chart
+   * domain from extending beyond real data when NAV feeds are a few days behind.
    */
   async navSeries(
     id: string,
@@ -246,20 +251,20 @@ export class TemplatesService {
     const template = await this.findOne(id);
     if (!template.items.length) return [];
 
-    const today = new Date().toISOString().slice(0, 10);
     const instrumentIds = template.items.map((i) => i.instrumentId);
 
     // Fetch full NAV history for all instruments.
+    // We no longer use `today` as an upper bound — the DB already contains
+    // only real data; capping at today was the source of stale tail days.
     const navRows: Array<{ instrument_id: string; date: string; nav: string }> =
       await this.dataSource.query(
         `
         SELECT instrument_id, date::text AS date, nav::text AS nav
         FROM nav_prices
         WHERE instrument_id = ANY($1::uuid[])
-          AND date <= $2::date
         ORDER BY instrument_id, date ASC
         `,
-        [instrumentIds, today],
+        [instrumentIds],
       );
 
     // Build map: instrumentId → sorted { date, nav }[]
@@ -274,14 +279,27 @@ export class TemplatesService {
       });
     }
 
+    // Derive the true latest NAV date: MIN across each fund's own MAX date.
+    // This is the last day where ALL funds simultaneously have data.
+    let latestNavDate: string | null = null;
+    for (const instrumentId of instrumentIds) {
+      const history = navByInstrument.get(instrumentId);
+      if (!history?.length) return []; // a fund has no data at all
+      const fundMax = history[history.length - 1].date;
+      if (latestNavDate === null || fundMax < latestNavDate) {
+        latestNavDate = fundMax;
+      }
+    }
+    if (!latestNavDate) return [];
+
     // Determine [startDate, endDate] window.
     let startDate: string;
     let endDate: string;
 
     if (from && to && isIsoDate(from) && isIsoDate(to) && from <= to) {
-      // Explicit custom range.
+      // Explicit custom range — clamp the ceiling to the real data boundary.
       startDate = from;
-      endDate = to > today ? today : to;
+      endDate = to > latestNavDate ? latestNavDate : to;
     } else if (days <= 0) {
       // ALL: start from the first date ALL funds have data (MAX of each fund's earliest date).
       let latestFirstDate: string | null = null;
@@ -294,12 +312,12 @@ export class TemplatesService {
         }
       }
       startDate = latestFirstDate!;
-      endDate = today;
+      endDate = latestNavDate;
     } else {
-      // Fixed rolling window.
+      // Fixed rolling window — end at the real data boundary, not today.
       const safeDays = Math.min(Math.max(Math.round(days), 2), 3650);
-      startDate = subtractDays(today, safeDays - 1);
-      endDate = today;
+      startDate = subtractDays(latestNavDate, safeDays - 1);
+      endDate = latestNavDate;
     }
 
     // Build weight map (percentage → fraction)
