@@ -301,19 +301,6 @@ export class TemplatesService {
       });
     }
 
-    // Determine [startDate, endDate] window.
-    let startDate: string;
-    let endDate: string;
-
-    if (from && to && isIsoDate(from) && isIsoDate(to) && from <= to) {
-      // Explicit custom range — honour caller bounds but cap at the data ceiling.
-      startDate = from;
-      endDate = to > latestNavDate ? latestNavDate : to;
-    } else if (days <= 0) {
-      // ALL: start from the first date ALL funds have data (MAX of each fund's earliest date).
-      let latestFirstDate: string | null = null;
-      for (const instrumentId of instrumentIds) {
-        const history = navByInstrument.get(instrumentId);
         if (!history?.length) return [];
         const firstDate = history[0].date;
         if (latestFirstDate === null || firstDate > latestFirstDate) {
