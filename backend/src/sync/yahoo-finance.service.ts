@@ -103,6 +103,10 @@ export class YahooFinanceService {
    * which causes Yahoo Finance to return the full history since the fund's
    * inception — no artificial cap is applied.
    *
+   * The toDate string (YYYY-MM-DD) is converted to end-of-day UTC
+   * (T23:59:59Z) so that today's daily candle is always within the
+   * requested window, regardless of what time of day the sync runs.
+   *
    * @param symbol    e.g. "0P00012345.L"
    * @param fromDate  YYYY-MM-DD — when absent, fetches from inception
    * @param toDate    YYYY-MM-DD — defaults to today
@@ -117,7 +121,12 @@ export class YahooFinanceService {
     // period1 = 0 (Unix epoch) tells Yahoo to start from the very first
     // available data point for this ticker (fund inception).
     const from = fromDate ? new Date(fromDate) : new Date(0);
-    const to   = toDate   ? new Date(toDate)   : now;
+
+    // Use end-of-day UTC for the upper bound so that today's daily candle
+    // is always included in Yahoo's response, no matter when during the day
+    // the sync runs. new Date('YYYY-MM-DD') resolves to midnight UTC
+    // (start of day), which excludes the candle until the next day.
+    const to = toDate ? new Date(`${toDate}T23:59:59Z`) : now;
 
     if (from.getTime() > to.getTime()) {
       this.logger.warn(
