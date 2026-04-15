@@ -224,12 +224,9 @@ def _resolve_ticker_with_retry(isin: str) -> str | None:
             msg = str(exc)
             if "Too Many Requests" in msg or "Rate limit" in msg or "429" in msg:
                 last_exc = exc
-                # Continue to next retry iteration
                 continue
-            # Non-rate-limit error — fail immediately
             raise
 
-    # All retries exhausted
     log.error("  All retries exhausted for ISIN %s: %s", isin, last_exc)
     raise last_exc
 
@@ -261,7 +258,6 @@ def _resolve_ticker(isin: str, instrument_id: str, conn) -> str | None:
 
     log.info("  Resolved %s → %s", isin, ticker)
 
-    # Persist so we skip resolution next time
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -306,16 +302,26 @@ def _fetch_and_upsert(ticker: str, instrument_id: str, from_date: str, conn) -> 
     end_date = (date.today() + timedelta(days=1)).isoformat()
 
     ticker_obj = yf.Ticker(ticker)
+    # auto_adjust=False: return raw unadjusted close prices.
+    # We store the official published NAV, not split/dividend-adjusted prices.
+    # In yfinance 1.2.0 the returned DataFrame is consolidated (read-only
+    # copy); we access columns directly by name rather than via .get() on
+    # row objects to avoid any read-only or KeyError issues.
     hist = ticker_obj.history(start=from_date, end=end_date, interval="1d", auto_adjust=False)
 
     if hist.empty:
         log.warning("  No data returned from Yahoo Finance for %s", ticker)
         return 0, 0
 
+    # Access the Close column directly — safe against the 1.2.0 consolidated
+    # DataFrame read-only behaviour that could cause issues with row-level .get()
+    if "Close" not in hist.columns:
+        log.warning("  'Close' column missing in response for %s", ticker)
+        return 0, 0
+
     points = []
-    for ts, row_data in hist.iterrows():
-        close = row_data.get("Close") or row_data.get("close")
-        if close is None or math.isnan(close) or close <= 0:
+    for ts, close in hist["Close"].items():
+        if close is None or (hasattr(close, '__float__') and math.isnan(float(close))) or close <= 0:
             continue
         points.append({"date": ts.strftime("%Y-%m-%d"), "nav": round(float(close), 6)})
 
@@ -405,11 +411,8 @@ def run_nav_sync(triggered_by: str = "SCHEDULER", from_date: str | None = None) 
                 fetched, upserted, error_msg, triggered_by,
             )
 
-            # Polite inter-instrument delay.
-            # Longer when we had to resolve the ticker (more API calls).
-            # This is the key mitigation against rate limiting for sequential syncs.
             if idx < len(instruments) - 1:
-                time.sleep(3.0)   # 3 s between instruments during scheduled/startup sync
+                time.sleep(3.0)
 
     log.info(
         "=== NAV sync complete  fetched=%d  upserted=%d  errors=%d ===",
@@ -425,13 +428,8 @@ def main() -> None:
     wait_for_db()
     check_seed()
 
-    # Always run valuation on startup (cheap — pure DB)
     run_valuation()
 
-    # Startup NAV sync is opt-in.
-    # Firing 11 sequential Yahoo searches immediately on boot is the exact
-    # pattern that triggers rate limiting.  Use SYNC_ON_STARTUP=true only
-    # if you know the DB is cold and you're willing to wait.
     if SYNC_ON_STARTUP:
         log.info("SYNC_ON_STARTUP=true – running incremental NAV sync …")
         log.info("(This may take several minutes due to Yahoo Finance rate limits.)")
@@ -443,7 +441,6 @@ def main() -> None:
             "  or set SYNC_ON_STARTUP=true to sync automatically on boot."
         )
 
-    # Scheduled jobs
     scheduler = BlockingScheduler(timezone="Europe/Athens")
 
     # First NAV sync: 16:00 Athens (Mon–Fri).
@@ -464,7 +461,7 @@ def main() -> None:
     # that typically completes around end-of-day UTC (22:00–00:00 Athens).
     # The 16:00 sync often runs before Yahoo has today's candle available.
     # This evening run acts as a safety net, ensuring today's prices are in
-    # the DB well before midnight, without waiting until the next morning.
+    # the DB well before midnight.
     scheduler.add_job(
         lambda: run_nav_sync(triggered_by="SCHEDULER_EVENING"),
         trigger="cron",
@@ -476,8 +473,7 @@ def main() -> None:
     )
 
     # Daily valuation: 21:00 Athens (every day).
-    # Runs after both NAV syncs have had a chance to complete, so the
-    # valuation always reflects today's latest available prices.
+    # Runs after both NAV syncs have had a chance to complete.
     scheduler.add_job(
         run_valuation,
         trigger="cron",
