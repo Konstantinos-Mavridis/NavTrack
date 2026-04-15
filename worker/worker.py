@@ -446,35 +446,52 @@ def main() -> None:
     # Scheduled jobs
     scheduler = BlockingScheduler(timezone="Europe/Athens")
 
+    # First NAV sync: 16:00 Athens (Mon–Fri).
+    # Greek mutual fund NAVs are typically published by fund administrators
+    # around 13:00–15:00 Athens. This run catches funds that publish early.
     scheduler.add_job(
-        run_valuation,
+        lambda: run_nav_sync(triggered_by="SCHEDULER_AFTERNOON"),
         trigger="cron",
-        hour=18, minute=30,
-        id="daily_valuation",
+        day_of_week="mon-fri",
+        hour=16, minute=0,
+        id="afternoon_nav_sync",
         max_instances=1,
         coalesce=True,
     )
 
-    # NAV sync runs Mon–Fri at 16:00 Athens (14:00 UTC).
-    # This is after Greek mutual funds typically publish their daily NAV
-    # (~13:00–15:00 Athens) and well before the daily valuation at 18:30,
-    # so the valuation job always has fresh prices to work with.
-    # Previously this ran only on Monday 07:00, meaning Tue–Sun valuations
-    # were computed from week-old data.
+    # Second NAV sync: 20:00 Athens (Mon–Fri).
+    # Yahoo Finance ingests Greek mutual fund NAVs via a delayed batch process
+    # that typically completes around end-of-day UTC (22:00–00:00 Athens).
+    # The 16:00 sync often runs before Yahoo has today's candle available.
+    # This evening run acts as a safety net, ensuring today's prices are in
+    # the DB well before midnight, without waiting until the next morning.
     scheduler.add_job(
-        lambda: run_nav_sync(triggered_by="SCHEDULER"),
+        lambda: run_nav_sync(triggered_by="SCHEDULER_EVENING"),
         trigger="cron",
         day_of_week="mon-fri",
-        hour=16, minute=0,
-        id="daily_nav_sync",
+        hour=20, minute=0,
+        id="evening_nav_sync",
+        max_instances=1,
+        coalesce=True,
+    )
+
+    # Daily valuation: 21:00 Athens (every day).
+    # Runs after both NAV syncs have had a chance to complete, so the
+    # valuation always reflects today's latest available prices.
+    scheduler.add_job(
+        run_valuation,
+        trigger="cron",
+        hour=21, minute=0,
+        id="daily_valuation",
         max_instances=1,
         coalesce=True,
     )
 
     log.info(
         "Scheduler running:\n"
-        "  – Daily NAV sync    Mon–Fri 16:00 Europe/Athens\n"
-        "  – Daily valuation   every day 18:30 Europe/Athens"
+        "  – Afternoon NAV sync  Mon–Fri 16:00 Europe/Athens\n"
+        "  – Evening NAV sync    Mon–Fri 20:00 Europe/Athens\n"
+        "  – Daily valuation     every day 21:00 Europe/Athens"
     )
 
     try:
