@@ -70,8 +70,6 @@ worker = importlib.import_module("worker")
 
 # ---------------------------------------------------------------------------
 # Fake cursor — must be a real class so `with conn.cursor() as cur:` works.
-# types.SimpleNamespace cannot be used as a context manager because Python
-# resolves __enter__/__exit__ on the *type*, not the instance.
 # ---------------------------------------------------------------------------
 
 class FakeCursor:
@@ -108,31 +106,47 @@ class FakeConn:
 
 
 # ---------------------------------------------------------------------------
-# Helper to build a fake pandas-like history object
+# Fake pandas-like history DataFrame
+#
+# worker.py (yfinance >= 1.2.x) accesses price data via:
+#
+#   if "Close" not in hist.columns: ...
+#   for ts, close in hist["Close"].items(): ...
+#
+# FakeHistory therefore needs:
+#   .empty      — bool
+#   .columns    — list[str]  (so `"Close" in hist.columns` works)
+#   .__getitem__("Close") — returns a FakeSeries with .items()
 # ---------------------------------------------------------------------------
 
-class FakeRow:
-    def __init__(self, close: float):
-        self._close = close
+class FakeSeries:
+    """Minimal Series stub supporting .items() iteration."""
 
-    def get(self, key, default=None):
-        if key in ("Close", "close"):
-            return self._close
-        return default
+    def __init__(self, rows: list[tuple[str, float]]):
+        self._rows = rows
+
+    def items(self):
+        for date_str, close in self._rows:
+            ts = type("TS", (), {"strftime": lambda self, fmt, d=date_str: d})()
+            yield ts, close
 
 
 class FakeHistory:
+    """Minimal DataFrame stub compatible with the yfinance 1.2.x column-access pattern."""
+
     def __init__(self, rows: list[tuple[str, float]]):
         self._rows = rows
+        # Expose .columns so `"Close" in hist.columns` works
+        self.columns = ["Close"] if rows else []
 
     @property
     def empty(self) -> bool:
         return len(self._rows) == 0
 
-    def iterrows(self):
-        for date_str, close in self._rows:
-            ts = type("TS", (), {"strftime": lambda self, fmt, d=date_str: d})()
-            yield ts, FakeRow(close)
+    def __getitem__(self, key: str) -> FakeSeries:
+        if key == "Close":
+            return FakeSeries(self._rows)
+        raise KeyError(key)
 
 
 # ---------------------------------------------------------------------------
@@ -203,6 +217,26 @@ class TestFetchAndUpsert:
         future = date.today().replace(year=date.today().year + 1).isoformat()
 
         fetched, upserted = worker._fetch_and_upsert("T", "id", future, FakeConn())
+        assert fetched == 0
+        assert upserted == 0
+
+    def test_missing_close_column_returns_zeros(self, monkeypatch):
+        """If yfinance returns a DataFrame without a Close column, return early gracefully."""
+        monkeypatch.setattr(extras_stub, "execute_values", lambda *a, **kw: None)
+
+        class NoCloseTicker:
+            def history(self, **kw):
+                hist = FakeHistory([("2024-01-01", 100.0)])
+                hist.columns = []  # simulate missing Close column
+                return hist
+
+        monkeypatch.setattr(worker, "yf", types.SimpleNamespace(
+            Ticker=lambda ticker: NoCloseTicker(),
+        ))
+
+        fetched, upserted = worker._fetch_and_upsert(
+            "TICKER.L", "inst-uuid", "2024-01-01", FakeConn()
+        )
         assert fetched == 0
         assert upserted == 0
 
