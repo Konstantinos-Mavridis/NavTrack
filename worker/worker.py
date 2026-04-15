@@ -299,8 +299,14 @@ def _fetch_and_upsert(ticker: str, instrument_id: str, from_date: str, conn) -> 
         log.info("  Already up-to-date")
         return 0, 0
 
+    # yfinance .history(end=X) is EXCLUSIVE — the candle for date X is NOT
+    # included. Passing end=today would mean today's NAV is never fetched.
+    # We use tomorrow's date as the exclusive upper bound so today's candle
+    # always falls within the requested window.
+    end_date = (date.today() + timedelta(days=1)).isoformat()
+
     ticker_obj = yf.Ticker(ticker)
-    hist = ticker_obj.history(start=from_date, end=today_str, interval="1d", auto_adjust=False)
+    hist = ticker_obj.history(start=from_date, end=end_date, interval="1d", auto_adjust=False)
 
     if hist.empty:
         log.warning("  No data returned from Yahoo Finance for %s", ticker)
@@ -449,20 +455,26 @@ def main() -> None:
         coalesce=True,
     )
 
+    # NAV sync runs Mon–Fri at 16:00 Athens (14:00 UTC).
+    # This is after Greek mutual funds typically publish their daily NAV
+    # (~13:00–15:00 Athens) and well before the daily valuation at 18:30,
+    # so the valuation job always has fresh prices to work with.
+    # Previously this ran only on Monday 07:00, meaning Tue–Sun valuations
+    # were computed from week-old data.
     scheduler.add_job(
         lambda: run_nav_sync(triggered_by="SCHEDULER"),
         trigger="cron",
-        day_of_week="mon",
-        hour=7, minute=0,
-        id="weekly_nav_sync",
+        day_of_week="mon-fri",
+        hour=16, minute=0,
+        id="daily_nav_sync",
         max_instances=1,
         coalesce=True,
     )
 
     log.info(
         "Scheduler running:\n"
-        "  – Daily valuation  18:30 Europe/Athens\n"
-        "  – Weekly NAV sync  Monday 07:00 Europe/Athens"
+        "  – Daily NAV sync    Mon–Fri 16:00 Europe/Athens\n"
+        "  – Daily valuation   every day 18:30 Europe/Athens"
     )
 
     try:
