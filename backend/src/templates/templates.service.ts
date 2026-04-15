@@ -286,7 +286,7 @@ export class TemplatesService {
         WHERE instrument_id = ANY($1::uuid[])
         ORDER BY instrument_id, date ASC
         `,
-        [instrumentIds, latestNavDate],
+        [instrumentIds],
       );
 
     // Build map: instrumentId → sorted { date, nav }[]
@@ -300,19 +300,6 @@ export class TemplatesService {
         nav: Number(row.nav),
       });
     }
-
-    // Derive the true latest NAV date: MIN across each fund's own MAX date.
-    // This is the last day where ALL funds simultaneously have data.
-    let latestNavDate: string | null = null;
-    for (const instrumentId of instrumentIds) {
-      const history = navByInstrument.get(instrumentId);
-      if (!history?.length) return []; // a fund has no data at all
-      const fundMax = history[history.length - 1].date;
-      if (latestNavDate === null || fundMax < latestNavDate) {
-        latestNavDate = fundMax;
-      }
-    }
-    if (!latestNavDate) return [];
 
     // Determine [startDate, endDate] window.
     let startDate: string;
