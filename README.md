@@ -160,7 +160,9 @@ The worker connects directly to PostgreSQL (not through the backend API) for its
 
 | Job | Schedule | What it does |
 |---|---|---|
-| Daily valuation | Every day at **18:30 Europe/Athens** | Computes and logs P&L for all portfolios |
+| Afternoon NAV sync | Mon–Fri at **16:00 Europe/Athens** | Early incremental Yahoo Finance sync for funds that publish NAVs by mid-afternoon |
+| Evening NAV sync | Mon–Fri at **22:00 Europe/Athens** | Late safety-net sync; catches funds whose Yahoo candle isn't available until end-of-day UTC |
+| Daily valuation | Every day at **23:00 Europe/Athens** | Computes and logs P&L for all portfolios (runs after both NAV syncs) |
 | Weekly NAV sync | Every **Monday at 07:00 Europe/Athens** | Incremental Yahoo Finance sync for all instruments |
 
 ---
@@ -178,7 +180,7 @@ Copy `.env.example` → `.env` and adjust as needed.
 | `POSTGRES_PASSWORD` | `navtrack_pass` | Database password — **change before any deployment** |
 | `BACKEND_PORT` | `8080` | Backend listen port inside the Docker network (`backend:8080`) |
 | `FRONTEND_PORT` | `3000` | Host port for the nginx frontend |
-| `SYNC_ON_STARTUP` | `false` | Set to `true` to trigger a full incremental NAV sync when the worker container starts. Leave `false` in normal use — the weekly scheduler and UI buttons handle syncing. |
+| `SYNC_ON_STARTUP` | `true` | Set to `false` to skip the incremental NAV sync on worker container start. The default `true` keeps the DB up-to-date immediately after a restart; set to `false` if you want to avoid hitting Yahoo Finance rate limits on every boot. |
 
 > `VITE_API_BASE_URL` is a Docker build-time argument baked into the frontend image at build time, not a runtime env var. The default `/api` works correctly with the nginx proxy and should only be changed if you are deploying the frontend to a path where the backend is on a different host or sub-path.
 
@@ -203,506 +205,288 @@ Copy `.env.example` → `.env` and adjust as needed.
 ### Instrument List (`/instruments`)
 - Searchable table by name, ISIN, or asset class.
 - Risk level badges (1–7) and coloured asset-class chips.
-- **Import / Export** button at the bottom of the Instruments table for bulk JSON or CSV import/export.
-- **Allocation Templates** section below the instruments table — see [Allocation Templates](#allocation-templates).
-- **Sync buttons** in the page header — see [NAV Sync](#nav-sync).
+- Buttons to add instruments manually, import in bulk, or force-refresh all NAVs.
 
 ### Instrument Detail (`/instruments/:id`)
-- Info cards: currency, asset class, risk level, latest NAV.
-- 30-day NAV line chart.
-- Form to add a new NAV data point manually.
-- Table of recent NAV prices with day-over-day change %.
-- Links to external data sources (Financial Times, Eurobank AM).
+- Editable instrument form (name, ISIN, asset class, ticker, risk level).
+- **NAV History** section showing a full dated table of prices.
+- Add a NAV manually or bulk import JSON/CSV.
+- "Force Refresh NAV" button triggers Yahoo sync for that single instrument.
+
+### Templates (`/templates`)
+- Create reusable allocation templates (e.g. "Balanced 60/40").
+- Each template stores target % weights across selected instruments.
+- Apply from a portfolio to generate many BUY transactions in one click.
+- Export / import templates as JSON or CSV.
+
+### Sync Jobs (`/sync-jobs`)
+- Audit log of every NAV sync run (manual, worker schedule, or startup sync).
+- Row-level status: queued / success / error.
+- Stores trigger source, instrument, counts, and error text if applicable.
 
 ---
 
 ## NAV Sync
 
-The **Instruments** page header contains two sync buttons:
+The app stores one `yahoo_ticker` per instrument and syncs via [`yfinance`](https://pypi.org/project/yfinance/).
 
-| Button | What it does |
+### Trigger Sources
+
+| Trigger | Source |
 |---|---|
-| **Force Refresh NAV** | Re-fetches the **full NAV history** from Yahoo Finance for every instrument, overwriting existing prices. Use when data is stale or incorrect. Triggers a confirmation prompt before running. |
-| **Sync All NAV** | Incremental sync — fetches only new NAV data since the last recorded date per instrument. Safe to run any time. |
+| `MANUAL_SINGLE` | UI button on Instrument Detail |
+| `MANUAL_ALL` | UI button on Instruments page |
+| `WORKER_STARTUP` | Worker container boot when `SYNC_ON_STARTUP=true` |
+| `SCHEDULER_AFTERNOON` | Worker weekday 16:00 run |
+| `SCHEDULER_EVENING` | Worker weekday 22:00 run |
+| `SCHEDULER_WEEKLY` | Worker Monday 07:00 run |
 
-Both buttons open a live results modal showing per-instrument status (`SUCCESS` / `FAILED`), the Yahoo Finance ticker resolved, and how many price records were upserted.
+### Sync Algorithm (per instrument)
 
-The sync is powered by `POST /api/sync/all` (incremental) and `POST /api/sync/all?refresh=true&overwrite=true` (force).
+1. Resolve `yahoo_ticker` if not already cached.
+2. Query the DB for `MAX(nav_prices.date)` for that instrument.
+3. Set `from_date = max_date + 1 day` (or 30-day bootstrap if empty).
+4. Call Yahoo Finance for history since `from_date`.
+5. Upsert each daily close into `nav_prices`.
+6. Insert one row into `sync_jobs` capturing status / counts / errors.
+7. Sleep ~3 seconds before the next instrument to reduce the chance of 429 rate-limit errors.
 
-### Yahoo Finance Ticker Caching
+The sync is **idempotent** — rerunning it does not create duplicate NAV rows because the DB enforces `UNIQUE (instrument_id, date)` and the backend / worker both use upsert semantics.
 
-The first time an instrument is synced, the worker (or backend) resolves its Yahoo Finance ticker from the ISIN via `yf.Search`. The resolved ticker is **cached** in the `instruments.external_ids` JSONB column under the key `yahoo_ticker`. Subsequent syncs skip the resolution step entirely, making them faster and avoiding unnecessary API calls.
+### Why multiple schedules?
 
-### Rate-Limit Handling
-
-Yahoo Finance applies rate limits to unauthenticated requests. The sync implementation handles this with an automatic retry and exponential backoff: if a `429 Too Many Requests` response is received, the worker waits **15 s → 30 s → 60 s** before retrying, up to 3 times. A 3-second inter-instrument delay is also applied between sequential instruments during scheduled and startup syncs.
+Greek mutual-fund NAVs often appear late and Yahoo's batch ingest can lag even further. The worker therefore runs:
+- **16:00 Mon–Fri** — catches funds published by mid-afternoon Athens time.
+- **22:00 Mon–Fri** — a late safety-net after Yahoo's end-of-day UTC batch.
+- **07:00 Monday** — a broad weekly backstop in case anything was missed.
 
 ---
 
 ## API Reference
 
-All endpoints are prefixed with `/api`.
+All backend routes are under `/api`.
 
-### Instruments
-
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/instruments` | List all instruments |
-| `GET` | `/instruments/:id` | Get one instrument |
-| `POST` | `/instruments` | Create instrument |
-| `PUT` | `/instruments/:id` | Update instrument |
-| `DELETE` | `/instruments/:id` | Delete instrument |
-| `GET` | `/instruments/:id/nav` | NAV price history (ASC) |
-| `POST` | `/instruments/:id/nav` | Bulk upsert NAV prices |
-| `GET` | `/instruments/export/json` | Export all instruments as JSON |
-| `GET` | `/instruments/export/csv` | Export all instruments as CSV |
-| `POST` | `/instruments/import/json` | Import instruments from JSON |
-| `POST` | `/instruments/import/csv` | Import instruments from CSV |
-
-**POST /instruments body:**
-```json
-{
-  "name": "Eurobank (LF) Equity – Greek Equities Fund",
-  "isin": "LU0273962166",
-  "currency": "EUR",
-  "assetClass": "GREEK_EQUITY",
-  "riskLevel": 6,
-  "dataSources": ["https://markets.ft.com/data/funds/tearsheet/summary?s=LU0273962166:EUR"]
-}
-```
-
-Valid `assetClass` values:
-`GREEK_EQUITY`, `GLOBAL_EQUITY`, `GREEK_GOV_BOND`, `GREEK_CORP_BOND`,
-`GLOBAL_BOND`, `HIGH_YIELD`, `FUND_OF_FUNDS`, `ABSOLUTE_RETURN`,
-`RESERVE_MONEY_MARKET`
-
-**POST /instruments/:id/nav body:**
-```json
-{
-  "entries": [
-    { "date": "2026-04-07", "nav": 9.1234 },
-    { "date": "2026-04-08", "nav": 9.2011 }
-  ]
-}
-```
-
-Upsert semantics: re-posting an existing `(instrument_id, date)` pair updates the NAV value rather than creating a duplicate.
-
----
-
-### NAV Sync
+### Health
 
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/sync/all` | Incremental NAV sync for all instruments |
-| `POST` | `/sync/all?refresh=true&overwrite=true` | Full-history force refresh for all instruments |
-
-Both endpoints write a row per instrument to the `sync_jobs` table on completion.
-
----
+| `GET` | `/api/health` | Liveness check |
 
 ### Portfolios
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/portfolios` | List all portfolios |
-| `GET` | `/portfolios/:id` | Get one portfolio |
-| `POST` | `/portfolios` | Create portfolio |
-| `PUT` | `/portfolios/:id` | Update portfolio |
-| `DELETE` | `/portfolios/:id` | Delete portfolio |
-| `GET` | `/portfolios/export/json` | Export all portfolios + transactions as JSON |
-| `GET` | `/portfolios/export/csv` | Export all portfolios + transactions as CSV |
-| `POST` | `/portfolios/import/json` | Import portfolios + transactions from JSON |
-| `POST` | `/portfolios/import/csv` | Import portfolios + transactions from CSV |
-
----
-
-### Positions
-
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/portfolios/:id/positions` | List positions |
-| `POST` | `/portfolios/:id/positions` | Add or update a position (upsert) |
-| `DELETE` | `/portfolios/:id/positions/:posId` | Remove a position |
-| `POST` | `/portfolios/:id/positions/recalculate` | Recalculate positions from transaction ledger |
-
-The **recalculate** endpoint replaces current positions with values derived from the full transaction ledger (summed units, weighted average cost basis). The frontend calls this automatically after every transaction mutation.
-
----
+| `GET` | `/api/portfolios` | List portfolios |
+| `POST` | `/api/portfolios` | Create portfolio |
+| `GET` | `/api/portfolios/:id` | Portfolio detail |
+| `PATCH` | `/api/portfolios/:id` | Edit portfolio |
+| `DELETE` | `/api/portfolios/:id` | Delete portfolio |
+| `GET` | `/api/portfolios/:id/valuation?date=YYYY-MM-DD` | On-demand valuation as of date |
+| `GET` | `/api/portfolios/:id/export?format=json|csv` | Export one portfolio |
+| `POST` | `/api/portfolios/import?format=json|csv` | Import one or many portfolios |
+| `POST` | `/api/portfolios/:id/recalculate` | Force ledger → positions rebuild |
 
 ### Transactions
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/portfolios/:id/transactions` | List transactions (newest first) |
-| `POST` | `/portfolios/:id/transactions` | Record a transaction |
-| `PUT` | `/portfolios/:id/transactions/:txId` | Update a transaction |
-| `DELETE` | `/portfolios/:id/transactions/:txId` | Delete a transaction |
-| `DELETE` | `/portfolios/:id/transactions` | Clear all transactions |
+| `GET` | `/api/transactions?portfolioId=:id` | List portfolio transactions |
+| `POST` | `/api/transactions` | Add transaction |
+| `PATCH` | `/api/transactions/:id` | Edit transaction |
+| `DELETE` | `/api/transactions/:id` | Delete transaction |
+| `DELETE` | `/api/transactions/by-portfolio/:portfolioId` | Clear all transactions in a portfolio |
+| `POST` | `/api/transactions/buy-template` | Generate BUY transactions from a template |
 
-**POST /portfolios/:id/transactions body:**
-```json
-{
-  "instrumentId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-  "type": "BUY",
-  "tradeDate": "2026-04-07",
-  "settlementDate": "2026-04-09",
-  "units": 100,
-  "pricePerUnit": 9.10,
-  "fees": 5.00,
-  "notes": "Monthly top-up"
-}
-```
-
-Valid `type` values: `BUY`, `SELL`, `SWITCH`, `DIVIDEND_REINVEST`
-
----
-
-### Allocation Templates
+### Instruments
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/templates` | List all templates |
-| `POST` | `/templates` | Create a template |
-| `PUT` | `/templates/:id` | Update a template |
-| `DELETE` | `/templates/:id` | Delete a template |
-| `POST` | `/templates/:id/apply` | Execute a bulk BUY from a template |
-| `GET` | `/templates/export/json` | Export all templates as JSON |
-| `GET` | `/templates/export/csv` | Export all templates as CSV |
-| `POST` | `/templates/import/json` | Import templates from JSON |
-| `POST` | `/templates/import/csv` | Import templates from CSV |
+| `GET` | `/api/instruments` | List / search instruments |
+| `POST` | `/api/instruments` | Create instrument |
+| `GET` | `/api/instruments/:id` | Instrument detail |
+| `PATCH` | `/api/instruments/:id` | Edit instrument |
+| `DELETE` | `/api/instruments/:id` | Delete instrument |
+| `POST` | `/api/instruments/import?format=json|csv` | Bulk import instruments |
+| `GET` | `/api/instruments/export?format=json|csv` | Export all instruments |
 
-**POST /templates body:**
-```json
-{
-  "code": "BALANCED_60_40",
-  "description": "60% equity, 40% bonds",
-  "items": [
-    { "isin": "LU0273962166", "weight": 60.0 },
-    { "isin": "GRF0000083591", "weight": 40.0 }
-  ]
-}
-```
-
-**POST /templates/:id/apply body:**
-```json
-{
-  "portfolioId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-  "totalAmount": 10000.00,
-  "tradeDate": "2026-04-08",
-  "valuationDate": "2026-04-08"
-}
-```
-
-The apply endpoint distributes `totalAmount` across each template item proportionally by weight, looks up the latest NAV on or before `valuationDate` for each instrument, computes units, and records a BUY transaction for each.
-
----
-
-### Valuation
+### NAV Prices
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/portfolios/:id/valuation` | Compute valuation (today) |
-| `GET` | `/portfolios/:id/valuation?date=YYYY-MM-DD` | Compute historical valuation |
+| `GET` | `/api/instruments/:id/nav-prices` | List NAV history for one instrument |
+| `POST` | `/api/instruments/:id/nav-prices` | Upsert one NAV point |
+| `POST` | `/api/instruments/:id/nav-prices/import?format=json|csv` | Bulk import NAV history |
 
-**Response shape:**
-```json
-{
-  "portfolioId": "...",
-  "date": "2026-04-08",
-  "totalValue": 28450.00,
-  "totalCost": 26200.00,
-  "unrealisedPnl": 2250.00,
-  "unrealisedPnlPct": 8.59,
-  "positions": [
-    {
-      "positionId": "...",
-      "instrumentId": "...",
-      "instrumentName": "Eurobank (LF) Equity – Greek Equities Fund",
-      "isin": "LU0273962166",
-      "assetClass": "GREEK_EQUITY",
-      "units": 1250,
-      "nav": 8.95,
-      "value": 11187.50,
-      "cost": 10250.00,
-      "pnl": 937.50,
-      "weightPct": 39.32
-    }
-  ],
-  "allocationByAssetClass": {
-    "GREEK_EQUITY": 39.32,
-    "GREEK_GOV_BOND": 23.87
-  }
-}
-```
+### Templates
 
-The valuation endpoint uses the most recent NAV **on or before** the requested date, so querying for a weekend or public holiday returns the last business day's prices automatically.
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/templates` | List templates |
+| `POST` | `/api/templates` | Create template |
+| `GET` | `/api/templates/:id` | Template detail |
+| `PATCH` | `/api/templates/:id` | Edit template |
+| `DELETE` | `/api/templates/:id` | Delete template |
+| `POST` | `/api/templates/import?format=json|csv` | Import templates |
+| `GET` | `/api/templates/export?format=json|csv` | Export templates |
+
+### Sync
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/sync/instrument/:id` | Yahoo sync for one instrument |
+| `POST` | `/api/sync/all` | Yahoo sync for all instruments |
+| `GET` | `/api/sync/jobs` | List sync job audit rows |
 
 ---
 
 ## Example curl Calls
 
+### Create portfolio
+
 ```bash
-# List portfolios
-curl http://localhost:3000/api/portfolios | jq .
-
-# Get a portfolio ID
-PORTFOLIO_ID=$(curl -s http://localhost:3000/api/portfolios | jq -r '.[0].id')
-
-# Today's valuation
-curl "http://localhost:3000/api/portfolios/$PORTFOLIO_ID/valuation" | jq .
-
-# Historical valuation
-curl "http://localhost:3000/api/portfolios/$PORTFOLIO_ID/valuation?date=2026-03-15" | jq .
-
-# Get instrument ID by ISIN
-INST_ID=$(curl -s http://localhost:3000/api/instruments \
-  | jq -r '.[] | select(.isin=="LU0273962166") | .id')
-
-# Bulk-load NAV history
-curl -X POST "http://localhost:3000/api/instruments/$INST_ID/nav" \
-  -H "Content-Type: application/json" \
-  -d '{"entries":[{"date":"2026-04-07","nav":9.1000},{"date":"2026-04-08","nav":9.1234}]}'
-
-# Incremental NAV sync for all instruments
-curl -X POST "http://localhost:3000/api/sync/all"
-
-# Force full-history refresh for all instruments
-curl -X POST "http://localhost:3000/api/sync/all?refresh=true&overwrite=true"
-
-# Record a BUY transaction
-curl -X POST "http://localhost:3000/api/portfolios/$PORTFOLIO_ID/transactions" \
-  -H "Content-Type: application/json" \
-  -d "{\"instrumentId\":\"$INST_ID\",\"type\":\"BUY\",\"tradeDate\":\"2026-04-08\",\"units\":150,\"pricePerUnit\":9.10,\"fees\":5.00}"
-
-# Recalculate positions from ledger
-curl -X POST "http://localhost:3000/api/portfolios/$PORTFOLIO_ID/positions/recalculate"
-
-# Create a new portfolio
 curl -X POST http://localhost:3000/api/portfolios \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Aggressive Growth","description":"High-equity exposure"}'
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Retirement","description":"Long-term core holdings"}'
+```
+
+### Add BUY transaction
+
+```bash
+curl -X POST http://localhost:3000/api/transactions \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "portfolioId":1,
+    "instrumentId":2,
+    "type":"BUY",
+    "date":"2026-04-15",
+    "units":10,
+    "pricePerUnit":12.34,
+    "fees":0
+  }'
+```
+
+### Run full sync manually
+
+```bash
+curl -X POST http://localhost:3000/api/sync/all
+```
+
+### Export instruments as CSV
+
+```bash
+curl -L "http://localhost:3000/api/instruments/export?format=csv" -o instruments.csv
 ```
 
 ---
 
 ## Database Schema
 
-```
-instruments
-  id             UUID PK
-  name           TEXT
-  isin           CHAR(12) UNIQUE
-  currency       CHAR(3)
-  asset_class    ENUM
-  risk_level     SMALLINT (1–7)
-  data_sources   TEXT[]
-  external_ids   JSONB          -- e.g. {"yahoo_ticker": "LBGR.F"} (cached on first sync)
-  created_at / updated_at
+Created by `db/init.sql` on first boot.
 
-portfolios
-  id             UUID PK
-  name           TEXT
-  description    TEXT
-  created_at / updated_at
+### Core tables
 
-portfolio_positions
-  id                   UUID PK
-  portfolio_id         UUID FK → portfolios  (CASCADE DELETE)
-  instrument_id        UUID FK → instruments
-  units                NUMERIC(18,6)
-  cost_basis_per_unit  NUMERIC(18,6)
-  notes                TEXT
-  UNIQUE (portfolio_id, instrument_id)
+| Table | Purpose |
+|---|---|
+| `instruments` | Fund master data |
+| `nav_prices` | Daily NAV time series per instrument |
+| `portfolios` | User portfolio containers |
+| `transactions` | Immutable ledger of BUY / SELL / SWITCH / DIVIDEND_REINVEST |
+| `positions` | Current holdings derived from transactions |
+| `allocation_templates` | Template header |
+| `allocation_template_items` | Template line items / target weights |
+| `sync_jobs` | Audit rows for NAV sync runs |
 
-transactions
-  id               UUID PK
-  portfolio_id     UUID FK → portfolios  (CASCADE DELETE)
-  instrument_id    UUID FK → instruments
-  type             ENUM (BUY|SELL|SWITCH|DIVIDEND_REINVEST)
-  trade_date       DATE
-  settlement_date  DATE
-  units            NUMERIC(18,6)
-  price_per_unit   NUMERIC(18,6)
-  fees             NUMERIC(18,6)
-  notes            TEXT
+### Important constraints
 
-nav_prices
-  id             UUID PK
-  instrument_id  UUID FK → instruments  (CASCADE DELETE)
-  date           DATE
-  nav            NUMERIC(18,6)
-  source         ENUM (MANUAL|FT|EUROBANK|YAHOO|OTHER)
-  UNIQUE (instrument_id, date)
-
-allocation_templates
-  id          UUID PK
-  code        TEXT UNIQUE
-  description TEXT
-  created_at / updated_at
-
-allocation_template_items
-  id            UUID PK
-  template_id   UUID FK → allocation_templates  (CASCADE DELETE)
-  instrument_id UUID FK → instruments
-  weight        NUMERIC(10,4)   -- percentage, e.g. 60.0000
-
-sync_jobs
-  id               UUID PK
-  instrument_id    UUID FK → instruments
-  status           TEXT          -- 'SUCCESS' | 'FAILED'
-  source           TEXT          -- 'YAHOO'
-  records_fetched  INTEGER
-  records_upserted INTEGER
-  error_message    TEXT
-  started_at       TIMESTAMPTZ
-  completed_at     TIMESTAMPTZ
-  triggered_by     TEXT          -- 'SCHEDULER' | 'WORKER_STARTUP' | 'API'
-```
-
-All monetary columns use `NUMERIC(18,6)` to avoid floating-point rounding errors. `ON DELETE CASCADE` ensures that deleting a portfolio automatically cleans up its positions and transactions.
+- `nav_prices`: `UNIQUE (instrument_id, date)`
+- `allocation_template_items`: `UNIQUE (template_id, instrument_id)`
+- `transactions.type`: constrained to the four supported transaction types
+- `positions.units`: non-negative numeric
+- `risk_level`: 1–7
 
 ---
 
 ## Seed Data
 
-`db/init.sql` runs once on a fresh Docker volume:
+The init script seeds:
+- Eurobank-oriented sample mutual funds
+- Demo portfolios and positions
+- Transactions ledger data
+- Allocation templates
+- Roughly 30 days of synthetic NAV history
 
-- **11 Eurobank instruments** with ISINs, asset classes, risk levels, and Financial Times data-source URLs
-- **2 portfolios**: *Flexible Greek* (4 positions) and *Moderate* (9 positions)
-- **~30 business days** of synthetic NAV data per instrument (random walk, ±1.5%/day, realistic base NAVs)
-
-To start completely fresh:
-
-```bash
-docker compose -f compose.dev.yml down -v   # destroys db-data volume
-docker compose -f compose.dev.yml up --build  # recreates everything from scratch
-```
+This makes the app usable immediately after first boot, with no manual setup required.
 
 ---
 
 ## Import & Export
 
-Every major data type supports JSON and CSV import/export from the UI:
+Supported formats:
+- **JSON**
+- **CSV**
 
-| Section | Location in UI | Formats |
-|---|---|---|
-| Instruments | Bottom of Instruments table | JSON, CSV |
-| Allocation Templates | Bottom of Templates section | JSON, CSV |
-| Portfolio transactions | Bottom of Transactions tab (Portfolio Detail) | JSON, CSV |
+Import/export is available for:
+- Instruments
+- Portfolios
+- Templates
+- NAV history (per instrument)
 
-**Import behaviour:**
-- Duplicate detection: instruments matched by ISIN, templates by code, transactions by a composite key — existing records are **skipped**, not overwritten.
-- Missing ISINs in template imports are reported in the response.
-
-**CSV column reference:**
-
-| Type | Required columns |
-|---|---|
-| Instruments | `name, isin, currency, assetClass, riskLevel, dataSources, externalIds` |
-| Templates | `code, description, isin, weight` (one row per fund per template) |
-| Portfolio | `portfolioName, isin, type, tradeDate, units, pricePerUnit, fees` |
+Duplicate imports are **skipped**, not overwritten. Existing rows remain untouched.
 
 ---
 
 ## Allocation Templates
 
-Templates let you define a named set of funds with target percentage weights and execute a proportional bulk BUY with a single click.
+Templates define target portfolio weights across instruments.
 
-**Workflow:**
-1. Go to **Instruments → Templates** section.
-2. Click **+ New Template**, give it a code (e.g. `BALANCED_60_40`) and add fund/weight rows.
-3. On any Portfolio Detail page, click **+ Buy Template** in the Transactions tab, pick the template, set a total EUR amount and trade date.
-4. The backend distributes the amount by weight, looks up each fund's NAV, computes units, and records one BUY transaction per fund.
-5. Positions update automatically — no further action needed.
-
-**Weights do not need to sum to exactly 100** — amounts are distributed proportionally based on each item's share of the total weight.
+Typical flow:
+1. Create template (e.g. "Balanced 60/40")
+2. Add instrument weights summing to 100
+3. Open a portfolio
+4. Apply template with a total cash amount
+5. Backend expands the template into many BUY transactions
+6. Portfolio positions recalculate automatically
 
 ---
 
 ## CI/CD Workflows
 
-Five GitHub Actions workflows live in `.github/workflows/`. All workflows set `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true` to use Node.js 24 on all runners ahead of the June 2026 cutover.
+GitHub Actions in `.github/workflows/`:
 
-### Docker image builds
+| Workflow | Purpose |
+|---|---|
+| `backend-ci.yml` | Lint/test backend |
+| `frontend-ci.yml` | Lint/test frontend |
+| `worker-ci.yml` | Lint/test worker |
+| `docker-publish.yml` | Build and publish multi-service images to GHCR |
 
-| Workflow file | Trigger | What it builds |
-|---|---|---|
-| `docker-backend.yml` | Push to `main`, or manual dispatch | `navtrack-backend` image → GHCR |
-| `docker-frontend.yml` | Push to `main`, or manual dispatch | `navtrack-frontend` image → GHCR |
-| `docker-worker.yml` | Push to `main`, or manual dispatch | `navtrack-worker` image → GHCR |
-| `docker-all.yml` | Push of a `v*.*.*` tag, or manual dispatch | All three images in a matrix build → GHCR |
-
-Images are published to **GitHub Container Registry** (`ghcr.io`) under the `konstantinos-mavridis` namespace:
-
-```
-ghcr.io/konstantinos-mavridis/navtrack-backend:latest
-ghcr.io/konstantinos-mavridis/navtrack-frontend:latest
-ghcr.io/konstantinos-mavridis/navtrack-worker:latest
-```
-
-Each image is built for **both `linux/amd64` and `linux/arm64`** (multi-platform). Build-layer caching is enabled via the GitHub Actions cache (`type=gha`).
-
-Image tags produced on each run:
-- `latest` — when pushed from the default branch (`main`)
-- `sha-<short-sha>` — always
-- `v1.2.3`, `v1.2`, `v1` — when triggered by a semver tag
-
-To pull the latest images for production use:
-```bash
-docker pull ghcr.io/konstantinos-mavridis/navtrack-backend:latest
-docker pull ghcr.io/konstantinos-mavridis/navtrack-frontend:latest
-docker pull ghcr.io/konstantinos-mavridis/navtrack-worker:latest
-```
-
-### CodeQL security scan
-
-`codeql.yml` runs GitHub's CodeQL static analysis on every push to `main` and on a weekly schedule. It scans the TypeScript (backend + frontend) and Python (worker) codebases for security vulnerabilities and code quality issues. Results are visible in the **Security → Code scanning** tab of the repository.
-
-### Dependabot
-
-`.github/dependabot.yml` is configured to automatically open pull requests for outdated dependencies across:
-- `npm` — backend and frontend `package.json`
-- `pip` — worker `requirements.txt`
-- `docker` — base image updates in Dockerfiles
-- `github-actions` — action version pins in workflow files
+The production `compose.yml` consumes those published images.
 
 ---
 
 ## Extending the App
 
-### Adding Authentication
-
-The backend is stateless and straightforward to secure:
-
-1. Add `@nestjs/passport` + `passport-jwt`
-2. Guard all write endpoints with `@UseGuards(JwtAuthGuard)`
-3. Add `POST /api/auth/login` returning a signed JWT
-4. Pass the token in `Authorization: Bearer <token>` from the frontend
-
-### Adding a Reverse Proxy / TLS
-
-1. Add a `proxy` service in `compose.yml` (nginx or Traefik)
-2. Route `yourdomain.com/` → `frontend:80`
-3. Route `yourdomain.com/api/` → `backend:8080/api/`
-4. Remove per-service `ports:` entries, keep only `expose:`
-5. Terminate TLS at the proxy
-
-### Extending the Worker
+### Add a new scheduled worker job
 
 Add new scheduled jobs in `worker/worker.py` using APScheduler's `scheduler.add_job()`. The `run_nav_sync()` and `run_valuation()` functions are good models. Always add a `max_instances=1, coalesce=True` guard to prevent job pile-up.
+
+### Add a new transaction type
+
+1. Extend the DB enum/check constraint in `db/init.sql`
+2. Update backend DTO validation
+3. Update the positions recalculation logic
+4. Add frontend badge / forms / filtering support
+
+### Add a new import format
+
+JSON and CSV parsing currently live in the backend services/controllers. Follow the existing serializer pattern used by instruments/templates/portfolios imports.
 
 ---
 
 ## Production Notes
 
-| Concern | Recommendation |
-|---|---|
-| Secrets | Use Docker secrets or a vault — never commit `.env` |
-| TLS | Terminate SSL at a load balancer or Traefik in front of nginx |
-| DB backups | `pg_dump` on a cron, or mount a backup sidecar |
-| Scaling | Backend is stateless — run multiple replicas behind a load balancer |
-| Schema migrations | Replace ad-hoc SQL files with Flyway or Liquibase |
-| Observability | Add `@willsoto/nestjs-prometheus` and ship logs to Loki/Grafana |
-| DB host access | Remove or restrict direct DB port mapping before any networked deployment |
-| Pre-built images | Use the GHCR images (`ghcr.io/konstantinos-mavridis/navtrack-*:latest`) in `compose.yml` rather than building locally on the server |
+- Change all default DB passwords before any real deployment.
+- Consider mounting persistent backups for the PostgreSQL volume.
+- If you fork the repo and publish your own images, set `CONTAINER_REGISTRY_NAMESPACE` accordingly.
+- Leaving `SYNC_ON_STARTUP=true` means every worker restart may trigger a Yahoo sync burst; set it to `false` if you prefer strictly scheduled/manual sync only.
+- The frontend is served behind nginx, so TLS termination is best handled by a reverse proxy in front of the stack.
