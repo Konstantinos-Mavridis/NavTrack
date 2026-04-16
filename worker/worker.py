@@ -2,8 +2,8 @@
 NavTrack – Background Worker
 ======================================
 Environment variables
-  SYNC_ON_STARTUP   – "true" to run a full NAV sync at container start (default: false)
-                      Leave false in production; use the scheduler or the UI instead.
+  SYNC_ON_STARTUP   – "true" to run a full NAV sync at container start (default: true)
+                      Set to false to rely only on the scheduled syncs or the UI.
   POSTGRES_HOST/PORT/DB/USER/PASSWORD – standard DB config
 """
 
@@ -36,7 +36,7 @@ log = logging.getLogger(__name__)
 # duplicate, misleading noise in the output.
 logging.getLogger("yfinance").setLevel(logging.CRITICAL)
 
-SYNC_ON_STARTUP = os.getenv("SYNC_ON_STARTUP", "false").lower() == "true"
+SYNC_ON_STARTUP = os.getenv("SYNC_ON_STARTUP", "true").lower() == "true"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -441,14 +441,14 @@ def main() -> None:
     run_valuation()
 
     if SYNC_ON_STARTUP:
-        log.info("SYNC_ON_STARTUP=true – running incremental NAV sync …")
+        log.info("SYNC_ON_STARTUP=true (default) – running incremental NAV sync …")
         log.info("(This may take several minutes due to Yahoo Finance rate limits.)")
         run_nav_sync(triggered_by="WORKER_STARTUP")
     else:
         log.info(
-            "SYNC_ON_STARTUP=false (default) – skipping startup sync.\n"
+            "SYNC_ON_STARTUP=false – skipping startup sync.\n"
             "  Use the 'Sync' button in the app, or POST /api/sync/all,\n"
-            "  or set SYNC_ON_STARTUP=true to sync automatically on boot."
+            "  or remove SYNC_ON_STARTUP=false to restore the default startup sync."
         )
 
     scheduler = BlockingScheduler(timezone="Europe/Athens")
@@ -466,28 +466,28 @@ def main() -> None:
         coalesce=True,
     )
 
-    # Second NAV sync: 20:00 Athens (Mon–Fri).
+    # Second NAV sync: 22:00 Athens (Mon–Fri).
     # Yahoo Finance ingests Greek mutual fund NAVs via a delayed batch process
     # that typically completes around end-of-day UTC (22:00–00:00 Athens).
     # The 16:00 sync often runs before Yahoo has today's candle available.
-    # This evening run acts as a safety net, ensuring today's prices are in
-    # the DB well before midnight.
+    # This late-evening run acts as a safety net, ensuring today's prices are
+    # in the DB well before midnight.
     scheduler.add_job(
         lambda: run_nav_sync(triggered_by="SCHEDULER_EVENING"),
         trigger="cron",
         day_of_week="mon-fri",
-        hour=20, minute=0,
+        hour=22, minute=0,
         id="evening_nav_sync",
         max_instances=1,
         coalesce=True,
     )
 
-    # Daily valuation: 21:00 Athens (every day).
+    # Daily valuation: 23:00 Athens (every day).
     # Runs after both NAV syncs have had a chance to complete.
     scheduler.add_job(
         run_valuation,
         trigger="cron",
-        hour=21, minute=0,
+        hour=23, minute=0,
         id="daily_valuation",
         max_instances=1,
         coalesce=True,
@@ -496,8 +496,8 @@ def main() -> None:
     log.info(
         "Scheduler running:\n"
         "  – Afternoon NAV sync  Mon–Fri 16:00 Europe/Athens\n"
-        "  – Evening NAV sync    Mon–Fri 20:00 Europe/Athens\n"
-        "  – Daily valuation     every day 21:00 Europe/Athens"
+        "  – Evening NAV sync    Mon–Fri 22:00 Europe/Athens\n"
+        "  – Daily valuation     every day 23:00 Europe/Athens"
     )
 
     try:
