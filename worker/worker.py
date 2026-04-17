@@ -453,41 +453,41 @@ def main() -> None:
 
     scheduler = BlockingScheduler(timezone="Europe/Athens")
 
-    # First NAV sync: 16:00 Athens (Mon–Fri).
+    # First NAV sync: 16:05 Athens (Mon–Fri).
     # Greek mutual fund NAVs are typically published by fund administrators
     # around 13:00–15:00 Athens. This run catches funds that publish early.
     scheduler.add_job(
         lambda: run_nav_sync(triggered_by="SCHEDULER_AFTERNOON"),
         trigger="cron",
         day_of_week="mon-fri",
-        hour=16, minute=0,
+        hour=16, minute=5,
         id="afternoon_nav_sync",
         max_instances=1,
         coalesce=True,
     )
 
-    # Second NAV sync: 22:00 Athens (Mon–Fri).
+    # Second NAV sync: 22:05 Athens (Mon–Fri).
     # Yahoo Finance ingests Greek mutual fund NAVs via a delayed batch process
     # that typically completes around end-of-day UTC (22:00–00:00 Athens).
-    # The 16:00 sync often runs before Yahoo has today's candle available.
+    # The 16:05 sync often runs before Yahoo has today's candle available.
     # This late-evening run acts as a safety net, ensuring today's prices are
     # in the DB well before midnight.
     scheduler.add_job(
         lambda: run_nav_sync(triggered_by="SCHEDULER_EVENING"),
         trigger="cron",
         day_of_week="mon-fri",
-        hour=22, minute=0,
+        hour=22, minute=5,
         id="evening_nav_sync",
         max_instances=1,
         coalesce=True,
     )
 
-    # Daily valuation: 23:00 Athens (every day).
+    # Daily valuation: 23:05 Athens (every day).
     # Runs after both NAV syncs have had a chance to complete.
     scheduler.add_job(
         run_valuation,
         trigger="cron",
-        hour=23, minute=0,
+        hour=23, minute=5,
         id="daily_valuation",
         max_instances=1,
         coalesce=True,
@@ -495,9 +495,9 @@ def main() -> None:
 
     log.info(
         "Scheduler running:\n"
-        "  – Afternoon NAV sync  Mon–Fri 16:00 Europe/Athens\n"
-        "  – Evening NAV sync    Mon–Fri 22:00 Europe/Athens\n"
-        "  – Daily valuation     every day 23:00 Europe/Athens"
+        "  – Afternoon NAV sync  Mon–Fri 16:05 Europe/Athens\n"
+        "  – Evening NAV sync    Mon–Fri 22:05 Europe/Athens\n"
+        "  – Daily valuation     every day 23:05 Europe/Athens"
     )
 
     try:
