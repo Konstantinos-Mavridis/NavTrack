@@ -89,15 +89,15 @@ Subsequent starts without `--build` take ~15 seconds.
 ┌─────────────────────────────────────────────────────────────┐
 │  Host machine                                               │
 │                                                             │
-│  Browser ──► :3000 ─────────────────────────────────────┐  │
+│  Browser ──► :3000 ──────────────────────────────────────┐  │
 │                                                          │  │
 │  ┌─────────────── app-network ────────────────────────┐  │  │
 │  │                                                    │  │  │
-│  │  ┌──────────────────┐    ┌───────────────────┐    │  │  │
-│  │  │   frontend       │    │   backend (API)   │    │  │  │
-│  │  │   nginx :80      │───▶│   NestJS :8080    │    │  │  │
-│  │  │   React SPA      │    │   TypeORM         │    │  │  │
-│  │  └──────────────────┘    └─────────┬─────────┘    │  │  │
+│  │  ┌──────────────────┐    ┌───────────────────┐     │  │  │
+│  │  │   frontend       │    │   backend (API)   │     │  │  │
+│  │  │   nginx :80      │───▶│   NestJS :8080    │     │  │  │
+│  │  │   React SPA      │    │   TypeORM         │     │  │  │
+│  │  └──────────────────┘    └─────────┬─────────┘     │  │  │
 │  │                                    │               │  │  │
 │  │  ┌──────────────────┐              │               │  │  │
 │  │  │   worker         │              │               │  │  │
@@ -164,10 +164,9 @@ The worker connects directly to PostgreSQL (not through the backend API) for its
 
 | Job | Schedule | What it does |
 |---|---|---|
-| Afternoon NAV sync | Mon–Fri at **16:00 Europe/Athens** | Early incremental Yahoo Finance sync for funds that publish NAVs by mid-afternoon |
-| Evening NAV sync | Mon–Fri at **22:00 Europe/Athens** | Late safety-net sync; catches funds whose Yahoo candle isn't available until end-of-day UTC |
-| Daily valuation | Every day at **23:00 Europe/Athens** | Computes and logs P&L for all portfolios (runs after both NAV syncs) |
-| Weekly NAV sync | Every **Monday at 07:00 Europe/Athens** | Incremental Yahoo Finance sync for all instruments |
+| Afternoon NAV sync | Mon–Fri at **16:05 Europe/Athens** | Early incremental Yahoo Finance sync for funds that publish NAVs by mid-afternoon |
+| Evening NAV sync | Mon–Fri at **22:05 Europe/Athens** | Late safety-net sync; catches funds whose Yahoo candle isn't available until end-of-day UTC |
+| Daily valuation | Every day at **23:05 Europe/Athens** | Computes and logs P&L for all portfolios (runs after both NAV syncs) |
 
 ---
 
@@ -211,22 +210,24 @@ Copy `.env.example` → `.env` and adjust as needed.
 - Risk level badges (1–7) and coloured asset-class chips.
 - Buttons to add instruments manually, import in bulk, or force-refresh all NAVs.
 
+### Templates (`/instruments`)
+- Create reusable allocation templates (e.g. "Balanced 60/40").
+- Each template stores target % weights across selected instruments.
+- Apply from a portfolio to generate many BUY transactions in one click.
+- Export / import templates as JSON or CSV.
+
 ### Instrument Detail (`/instruments/:id`)
 - Editable instrument form (name, ISIN, asset class, ticker, risk level).
 - **NAV History** section showing a full dated table of prices.
 - Add a NAV manually or bulk import JSON/CSV.
 - "Force Refresh NAV" button triggers Yahoo sync for that single instrument.
 
-### Templates (`/templates`)
-- Create reusable allocation templates (e.g. "Balanced 60/40").
-- Each template stores target % weights across selected instruments.
-- Apply from a portfolio to generate many BUY transactions in one click.
-- Export / import templates as JSON or CSV.
-
-### Sync Jobs (`/sync-jobs`)
+### Sync Jobs (API only)
 - Audit log of every NAV sync run (manual, worker schedule, or startup sync).
 - Row-level status: queued / success / error.
 - Stores trigger source, instrument, counts, and error text if applicable.
+
+> **Note:** Sync jobs are fully accessible via the REST API (see [API Reference](#api-reference)) but do not have dedicated frontend pages.
 
 ---
 
@@ -241,9 +242,8 @@ The app stores one `yahoo_ticker` per instrument and syncs via [`yfinance`](http
 | `MANUAL_SINGLE` | UI button on Instrument Detail |
 | `MANUAL_ALL` | UI button on Instruments page |
 | `WORKER_STARTUP` | Worker container boot when `SYNC_ON_STARTUP=true` |
-| `SCHEDULER_AFTERNOON` | Worker weekday 16:00 run |
-| `SCHEDULER_EVENING` | Worker weekday 22:00 run |
-| `SCHEDULER_WEEKLY` | Worker Monday 07:00 run |
+| `SCHEDULER_AFTERNOON` | Worker weekday 16:05 run |
+| `SCHEDULER_EVENING` | Worker weekday 22:05 run |
 
 ### Sync Algorithm (per instrument)
 
@@ -260,21 +260,14 @@ The sync is **idempotent** — rerunning it does not create duplicate NAV rows b
 ### Why multiple schedules?
 
 Greek mutual-fund NAVs often appear late and Yahoo's batch ingest can lag even further. The worker therefore runs:
-- **16:00 Mon–Fri** — catches funds published by mid-afternoon Athens time.
-- **22:00 Mon–Fri** — a late safety-net after Yahoo's end-of-day UTC batch.
-- **07:00 Monday** — a broad weekly backstop in case anything was missed.
+- **16:05 Mon–Fri** — catches funds published by mid-afternoon Athens time.
+- **22:05 Mon–Fri** — a late safety-net after Yahoo's end-of-day UTC batch.
 
 ---
 
 ## API Reference
 
 All backend routes are under `/api`.
-
-### Health
-
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/health` | Liveness check |
 
 ### Portfolios
 
@@ -283,23 +276,35 @@ All backend routes are under `/api`.
 | `GET` | `/api/portfolios` | List portfolios |
 | `POST` | `/api/portfolios` | Create portfolio |
 | `GET` | `/api/portfolios/:id` | Portfolio detail |
-| `PATCH` | `/api/portfolios/:id` | Edit portfolio |
+| `PUT` | `/api/portfolios/:id` | Update portfolio |
 | `DELETE` | `/api/portfolios/:id` | Delete portfolio |
 | `GET` | `/api/portfolios/:id/valuation?date=YYYY-MM-DD` | On-demand valuation as of date |
-| `GET` | `/api/portfolios/:id/export?format=json\|csv` | Export one portfolio |
-| `POST` | `/api/portfolios/import?format=json\|csv` | Import one or many portfolios |
-| `POST` | `/api/portfolios/:id/recalculate` | Force ledger → positions rebuild |
+| `GET` | `/api/portfolios/aggregate/valuation-series` | Aggregate valuation time series across portfolios |
+| `GET` | `/api/portfolios/export/json` | Export all portfolios as JSON |
+| `GET` | `/api/portfolios/export/csv` | Export all portfolios as CSV |
+| `POST` | `/api/portfolios/import/json` | Import portfolios from JSON |
+| `POST` | `/api/portfolios/import/csv` | Import portfolios from CSV |
+
+### Positions
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/portfolios/:id/positions` | List positions for a portfolio |
+| `POST` | `/api/portfolios/:id/positions` | Upsert a position |
+| `DELETE` | `/api/portfolios/:id/positions/:positionId` | Delete a single position |
+| `DELETE` | `/api/portfolios/:id/positions` | Clear all positions |
+| `POST` | `/api/portfolios/:id/positions/recalculate` | Force ledger → positions rebuild |
 
 ### Transactions
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/api/transactions?portfolioId=:id` | List portfolio transactions |
-| `POST` | `/api/transactions` | Add transaction |
-| `PATCH` | `/api/transactions/:id` | Edit transaction |
-| `DELETE` | `/api/transactions/:id` | Delete transaction |
-| `DELETE` | `/api/transactions/by-portfolio/:portfolioId` | Clear all transactions in a portfolio |
-| `POST` | `/api/transactions/buy-template` | Generate BUY transactions from a template |
+| `GET` | `/api/portfolios/:id/transactions` | List portfolio transactions |
+| `POST` | `/api/portfolios/:id/transactions` | Add transaction |
+| `PUT` | `/api/portfolios/:id/transactions/:txnId` | Update transaction |
+| `DELETE` | `/api/portfolios/:id/transactions/:txnId` | Delete transaction |
+| `DELETE` | `/api/portfolios/:id/transactions` | Clear all transactions in a portfolio |
+| `POST` | `/api/portfolios/:id/transactions/apply-template` | Generate BUY transactions from a template |
 
 ### Instruments
 
@@ -308,18 +313,20 @@ All backend routes are under `/api`.
 | `GET` | `/api/instruments` | List / search instruments |
 | `POST` | `/api/instruments` | Create instrument |
 | `GET` | `/api/instruments/:id` | Instrument detail |
-| `PATCH` | `/api/instruments/:id` | Edit instrument |
+| `PUT` | `/api/instruments/:id` | Update instrument |
 | `DELETE` | `/api/instruments/:id` | Delete instrument |
-| `POST` | `/api/instruments/import?format=json\|csv` | Bulk import instruments |
-| `GET` | `/api/instruments/export?format=json\|csv` | Export all instruments |
+| `GET` | `/api/instruments/export/json` | Export all instruments as JSON |
+| `GET` | `/api/instruments/export/csv` | Export all instruments as CSV |
+| `POST` | `/api/instruments/import/json` | Import instruments from JSON |
+| `POST` | `/api/instruments/import/csv` | Import instruments from CSV |
 
 ### NAV Prices
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/api/instruments/:id/nav-prices` | List NAV history for one instrument |
-| `POST` | `/api/instruments/:id/nav-prices` | Upsert one NAV point |
-| `POST` | `/api/instruments/:id/nav-prices/import?format=json\|csv` | Bulk import NAV history |
+| `GET` | `/api/instruments/:id/nav` | List NAV history for one instrument |
+| `POST` | `/api/instruments/:id/nav` | Bulk upsert NAV entries |
+| `GET` | `/api/instruments/:id/nav/on-date?date=YYYY-MM-DD` | Latest NAV on or before a specific date |
 
 ### Templates
 
@@ -328,18 +335,25 @@ All backend routes are under `/api`.
 | `GET` | `/api/templates` | List templates |
 | `POST` | `/api/templates` | Create template |
 | `GET` | `/api/templates/:id` | Template detail |
-| `PATCH` | `/api/templates/:id` | Edit template |
+| `PUT` | `/api/templates/:id` | Update template |
 | `DELETE` | `/api/templates/:id` | Delete template |
-| `POST` | `/api/templates/import?format=json\|csv` | Import templates |
-| `GET` | `/api/templates/export?format=json\|csv` | Export templates |
+| `GET` | `/api/templates/:id/nav-preview` | NAV preview for template instruments |
+| `GET` | `/api/templates/:id/nav-series?days=N` | NAV time series for template instruments |
+| `GET` | `/api/templates/:id/nav-series/available-range` | Date range with NAV data for all template instruments |
+| `GET` | `/api/templates/export/json` | Export all templates as JSON |
+| `GET` | `/api/templates/export/csv` | Export all templates as CSV |
+| `POST` | `/api/templates/import/json` | Import templates from JSON |
+| `POST` | `/api/templates/import/csv` | Import templates from CSV |
 
 ### Sync
 
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/api/sync/instrument/:id` | Yahoo sync for one instrument |
+| `POST` | `/api/instruments/:id/sync` | Yahoo sync for one instrument |
 | `POST` | `/api/sync/all` | Yahoo sync for all instruments |
 | `GET` | `/api/sync/jobs` | List sync job audit rows |
+| `GET` | `/api/sync/jobs/:jobId` | Get a specific sync job |
+| `GET` | `/api/instruments/:id/sync/jobs` | List sync jobs for one instrument |
 
 ---
 
@@ -378,7 +392,7 @@ curl -X POST http://localhost:3000/api/sync/all
 ### Export instruments as CSV
 
 ```bash
-curl -L "http://localhost:3000/api/instruments/export?format=csv" -o instruments.csv
+curl -L "http://localhost:3000/api/instruments/export/csv" -o instruments.csv
 ```
 
 ---
@@ -395,7 +409,7 @@ Created by `db/init.sql` on first boot.
 | `nav_prices` | Daily NAV time series per instrument |
 | `portfolios` | User portfolio containers |
 | `transactions` | Immutable ledger of BUY / SELL / SWITCH / DIVIDEND_REINVEST |
-| `positions` | Current holdings derived from transactions |
+| `portfolio_positions` | Current holdings derived from transactions |
 | `allocation_templates` | Template header |
 | `allocation_template_items` | Template line items / target weights |
 | `sync_jobs` | Audit rows for NAV sync runs |

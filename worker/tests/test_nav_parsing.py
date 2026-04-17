@@ -348,11 +348,19 @@ class TestDsn:
         assert "s3cr3t" in result
 
     def test_defaults(self, monkeypatch):
-        for var in ["POSTGRES_HOST", "POSTGRES_PORT", "POSTGRES_DB",
-                    "POSTGRES_USER", "POSTGRES_PASSWORD"]:
-            monkeypatch.delenv(var, raising=False)
+        # host and port have defaults; db, user, password are required
+        monkeypatch.delenv("POSTGRES_HOST", raising=False)
+        monkeypatch.delenv("POSTGRES_PORT", raising=False)
+        monkeypatch.setenv("POSTGRES_DB", "req_db")
+        monkeypatch.setenv("POSTGRES_USER", "req_user")
+        monkeypatch.setenv("POSTGRES_PASSWORD", "req_pass")
 
         result = worker.dsn()
         assert "host=db"             in result
         assert "port=5432"           in result
-        assert "dbname=portfolio_db" in result
+        assert "dbname=req_db"       in result
+
+    def test_missing_required_credentials_raises_error(self, monkeypatch):
+        monkeypatch.delenv("POSTGRES_DB", raising=False)
+        with pytest.raises(KeyError):
+            worker.dsn()

@@ -47,9 +47,9 @@ def dsn() -> str:
     return (
         f"host={os.getenv('POSTGRES_HOST', 'db')} "
         f"port={os.getenv('POSTGRES_PORT', '5432')} "
-        f"dbname={os.getenv('POSTGRES_DB', 'portfolio_db')} "
-        f"user={os.getenv('POSTGRES_USER', 'portfolio_user')} "
-        f"password={os.getenv('POSTGRES_PASSWORD', 'portfolio_pass')}"
+        f"dbname={os.environ['POSTGRES_DB']} "
+        f"user={os.environ['POSTGRES_USER']} "
+        f"password={os.environ['POSTGRES_PASSWORD']}"
     )
 
 

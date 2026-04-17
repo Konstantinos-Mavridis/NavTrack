@@ -3,12 +3,12 @@
 ## Supported Versions
 
 NavTrack is currently in active development. Security fixes are applied to
-the `main` branch only. There are no versioned releases at this time.
+the latest release and the `main` branch.
 
-| Branch | Supported |
+| Version | Supported |
 |---|---|
-| `main` | ✅ Yes |
-| Older forks / snapshots | ❌ No |
+| Latest release (`main`) | ✅ Yes |
+| Older releases / forks | ❌ No |
 
 ---
 

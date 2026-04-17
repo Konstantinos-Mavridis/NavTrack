@@ -144,16 +144,15 @@ At container boot it:
 4. Runs one immediate valuation pass
 5. Optionally performs a full incremental NAV sync if `SYNC_ON_STARTUP=true`
 
-In addition, the **worker** runs an independent incremental sync **every Monday at 07:00 Athens time** via APScheduler, and optionally on container startup if `SYNC_ON_STARTUP=true`.
+In addition, the **worker** runs a full incremental sync on container startup if `SYNC_ON_STARTUP=true`.
 
 ### 6.1 Current Schedules
 
 | Job | Schedule | Notes |
 |---|---|---|
-| Afternoon NAV sync | Mon–Fri 16:00 Europe/Athens | Catches funds whose NAVs are available by mid-afternoon |
-| Evening NAV sync | Mon–Fri 22:00 Europe/Athens | Safety-net run after Yahoo's delayed end-of-day batch |
-| Daily valuation | Daily 23:00 Europe/Athens | Logs valuations after both NAV syncs have had time to complete |
-| Weekly NAV sync | Monday 07:00 Europe/Athens | Broad backstop sync |
+| Afternoon NAV sync | Mon–Fri 16:05 Europe/Athens | Catches funds whose NAVs are available by mid-afternoon |
+| Evening NAV sync | Mon–Fri 22:05 Europe/Athens | Safety-net run after Yahoo's delayed end-of-day batch |
+| Daily valuation | Daily 23:05 Europe/Athens | Logs valuations after both NAV syncs have had time to complete |
 
 ### 6.2 Trigger Sources Written to `sync_jobs`
 
@@ -163,7 +162,6 @@ The worker/backend currently writes these trigger values:
 - `WORKER_STARTUP`
 - `SCHEDULER_AFTERNOON`
 - `SCHEDULER_EVENING`
-- `SCHEDULER_WEEKLY`
 
 ---
 
@@ -512,7 +510,7 @@ If you are the next maintainer, do this first:
 
 | File | Why it matters |
 |---|---|
-| `worker/worker.py` | All scheduled jobs: afternoon NAV sync (Mon–Fri 16:00) + evening NAV sync (Mon–Fri 22:00) + daily valuation (23:00) + weekly NAV sync (Mon 07:00) |
+| `worker/worker.py` | All scheduled jobs: afternoon NAV sync (Mon–Fri 16:05) + evening NAV sync (Mon–Fri 22:05) + daily valuation (23:05) |
 | `worker/VERSION` | Single-line version file; bumped by `release.yml` |
 | `db/init.sql` | Entire schema and seed logic |
 | `backend/src/sync/*` | Manual sync endpoints and DB audit logging |
