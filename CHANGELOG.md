@@ -9,6 +9,10 @@ NavTrack uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- Added `CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`, and `SECURITY.md` community documents.
+- Added GitHub issue templates (`.github/ISSUE_TEMPLATE/`) and pull request template (`.github/PULL_REQUEST_TEMPLATE.md`).
+
 ---
 
 ## [0.0.7] – 2026-04-17

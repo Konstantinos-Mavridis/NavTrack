@@ -353,7 +353,7 @@ Maintain [`CHANGELOG.md`](./CHANGELOG.md) using the [Keep a Changelog](https://k
 
 | Workflow | Trigger | Purpose |
 |---|---|---|
-| `sonarqube.yml` | Push / PR to `main` | Static analysis |
+| `sonarqube.yml` | Push / PR to `main`, `workflow_call` | Static analysis |
 | `codeql.yml` | Push / PR to `main`, weekly | Security analysis |
 | `ci-gate.yml` | After SonarQube + CodeQL complete | Waits for both to pass, dispatches Docker builds for changed services |
 | `docker-backend.yml` | `workflow_dispatch` / `workflow_call` | Builds + pushes backend image |
@@ -410,7 +410,12 @@ Both depend on `.env` for ports, DB credentials, project naming, and registry na
 | `compose.dev.yml` | Local build compose file |
 | `compose.yml` | GHCR-based deploy compose file |
 | `.github/workflows/` | CI/CD workflows |
+| `.github/ISSUE_TEMPLATE/` | GitHub issue templates |
+| `.github/PULL_REQUEST_TEMPLATE.md` | GitHub PR template |
 | `CHANGELOG.md` | Release history (Keep a Changelog format) |
+| `CODE_OF_CONDUCT.md` | Community standards |
+| `CONTRIBUTING.md` | Developer guidelines and workflow |
+| `SECURITY.md` | Security policy and disclosure process |
 | `README.md` | Primary operator-facing docs |
 | `HANDOVER.md` | This handover document |
 
