@@ -27,7 +27,9 @@ Record transactions, monitor NAV prices, and get instant P&L valuations — all 
 - [Versioning & Releases](#versioning--releases)
 - [Extending the App](#extending-the-app)
 - [Production Notes](#production-notes)
+- [Contributing](#contributing)
 - [Code of Conduct](#code-of-conduct)
+- [Security](#security)
 
 ---
 
@@ -554,6 +556,18 @@ JSON and CSV parsing currently live in the backend services/controllers. Follow 
 
 ---
 
+## Contributing
+
+Contributions are welcome! Please read [CONTRIBUTING.md](./CONTRIBUTING.md) to learn about the development workflow, branch conventions, commit style, and how to open a pull request.
+
+---
+
 ## Code of Conduct
 
 This project follows the [Contributor Covenant v2.1](./CODE_OF_CONDUCT.md). By participating, you agree to uphold its standards. Incidents can be reported by contacting the [author via GitHub](https://github.com/Konstantinos-Mavridis).
+
+---
+
+## Security
+
+If you discover a security vulnerability, please **do not open a public issue**. Review the [Security Policy](./SECURITY.md) for responsible disclosure instructions and contact details.
