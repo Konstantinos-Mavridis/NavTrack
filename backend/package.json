@@ -1,6 +1,6 @@
 {
   "name": "navtrack-backend",
-  "version": "0.0.2",
+  "version": "0.0.11",
   "description": "NavTrack – NestJS REST API",
   "scripts": {
     "build": "nest build",
