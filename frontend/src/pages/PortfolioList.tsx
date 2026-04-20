@@ -151,8 +151,8 @@ export default function PortfolioList() {
         </div>
         <div className="flex items-center gap-2">
           <PortfolioImportExport onImported={loadPortfolios} />
-          <button onClick={() => setModal({ type: 'create' })} className="btn-primary flex items-center gap-2">
-            <span className="text-lg leading-none">+</span> New Portfolio
+          <button onClick={() => setModal({ type: 'create' })} className="btn-primary">
+            + New Portfolio
           </button>
         </div>
       </div>
@@ -231,7 +231,7 @@ export default function PortfolioList() {
                           <p className="text-xl font-bold text-gray-900 dark:text-gray-100 mt-0.5">€{fmtEur(v.totalValue)}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide">Unrealised P&L</p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide">Unrealised P&amp;L</p>
                           <p className={`text-xl font-bold mt-0.5 ${
                             pnlPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'
                           }`}>
@@ -316,11 +316,11 @@ export default function PortfolioList() {
  */
 function acColor(ac: string): string {
   const m: Record<string, string> = {
-    EQUITY:          '#3b82f6', // blue
-    BOND:            '#10b981', // emerald
-    HIGH_YIELD:      '#ef4444', // red
-    FUND_OF_FUNDS:   '#8b5cf6', // purple
-    ABSOLUTE_RETURN: '#ec4899', // pink
+    EQUITY:          '#3b82f6',
+    BOND:            '#10b981',
+    HIGH_YIELD:      '#ef4444',
+    FUND_OF_FUNDS:   '#8b5cf6',
+    ABSOLUTE_RETURN: '#ec4899',
   };
-  return m[ac] ?? '#cbd5e1'; // slate fallback
+  return m[ac] ?? '#cbd5e1';
 }

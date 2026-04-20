@@ -15,7 +15,7 @@ type ModalState =
   | { type: 'delete'; template: AllocationTemplate }
   | null;
 
-export default function InstrumentList() {
+export default function StrategyList() {
   const [instruments, setInstruments] = useState<Instrument[]>([]);
   const [instLoading, setInstLoading] = useState(true);
   const [instError,   setInstError]   = useState('');
@@ -124,12 +124,130 @@ export default function InstrumentList() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-10">
+    <div className="max-w-5xl mx-auto px-4 py-10">
+
+      {/* ── Page header ── */}
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Strategies</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">Allocation templates and tracked instruments</p>
+        </div>
+      </div>
+
+
+      {/* ── Allocation Templates section ── */}
+      <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Allocation Templates</h2>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">Reusable fund allocations for bulk BUY transactions</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <ImportExportModal config={templateImportExportConfig} onImported={loadTemplates} />
+          <button onClick={() => setModal({ type: 'create' })} className="btn-primary">
+            + New Template
+          </button>
+        </div>
+      </div>
+
+      {tmplError && <div className="mb-6"><ErrorBanner message={tmplError} /></div>}
+
+      {templates.length === 0 ? (
+        <div className="text-center py-20 text-gray-400 dark:text-gray-500 card mb-10">
+          <p className="text-lg font-medium mb-2 text-gray-600 dark:text-gray-400">No templates yet</p>
+          <p className="text-sm mb-6">Create a template to buy predefined allocations in one step.</p>
+          <button onClick={() => setModal({ type: 'create' })} className="btn-primary">
+            Create Template
+          </button>
+        </div>
+      ) : (
+        <div className="grid gap-4 mb-10">
+          {templates.map((template) => {
+            const totalWeight = template.items.reduce((acc, i) => acc + Number(i.weight), 0);
+            const isEditing = modal?.type === 'edit' && modal.template.id === template.id;
+            return (
+              <div key={template.id} className="card p-5">
+                <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{template.code}</h3>
+                    {template.description && (
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{template.description}</p>
+                    )}
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                      {template.items.length} fund{template.items.length !== 1 ? 's' : ''} · total {totalWeight.toFixed(4)}%
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setModal({ type: 'edit', template })}
+                      className="btn-secondary text-sm py-1.5"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => setModal({ type: 'delete', template })}
+                      className="px-3 py-1.5 text-sm font-medium rounded-lg border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+
+                <TemplatePerformanceChart templateId={template.id} paused={isEditing} />
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 dark:bg-gray-800/60">
+                      <tr>
+                        <th className="table-th">Fund</th>
+                        <th className="table-th">ISIN</th>
+                        <th className="table-th">Class</th>
+                        <th className="table-th">Risk</th>
+                        <th className="table-th">Weight</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
+                      {template.items
+                        .slice()
+                        .sort((a, b) => Number(b.weight) - Number(a.weight))
+                        .map((item) => (
+                          <tr key={item.id ?? item.instrumentId} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                            <td className="table-td text-left font-medium">
+                              {item.instrument ? (
+                                <Link
+                                  to={`/instruments/${item.instrument.id}`}
+                                  className="text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                                >
+                                  {item.instrument.name}
+                                </Link>
+                              ) : (
+                                <span className="text-gray-800 dark:text-gray-200">{item.instrumentId}</span>
+                              )}
+                            </td>
+                            <td className="table-td font-mono text-xs text-gray-500 dark:text-gray-400">
+                              {item.instrument?.isin.trim() ?? '—'}
+                            </td>
+                            <td className="table-td">
+                              {item.instrument ? <AssetClassChip ac={item.instrument.assetClass} /> : '—'}
+                            </td>
+                            <td className="table-td">
+                              {item.instrument ? <RiskBadge level={item.instrument.riskLevel ?? 0} /> : '—'}
+                            </td>
+                            <td className="table-td font-semibold">{Number(item.weight).toFixed(4)}%</td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* ── Instruments section ── */}
-      <div className="flex items-start justify-between mb-8 flex-wrap gap-4">
+      <div className="flex items-start justify-between mt-16 mb-8 flex-wrap gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Instruments</h1>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Instruments</h2>
           <p className="text-gray-500 dark:text-gray-400 mt-1">{instruments.length} funds tracked</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
@@ -185,123 +303,10 @@ export default function InstrumentList() {
         </div>
       </div>
 
-      {/* Sync buttons */}
-      <div className="flex justify-end mb-16">
+      <div className="flex justify-end mb-4">
         <SyncAllButton onComplete={() => api.instruments.list().then(setInstruments).catch(() => {})} />
       </div>
 
-      {/* ── Templates section ── */}
-      <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Templates</h2>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Reusable fund allocations for bulk BUY transactions</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <ImportExportModal config={templateImportExportConfig} onImported={loadTemplates} />
-          <button onClick={() => setModal({ type: 'create' })} className="btn-primary">
-            + New Template
-          </button>
-        </div>
-      </div>
-
-      {tmplError && <div className="mb-6"><ErrorBanner message={tmplError} /></div>}
-
-      {templates.length === 0 ? (
-        <div className="text-center py-20 text-gray-400 dark:text-gray-500 card">
-          <p className="text-lg font-medium mb-2 text-gray-600 dark:text-gray-400">No templates yet</p>
-          <p className="text-sm mb-6">Create a template to buy predefined allocations in one step.</p>
-          <button onClick={() => setModal({ type: 'create' })} className="btn-primary">
-            Create Template
-          </button>
-        </div>
-      ) : (
-        <div className="grid gap-4">
-          {templates.map((template) => {
-            const totalWeight = template.items.reduce((acc, i) => acc + Number(i.weight), 0);
-            const isEditing = modal?.type === 'edit' && modal.template.id === template.id;
-            return (
-              <div key={template.id} className="card p-5">
-                {/* Header: name + actions */}
-                <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{template.code}</h3>
-                    {template.description && (
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{template.description}</p>
-                    )}
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                      {template.items.length} fund{template.items.length !== 1 ? 's' : ''} · total {totalWeight.toFixed(4)}%
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setModal({ type: 'edit', template })}
-                      className="btn-secondary text-sm py-1.5"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => setModal({ type: 'delete', template })}
-                      className="px-3 py-1.5 text-sm font-medium rounded-lg border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-
-                {/* Aggregate performance chart */}
-                <TemplatePerformanceChart
-                  templateId={template.id}
-                  paused={isEditing}
-                />
-
-                {/* Fund table */}
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50 dark:bg-gray-800/60">
-                      <tr>
-                        <th className="table-th">Fund</th>
-                        <th className="table-th">ISIN</th>
-                        <th className="table-th">Class</th>
-                        <th className="table-th">Weight</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
-                      {template.items
-                        .slice()
-                        .sort((a, b) => Number(b.weight) - Number(a.weight))
-                        .map((item) => (
-                          <tr key={item.id ?? item.instrumentId} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                            <td className="table-td text-left font-medium">
-                              {item.instrument ? (
-                                <Link
-                                  to={`/instruments/${item.instrument.id}`}
-                                  className="text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                                >
-                                  {item.instrument.name}
-                                </Link>
-                              ) : (
-                                <span className="text-gray-800 dark:text-gray-200">{item.instrumentId}</span>
-                              )}
-                            </td>
-                            <td className="table-td font-mono text-xs text-gray-500 dark:text-gray-400">
-                              {item.instrument?.isin.trim() ?? '—'}
-                            </td>
-                            <td className="table-td">
-                              {item.instrument ? <AssetClassChip ac={item.instrument.assetClass} /> : '—'}
-                            </td>
-                            <td className="table-td font-semibold">{Number(item.weight).toFixed(4)}%</td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Modals */}
       {modal?.type === 'create' && (
         <TemplateFormModal onSaved={handleSaved} onClose={() => setModal(null)} />
       )}

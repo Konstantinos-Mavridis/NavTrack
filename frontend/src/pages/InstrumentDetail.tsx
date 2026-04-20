@@ -10,15 +10,10 @@ import SyncButton from '../components/SyncButton';
 import SyncJobHistory from '../components/SyncJobHistory';
 import { ASSET_CLASS_LABELS, today } from '../utils/format';
 
-// ─── helpers ─────────────────────────────────────────────────────────────────
-
-/** Best-effort human label from a URL string. */
 function sourceLabelFromUrl(raw: string): { host: string; path: string } {
   try {
     const u = new URL(raw);
-    // strip leading "www."
     const host = u.hostname.replace(/^www\./, '');
-    // show only the first meaningful path segment (e.g. "/funds/lu0273962166" → "/funds/…")
     const segments = u.pathname.split('/').filter(Boolean);
     const path = segments.length ? '/' + segments.slice(0, 2).join('/') + (segments.length > 2 ? '/…' : '') : '';
     return { host, path };
@@ -27,7 +22,6 @@ function sourceLabelFromUrl(raw: string): { host: string; path: string } {
   }
 }
 
-/** Google favicon CDN — works for any public domain. */
 function faviconUrl(raw: string): string {
   try {
     const { hostname } = new URL(raw);
@@ -36,8 +30,6 @@ function faviconUrl(raw: string): string {
     return '';
   }
 }
-
-// ─── sub-component ────────────────────────────────────────────────────────────
 
 function DataSourceList({ links }: { links: string[] }) {
   return (
@@ -60,7 +52,6 @@ function DataSourceList({ links }: { links: string[] }) {
                 px-3 py-2.5 transition-colors
               "
             >
-              {/* favicon */}
               {favicon && (
                 <img
                   src={favicon}
@@ -72,7 +63,6 @@ function DataSourceList({ links }: { links: string[] }) {
                 />
               )}
 
-              {/* label */}
               <span className="flex-1 min-w-0">
                 <span className="text-sm font-medium text-gray-800 dark:text-gray-200 group-hover:text-blue-700 dark:group-hover:text-blue-300">
                   {host}
@@ -82,13 +72,11 @@ function DataSourceList({ links }: { links: string[] }) {
                     {path}
                   </span>
                 )}
-                {/* full URL on second line, truncated */}
                 <span className="block text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5 font-mono">
                   {url}
                 </span>
               </span>
 
-              {/* external-link icon */}
               <svg
                 viewBox="0 0 16 16"
                 fill="none"
@@ -106,8 +94,6 @@ function DataSourceList({ links }: { links: string[] }) {
   );
 }
 
-// ─── page ─────────────────────────────────────────────────────────────────────
-
 export default function InstrumentDetail() {
   const { id } = useParams<{ id: string }>();
 
@@ -115,8 +101,6 @@ export default function InstrumentDetail() {
   const [navHistory,     setNavHistory]     = useState<NavPrice[]>([]);
   const [loading,        setLoading]        = useState(true);
   const [error,          setError]          = useState('');
-
-  // Add-NAV form state
   const [navDate,        setNavDate]        = useState(today());
   const [navValue,       setNavValue]       = useState('');
   const [saving,         setSaving]         = useState(false);
@@ -171,16 +155,14 @@ export default function InstrumentDetail() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-10 space-y-8">
-      {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500">
-        <Link to="/instruments" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-          Instruments
+        <Link to="/strategies" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+          Strategies
         </Link>
         <span>/</span>
         <span className="text-gray-700 dark:text-gray-200 font-medium truncate">{instrument.name}</span>
       </div>
 
-      {/* Header */}
       <div className="flex items-start gap-4 flex-wrap">
         <div className="flex-1 min-w-0">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 leading-tight">{instrument.name}</h1>
@@ -192,7 +174,6 @@ export default function InstrumentDetail() {
         </div>
       </div>
 
-      {/* Info cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { label: 'Currency',    value: instrument.currency },
@@ -208,13 +189,11 @@ export default function InstrumentDetail() {
         ))}
       </div>
 
-      {/* NAV chart */}
       <div className="card p-6">
         <SectionHeading title={`NAV History (${navHistory.length} data points)`} />
         <NavChart navHistory={navHistory} />
       </div>
 
-      {/* Sync from Yahoo Finance */}
       {id && (
         <div className="card p-6">
           <SectionHeading title="Sync from Yahoo Finance">
@@ -228,10 +207,8 @@ export default function InstrumentDetail() {
         </div>
       )}
 
-      {/* Sync job history */}
       {id && <SyncJobHistory instrumentId={id} refreshKey={syncRefreshKey} />}
 
-      {/* Add NAV form */}
       <div className="card p-6">
         <SectionHeading title="Add NAV Point" />
         <form onSubmit={handleAddNav} className="flex items-end gap-3 flex-wrap">
@@ -264,7 +241,6 @@ export default function InstrumentDetail() {
           </button>
         </form>
 
-        {/* Inline feedback — slides in/out without layout shift */}
         <div
           className={`overflow-hidden transition-all duration-200 ${
             saveMsg || saveErr ? 'max-h-10 opacity-100 mt-3' : 'max-h-0 opacity-0 mt-0'
@@ -289,7 +265,6 @@ export default function InstrumentDetail() {
         </div>
       </div>
 
-      {/* External data sources */}
       {dataLinks.length > 0 && (
         <div className="card p-6">
           <SectionHeading title="External Data Sources">
@@ -299,7 +274,6 @@ export default function InstrumentDetail() {
         </div>
       )}
 
-      {/* NAV table (last 10) */}
       {navHistory.length > 0 && (
         <div className="card overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800">

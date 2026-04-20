@@ -13,6 +13,9 @@
 }
 
 @layer base {
+  html {
+    scrollbar-gutter: stable;
+  }
   body {
     @apply bg-gray-50 text-gray-900 antialiased
            dark:bg-gray-950 dark:text-gray-100;
@@ -23,13 +26,13 @@
 }
 
 @layer components {
-  /* ── Surface card ─────────────────────────────────────────────────────────── */
+  /* ── Surface card ──────────────────────────────────────────────────── */
   .card {
     @apply bg-white rounded-xl border border-gray-100 shadow-sm
            dark:bg-gray-900 dark:border-gray-800;
   }
 
-  /* ── Buttons ──────────────────────────────────────────────────────────────── */
+  /* ── Buttons ────────────────────────────────────────────────────────── */
   .btn-primary {
     @apply px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg
            hover:bg-blue-700 active:bg-blue-800 transition-colors
@@ -49,7 +52,7 @@
            dark:bg-red-700 dark:hover:bg-red-600 dark:active:bg-red-500;
   }
 
-  /* ── Form inputs ──────────────────────────────────────────────────────────── */
+  /* ── Form inputs ───────────────────────────────────────────────────────── */
   .input {
     @apply w-full border border-gray-200 rounded-lg px-3 py-2 text-sm
            focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent
@@ -58,7 +61,7 @@
            dark:placeholder-gray-500 dark:focus:ring-blue-500;
   }
 
-  /* ── Table cells ──────────────────────────────────────────────────────────── */
+  /* ── Table cells ───────────────────────────────────────────────────────── */
   .table-th {
     @apply px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider
            text-right first:text-left
@@ -69,13 +72,13 @@
            dark:text-gray-300;
   }
 
-  /* ── Badge ────────────────────────────────────────────────────────────────── */
+  /* ── Badge ────────────────────────────────────────────────────────────── */
   .badge {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
   }
 }
 
-/* ── Scrollbar ────────────────────────────────────────────────────────────── */
+/* ── Scrollbar ───────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar          { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track    { @apply bg-gray-100 dark:bg-gray-800; }
 ::-webkit-scrollbar-thumb    { @apply bg-gray-300 rounded-full dark:bg-gray-600; }

@@ -3,7 +3,7 @@ import { useTheme } from '../ThemeContext';
 
 const links = [
   { to: '/',            label: 'Portfolios', end: false },
-  { to: '/instruments', label: 'Instruments', end: false },
+  { to: '/strategies',  label: 'Strategies', end: false },
 ];
 
 function SunIcon() {

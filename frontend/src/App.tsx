@@ -3,7 +3,7 @@ import { ThemeProvider } from './ThemeContext';
 import Navbar from './components/Navbar';
 import PortfolioList    from './pages/PortfolioList';
 import PortfolioDetail  from './pages/PortfolioDetail';
-import InstrumentList   from './pages/InstrumentList';
+import StrategyList     from './pages/StrategyList';
 import InstrumentDetail from './pages/InstrumentDetail';
 
 export default function App() {
@@ -13,12 +13,12 @@ export default function App() {
         <Navbar />
         <main className="flex-1">
           <Routes>
-            <Route path="/"                element={<PortfolioList />} />
-            <Route path="/portfolios/:id" element={<PortfolioDetail />} />
-            <Route path="/instruments"    element={<InstrumentList />} />
-            <Route path="/instruments/:id" element={<InstrumentDetail />} />
-            <Route path="/templates"      element={<Navigate to="/instruments" replace />} />
-            <Route path="*"               element={<Navigate to="/" replace />} />
+            <Route path="/"                 element={<PortfolioList />} />
+            <Route path="/portfolios/:id"   element={<PortfolioDetail />} />
+            <Route path="/strategies"       element={<StrategyList />} />
+            <Route path="/instruments/:id"  element={<InstrumentDetail />} />
+            <Route path="/instruments"      element={<Navigate to="/strategies" replace />} />
+            <Route path="*"                 element={<Navigate to="/" replace />} />
           </Routes>
         </main>
 
