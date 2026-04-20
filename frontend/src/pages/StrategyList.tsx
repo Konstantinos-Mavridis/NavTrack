@@ -124,7 +124,7 @@ export default function StrategyList() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-10">
+    <div className="max-w-6xl mx-auto px-4 py-10">
 
       {/* ── Page header ── */}
       <div className="flex items-center justify-between mb-8">
@@ -133,7 +133,6 @@ export default function StrategyList() {
           <p className="text-gray-500 dark:text-gray-400 mt-1">Allocation templates and tracked instruments</p>
         </div>
       </div>
-
 
       {/* ── Allocation Templates section ── */}
       <div className="flex items-center justify-between mb-8 flex-wrap gap-4">

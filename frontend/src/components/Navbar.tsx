@@ -23,7 +23,6 @@ function MoonIcon() {
   );
 }
 
-/** Inline SVG logo mark — a simple upward-trending chart line. */
 function LogoIcon() {
   return (
     <svg
@@ -78,42 +77,47 @@ function ThemeToggle() {
 export default function Navbar() {
   return (
     <nav className="sticky top-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center h-16 gap-8">
+      {/*
+        Full-width outer row.
+        Left gutter  : flex-1, logo flush at its RIGHT edge  (justify-end)
+        Centre block : max-w-6xl, nav links at LEFT edge
+        Right gutter : flex-1, toggle flush at its LEFT edge (justify-start)
+      */}
+      <div className="flex items-center h-16">
 
-          {/* Logo */}
+        {/* Left gutter — flex-1, logo pushed to the right */}
+        <div className="flex-1 flex items-center justify-end pr-4">
           <div className="flex items-center gap-2 shrink-0">
             <LogoIcon />
             <span className="font-bold text-gray-900 dark:text-gray-100 text-lg">NavTrack</span>
           </div>
-
-          {/* Nav links */}
-          <div className="flex gap-1">
-            {links.map((l) => (
-              <NavLink
-                key={l.to}
-                to={l.to}
-                end={l.end}
-                className={({ isActive }) =>
-                  `px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-400'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800'
-                  }`
-                }
-              >
-                {l.label}
-              </NavLink>
-            ))}
-          </div>
-
-          {/* Spacer */}
-          <div className="flex-1" />
-
-          {/* Theme toggle */}
-          <ThemeToggle />
-
         </div>
+
+        {/* Centre — fixed max-w-6xl, nav links left-aligned, NO mx-auto */}
+        <div className="w-full max-w-6xl shrink-0 flex items-center gap-1 px-4 sm:px-6 lg:px-8">
+          {links.map((l) => (
+            <NavLink
+              key={l.to}
+              to={l.to}
+              end={l.end}
+              className={({ isActive }) =>
+                `px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-400'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800'
+                }`
+              }
+            >
+              {l.label}
+            </NavLink>
+          ))}
+        </div>
+
+        {/* Right gutter — flex-1, toggle at its left edge */}
+        <div className="flex-1 flex items-center justify-start pl-4">
+          <ThemeToggle />
+        </div>
+
       </div>
     </nav>
   );
