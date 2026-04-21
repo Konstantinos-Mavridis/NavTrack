@@ -7,7 +7,12 @@ export type AssetClass =
   | 'FUND_OF_FUNDS'
   | 'ABSOLUTE_RETURN';
 
-export type TransactionType = 'BUY' | 'SELL' | 'SWITCH' | 'DIVIDEND_REINVEST';
+export type TransactionType =
+  | 'BUY'
+  | 'SELL'
+  | 'SWITCH'
+  | 'DIVIDEND_REINVEST'
+  | 'FEE_CONSOLIDATION';
 export type NavSource = 'MANUAL' | 'FT' | 'EUROBANK' | 'YAHOO' | 'OTHER';
 
 export interface Instrument {
