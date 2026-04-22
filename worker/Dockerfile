@@ -32,6 +32,7 @@ RUN chown -R appuser:appuser /app /opt/venv
 
 # Copy requirements and install before copying source for better caching
 COPY --chown=appuser:appuser requirements.txt .
+RUN chmod 444 requirements.txt
 
 USER appuser
 
