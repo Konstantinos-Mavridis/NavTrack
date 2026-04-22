@@ -320,13 +320,13 @@ export default function PortfolioDetail() {
           {tab === 'transactions' && (
             transactions.length === 0
               ? (
-                {/*
+                /*
                  * This empty state is reachable when the user has positions
                  * (recalculated from an import or a previous session) but no
                  * transactions recorded yet — or after clearing all transactions
                  * while positions haven't been recalculated to zero yet.
                  * The tab card is still visible because hasData is true.
-                 */}
+                 */
                 <EmptyState message="No transactions yet. Use the buttons above to add your first transaction." />
               ) : (
                 <div className="overflow-x-auto">
