@@ -5,7 +5,7 @@ import { api } from '../api/client';
 import type { Transaction, Instrument, PortfolioPosition } from '../types';
 import { today } from '../utils/format';
 
-const TX_TYPES = ['BUY', 'SELL', 'SWITCH', 'DIVIDEND_REINVEST'] as const;
+const TX_TYPES = ['BUY', 'SELL', 'SWITCH', 'DIVIDEND_REINVEST', 'FEE_CONSOLIDATION'] as const;
 type TxType = typeof TX_TYPES[number];
 
 interface Props {
@@ -32,9 +32,13 @@ const TYPE_STYLES: Record<TxType, { active: string; idle: string }> = {
     active: 'bg-green-100  text-green-700  border-green-300  dark:bg-green-900/50 dark:text-green-300  dark:border-green-700',
     idle:   'bg-white      text-gray-500   border-gray-200   dark:bg-gray-800     dark:text-gray-400  dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500',
   },
+  FEE_CONSOLIDATION: {
+    active: 'bg-amber-100  text-amber-700  border-amber-300  dark:bg-amber-900/50 dark:text-amber-300  dark:border-amber-700',
+    idle:   'bg-white      text-gray-500   border-gray-200   dark:bg-gray-800     dark:text-gray-400  dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500',
+  },
 };
 
-const REQUIRES_POSITION: Set<TxType> = new Set(['SELL', 'SWITCH']);
+const REQUIRES_POSITION: Set<TxType> = new Set(['SELL', 'SWITCH', 'FEE_CONSOLIDATION']);
 
 const SPIN_STYLE: React.CSSProperties = { animation: 'spin 0.75s linear infinite' };
 
@@ -136,6 +140,8 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
     }
   }
 
+  const isFeeConsolidation = type === 'FEE_CONSOLIDATION';
+
   const selectableInstruments: Instrument[] = (() => {
     if (!REQUIRES_POSITION.has(type)) return instruments;
     return instruments.filter(
@@ -188,7 +194,7 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
   const priceNum = parseFloat(pricePerUnit) || 0;
   const feesNum  = parseFloat(fees)         || 0;
   const total    = unitNum * priceNum + feesNum;
-  const showTotal = unitNum > 0 && priceNum > 0;
+  const showTotal = !isFeeConsolidation && Math.abs(unitNum) > 0 && priceNum > 0;
 
   type NavStatus = 'loading' | 'hint' | 'missing' | 'idle';
   const navStatus: NavStatus =
@@ -214,8 +220,12 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
     setError('');
     if (!instrumentId) { setError('Please select a fund'); return; }
     if (!tradeDate)    { setError('Trade date is required'); return; }
-    if (unitNum  <= 0) { setError('Units must be positive'); return; }
-    if (priceNum <= 0) { setError('Price must be positive'); return; }
+    if (isFeeConsolidation) {
+      if (unitNum === 0) { setError('Unit delta cannot be zero'); return; }
+    } else {
+      if (unitNum  <= 0) { setError('Units must be positive'); return; }
+      if (priceNum <= 0) { setError('Price must be positive'); return; }
+    }
 
     setSaving(true);
     try {
@@ -262,11 +272,19 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
                   type === t ? TYPE_STYLES[t].active : TYPE_STYLES[t].idle
                 }`}>
-                {t.replace('_', ' ')}
+                {t === 'FEE_CONSOLIDATION' ? 'Fee Consolidation' : t.replace('_', ' ')}
               </button>
             ))}
           </div>
         </div>
+
+        {/* Fee Consolidation hint */}
+        {isFeeConsolidation && (
+          <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+            Bank-initiated unit adjustment for portfolio maintenance fees. Units can be negative
+            (fee deduction) or positive (reinstatement). No cash flow is recorded.
+          </p>
+        )}
 
         {/* Fund */}
         <div>
@@ -315,19 +333,24 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
         {/* Units / Price / Fees */}
         <div className="grid grid-cols-3 gap-4">
           <div>
-            <label className={FIELD_LABEL_CLS}>Units <span className="text-red-400 dark:text-red-500">*</span></label>
-            <input type="number" step="0.000001" min="0" className="input"
+            <label className={FIELD_LABEL_CLS}>
+              {isFeeConsolidation ? 'Unit Delta' : 'Units'}{' '}
+              <span className="text-red-400 dark:text-red-500">*</span>
+            </label>
+            <input type="number" step="0.000001" className="input"
               value={units} onChange={(e) => setUnits(e.target.value)}
-              placeholder="e.g. 100" required />
+              placeholder={isFeeConsolidation ? 'e.g. -1.234567' : 'e.g. 100'} required />
           </div>
           <div>
             <div className="flex items-center gap-1.5 mb-1">
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Price / Unit (€) <span className="text-red-400 dark:text-red-500">*</span>
+                Price / Unit (€) {!isFeeConsolidation && <span className="text-red-400 dark:text-red-500">*</span>}
               </span>
-              <NavTooltip variant={navTooltipVariant}>
-                {navTooltipText}
-              </NavTooltip>
+              {!isFeeConsolidation && (
+                <NavTooltip variant={navTooltipVariant}>
+                  {navTooltipText}
+                </NavTooltip>
+              )}
             </div>
             <input
               type="number" step="0.000001" min="0" className="input"
@@ -336,13 +359,16 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
                 setPricePerUnit(e.target.value);
                 setPriceIsAutoFilled(false);
               }}
-              placeholder="e.g. 9.123456" required
+              placeholder="e.g. 9.123456"
+              required={!isFeeConsolidation}
+              disabled={isFeeConsolidation}
             />
           </div>
           <div>
             <label className={FIELD_LABEL_CLS}>Fees (€)</label>
             <input type="number" step="0.01" min="0" className="input"
-              value={fees} onChange={(e) => setFees(e.target.value)} placeholder="0.00" />
+              value={fees} onChange={(e) => setFees(e.target.value)} placeholder="0.00"
+              disabled={isFeeConsolidation} />
           </div>
         </div>
 
@@ -355,14 +381,16 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
               ? <>{unitNum.toLocaleString('el-GR', { maximumFractionDigits: 6 })} units
                   &nbsp;×&nbsp;€{priceNum.toFixed(6)}
                   {feesNum > 0 && ` + €${feesNum.toFixed(2)} fees`}</>
-              : <>— units &nbsp;×&nbsp; €—</>}
+              : isFeeConsolidation
+                ? 'Unit-only adjustment — no cash flow'
+                : <>— units &nbsp;×&nbsp; €—</>}
           </span>
           <span className={`text-base font-bold transition-all duration-150 ${
             showTotal ? 'text-gray-900 dark:text-gray-100' : 'text-gray-300 dark:text-gray-700 select-none'
           }`}>
             {showTotal
               ? `= €${total.toLocaleString('el-GR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-              : '= €—'}
+              : isFeeConsolidation ? '' : '= €—'}
           </span>
         </div>
 
