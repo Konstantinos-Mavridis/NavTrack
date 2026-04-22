@@ -279,7 +279,7 @@ export default function PortfolioDetail() {
                         ))}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                       {[...valuation.positions].sort((a, b) => (b.value ?? 0) - (a.value ?? 0)).map((pos) => (
                         <tr key={pos.positionId} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                           <td className="table-td font-medium max-w-xs">
@@ -338,7 +338,7 @@ export default function PortfolioDetail() {
                         ))}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                       {transactions.map((tx) => {
                         const total = Number(tx.units) * Number(tx.pricePerUnit) + Number(tx.fees);
                         return (
