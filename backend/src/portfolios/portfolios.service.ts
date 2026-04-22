@@ -555,7 +555,9 @@ export class PortfoliosService {
             continue;
           }
 
-          const units = toPositiveNumber(tx.units);
+          // FEE_CONSOLIDATION rows may carry negative units (unit reduction).
+          // All other types require strictly positive units.
+          const units = toFiniteNumber(tx.units);
           const pricePerUnit = toPositiveNumber(tx.pricePerUnit);
           const fees = toNonNegativeNumber(tx.fees ?? 0);
           const tradeDate = String(tx.tradeDate ?? '');
@@ -572,7 +574,8 @@ export class PortfoliosService {
             continue;
           }
 
-          if (units <= 0 || pricePerUnit <= 0 || fees < 0) {
+          const unitsInvalid = units === 0 || (typeStr !== 'FEE_CONSOLIDATION' && units < 0);
+          if (unitsInvalid || pricePerUnit <= 0 || fees < 0) {
             summary.transactionsSkipped++;
             summary.skippedReasons.push(`Invalid numeric values for ISIN ${isin}`);
             continue;
@@ -814,6 +817,17 @@ function parseCsv(csv: string): Array<Record<string, string>> {
     });
     return obj;
   });
+}
+
+/**
+ * Parse a numeric value preserving its sign.
+ * Returns 0 for non-finite results (NaN, Infinity).
+ * Used for fields like `units` where negative values are semantically valid
+ * (e.g. FEE_CONSOLIDATION unit reductions).
+ */
+function toFiniteNumber(value: unknown): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
 }
 
 function toPositiveNumber(value: unknown): number {
