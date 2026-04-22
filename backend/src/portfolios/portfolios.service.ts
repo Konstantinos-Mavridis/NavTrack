@@ -173,6 +173,7 @@ export class PortfoliosService {
             CASE t.type
               WHEN 'BUY'               THEN  t.units
               WHEN 'DIVIDEND_REINVEST' THEN  t.units
+              WHEN 'FEE_CONSOLIDATION' THEN  t.units
               WHEN 'SELL'              THEN -t.units
               WHEN 'SWITCH'            THEN -t.units
               ELSE 0
@@ -192,6 +193,7 @@ export class PortfoliosService {
             CASE t.type
               WHEN 'BUY'               THEN  t.units
               WHEN 'DIVIDEND_REINVEST' THEN  t.units
+              WHEN 'FEE_CONSOLIDATION' THEN  t.units
               WHEN 'SELL'              THEN -t.units
               WHEN 'SWITCH'            THEN -t.units
               ELSE 0
@@ -639,7 +641,7 @@ export class PortfoliosService {
   /**
    * Recalculate positions from the transaction ledger.
    * For each instrument with transactions in this portfolio:
-   *   units          = sum of signed units (BUY/DIVIDEND_REINVEST +, SELL -)
+   *   units          = sum of signed units (BUY/DIVIDEND_REINVEST +, SELL -, FEE_CONSOLIDATION signed)
    *   costBasisPerUnit = weighted average cost of BUY + DIVIDEND_REINVEST lots
    * Existing positions are replaced atomically.
    */
@@ -658,6 +660,7 @@ export class PortfoliosService {
           CASE type
             WHEN 'BUY'               THEN  units
             WHEN 'DIVIDEND_REINVEST' THEN  units
+            WHEN 'FEE_CONSOLIDATION' THEN  units
             WHEN 'SELL'              THEN -units
             WHEN 'SWITCH'            THEN -units
             ELSE 0
@@ -680,6 +683,7 @@ export class PortfoliosService {
                CASE type
                  WHEN 'BUY'               THEN  units
                  WHEN 'DIVIDEND_REINVEST' THEN  units
+                 WHEN 'FEE_CONSOLIDATION' THEN  units
                  WHEN 'SELL'              THEN -units
                  WHEN 'SWITCH'            THEN -units
                  ELSE 0
@@ -718,7 +722,7 @@ export interface ImportSummary {
 
 function csvEscape(value: unknown): string {
   const s = String(value ?? '');
-  if (/(["\,\n])/.test(s)) {
+  if (/(["\\,\n])/.test(s)) {
     return `"${s.replace(/"/g, '""')}`;
   }
   return s;
