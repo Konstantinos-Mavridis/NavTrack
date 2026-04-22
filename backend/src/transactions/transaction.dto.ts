@@ -19,7 +19,8 @@ export class CreateTransactionDto {
   settlementDate?: string;
 
   @IsNumber()
-  @IsPositive()
+  // Note: units can be negative for FEE_CONSOLIDATION (unit reduction).
+  // Positivity is enforced at the service layer for all other types.
   units: number;
 
   @IsNumber()

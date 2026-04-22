@@ -9,6 +9,7 @@ on:
       - 'frontend/**'
       - 'worker/**'
       - '.github/workflows/codeql.yml'
+      - '.github/codeql/codeql-config.yml'
   pull_request:
     branches: [main]
     paths:
@@ -16,6 +17,7 @@ on:
       - 'frontend/**'
       - 'worker/**'
       - '.github/workflows/codeql.yml'
+      - '.github/codeql/codeql-config.yml'
   schedule:
     # Full weekly scan every Monday 08:00 UTC regardless of path changes
     - cron: '0 8 * * 1'
@@ -60,6 +62,8 @@ jobs:
           # security-and-quality includes both the default security queries
           # and additional quality / maintainability checks
           queries: security-and-quality
+          # Exclusions for generated/vendored dirs (coverage, dist, node_modules, __pycache__)
+          config-file: .github/codeql/codeql-config.yml
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4

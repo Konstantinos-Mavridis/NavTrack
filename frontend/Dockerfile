@@ -14,7 +14,7 @@ COPY . .
 RUN npm run build
 
 # ── Stage 2: serve ────────────────────────────────────────────────────────────────────
-FROM nginx:1.30.0-alpine AS runtime
+FROM nginx:1.30.0-alpine3.23-slim AS runtime
 
 # Create cache/log/run directories with proper permissions
 RUN mkdir -p /var/cache/nginx /var/log/nginx /var/run/nginx && \

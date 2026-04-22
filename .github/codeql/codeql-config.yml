@@ -1,0 +1,13 @@
+# CodeQL analysis configuration
+# Excludes auto-generated and vendored directories that are not
+# application source code and would otherwise produce false positives.
+
+paths-ignore:
+  # Vitest / Istanbul HTML coverage report (sorter.js triggers false-positive XSS)
+  - '**/coverage/**'
+  # Compiled output
+  - '**/dist/**'
+  # Package dependencies
+  - '**/node_modules/**'
+  # Python bytecode cache
+  - '**/__pycache__/**'

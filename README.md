@@ -520,7 +520,8 @@ NavTrack uses a single **Semantic Versioning** (`vX.Y.Z`) tag shared across all 
 The workflow will:
 - Validate the version is valid SemVer.
 - Fail immediately if the tag already exists.
-- Bump `version` in `backend/package.json`, `frontend/package.json`, and `worker/VERSION`.
+- Bump `version` in `backend/package.json`, `frontend/package.json`, `backend/package-lock.json`, `frontend/package-lock.json`, and `worker/VERSION`.
+- Promote the `CHANGELOG.md` `[Unreleased]` section into a dated `## [X.Y.Z]` release section and reset `[Unreleased]`.
 - Commit the bump to `main` with `[skip ci]` to avoid a redundant Docker build.
 - Create and push an annotated Git tag `vX.Y.Z`.
 - Create a **GitHub Release** visible on the [Releases page](https://github.com/Konstantinos-Mavridis/NavTrack/releases).
@@ -531,12 +532,14 @@ The workflow will:
 | File | Service |
 |---|---|
 | `backend/package.json` → `version` | Backend |
+| `backend/package-lock.json` → `version` | Backend |
 | `frontend/package.json` → `version` | Frontend |
+| `frontend/package-lock.json` → `version` | Frontend |
 | `worker/VERSION` | Worker |
 
 ### Changelog
 
-All notable changes are recorded in [`CHANGELOG.md`](./CHANGELOG.md) following the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format. Update the `[Unreleased]` section as you work; the release workflow does not edit the changelog automatically — that remains a manual step.
+All notable changes are recorded in [`CHANGELOG.md`](./CHANGELOG.md) following the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format. Update the `[Unreleased]` section as you work; the release workflow now promotes `[Unreleased]` into the new version section when cutting a release.
 
 ---
 
@@ -585,7 +588,6 @@ This project follows the [Contributor Covenant v2.1](./CODE_OF_CONDUCT.md). By p
 ## Security
 
 If you discover a security vulnerability, please **do not open a public issue**. Review the [Security Policy](./SECURITY.md) for responsible disclosure instructions and contact details.
-
 
 
 

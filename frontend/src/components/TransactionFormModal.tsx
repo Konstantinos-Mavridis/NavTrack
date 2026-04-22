@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Modal from './Modal';
 import { ModalErrorBanner, FIELD_LABEL_CLS } from './ui';
 import { api } from '../api/client';
 import type { Transaction, Instrument, PortfolioPosition } from '../types';
 import { today } from '../utils/format';
 
-const TX_TYPES = ['BUY', 'SELL', 'SWITCH', 'DIVIDEND_REINVEST'] as const;
+const TX_TYPES = ['BUY', 'SELL', 'SWITCH', 'DIVIDEND_REINVEST', 'FEE_CONSOLIDATION'] as const;
 type TxType = typeof TX_TYPES[number];
 
 interface Props {
@@ -32,21 +32,95 @@ const TYPE_STYLES: Record<TxType, { active: string; idle: string }> = {
     active: 'bg-green-100  text-green-700  border-green-300  dark:bg-green-900/50 dark:text-green-300  dark:border-green-700',
     idle:   'bg-white      text-gray-500   border-gray-200   dark:bg-gray-800     dark:text-gray-400  dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500',
   },
+  FEE_CONSOLIDATION: {
+    active: 'bg-amber-100  text-amber-700  border-amber-300  dark:bg-amber-900/50 dark:text-amber-300  dark:border-amber-700',
+    idle:   'bg-white      text-gray-500   border-gray-200   dark:bg-gray-800     dark:text-gray-400  dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500',
+  },
 };
 
-const REQUIRES_POSITION: Set<TxType> = new Set(['SELL', 'SWITCH']);
+const TYPE_LABELS: Record<TxType, string> = {
+  BUY:               'BUY',
+  SELL:              'SELL',
+  SWITCH:            'SWITCH',
+  DIVIDEND_REINVEST: 'DIVIDEND REINVEST',
+  FEE_CONSOLIDATION: 'FEE CONSOLIDATION',
+};
+
+const FEE_CONSOLIDATION_TOOLTIP =
+  'Bank-initiated unit adjustment for portfolio maintenance fees. ' +
+  'Units can be negative (fee deduction) or positive (reinstatement). ' +
+  'No cash flow is recorded.';
+
+const REQUIRES_POSITION: Set<TxType> = new Set(['SELL', 'SWITCH', 'FEE_CONSOLIDATION']);
 
 const SPIN_STYLE: React.CSSProperties = { animation: 'spin 0.75s linear infinite' };
 
+// Shared tooltip bubble classes
+// Light: zinc-800 bg / white text  |  Dark: zinc-100 bg / zinc-900 text
+const TOOLTIP_BUBBLE =
+  'pointer-events-none absolute top-full mt-2 z-50 rounded-lg px-3 py-2 ' +
+  'text-xs leading-snug shadow-lg ' +
+  'bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900 ' +
+  'transition-all duration-150';
+
+// Caret pointing UP toward the trigger (sits above the bubble)
+const TOOLTIP_CARET =
+  'absolute bottom-full border-4 border-transparent ' +
+  'border-b-zinc-800 dark:border-b-zinc-100';
+
 // ---------------------------------------------------------------------------
-// Tiny tooltip component
+// Inline tooltip for the FEE_CONSOLIDATION ⓘ icon
+// Bubble anchors to the RIGHT edge of the icon so it opens leftward
+// and never clips the right side of the modal.
 // ---------------------------------------------------------------------------
-interface TooltipProps {
+function FeeTooltip() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
+
+  return (
+    // Plain layout wrapper — no event handlers (avoids S6819 on non-interactive elements).
+    // stopPropagation is handled directly on the <button> below so clicks on the ⓘ
+    // icon do not bubble up to the parent type-selector <button>.
+    <span ref={ref} className="relative inline-flex items-center ml-1">
+      <button
+        type="button"
+        tabIndex={0}
+        aria-label="Fee Consolidation info"
+        aria-describedby="fee-tooltip"
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+        onClick={(e) => e.stopPropagation()}
+        className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full text-current opacity-60 hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 transition-opacity"
+      >
+        <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5" aria-hidden="true">
+          <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1Zm0 1.5a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11ZM8 6a.75.75 0 1 0 0-1.5A.75.75 0 0 0 8 6Zm-.75 1.25a.75.75 0 0 1 1.5 0v3.5a.75.75 0 0 1-1.5 0v-3.5Z"/>
+        </svg>
+      </button>
+      {/* Bubble anchored to right edge — opens leftward into the modal */}
+      <span
+        id="fee-tooltip"
+        role="tooltip"
+        className={`${TOOLTIP_BUBBLE} right-0 w-56 ${open ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1'}`}
+      >
+        {FEE_CONSOLIDATION_TOOLTIP}
+        {/* Caret aligned to the right to sit under the ⓘ icon */}
+        <span className={`${TOOLTIP_CARET} right-1`} />
+      </span>
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// NAV tooltip — opens downward, centered under the ⓘ icon
+// ---------------------------------------------------------------------------
+interface NavTooltipProps {
   variant?: 'idle' | 'loading' | 'success' | 'warning';
   children: React.ReactNode;
 }
 
-function NavTooltip({ variant = 'idle', children }: TooltipProps) {
+function NavTooltip({ variant = 'idle', children }: NavTooltipProps) {
   const [open, setOpen] = useState(false);
 
   const iconCls =
@@ -56,17 +130,16 @@ function NavTooltip({ variant = 'idle', children }: TooltipProps) {
     : 'text-gray-300 dark:text-gray-600';
 
   return (
-    <span
-      className="relative inline-flex items-center"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-      onFocus={() => setOpen(true)}
-      onBlur={() => setOpen(false)}
-    >
+    <span className="relative inline-flex items-center">
       <button
         type="button"
         tabIndex={0}
         aria-label="NAV price info"
+        aria-describedby="nav-tooltip"
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
         className={`inline-flex items-center justify-center w-4 h-4 rounded-full transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${iconCls}`}
       >
         {variant === 'loading' ? (
@@ -82,16 +155,13 @@ function NavTooltip({ variant = 'idle', children }: TooltipProps) {
       </button>
 
       <span
+        id="nav-tooltip"
         role="tooltip"
-        className={`pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50
-          w-max max-w-[240px] rounded-lg px-3 py-2 text-xs leading-snug shadow-lg
-          bg-gray-900 text-gray-100 dark:bg-gray-100 dark:text-gray-900
-          transition-all duration-150 ${
-            open ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'
-          }`}
+        className={`${TOOLTIP_BUBBLE} left-1/2 -translate-x-1/2 w-max max-w-[220px] ${open ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1'}`}
       >
         {children}
-        <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-gray-100" />
+        {/* Caret centered under the icon */}
+        <span className={`${TOOLTIP_CARET} left-1/2 -translate-x-1/2`} />
       </span>
     </span>
   );
@@ -135,6 +205,8 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
       setInstrumentId('');
     }
   }
+
+  const isFeeConsolidation = type === 'FEE_CONSOLIDATION';
 
   const selectableInstruments: Instrument[] = (() => {
     if (!REQUIRES_POSITION.has(type)) return instruments;
@@ -188,7 +260,7 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
   const priceNum = parseFloat(pricePerUnit) || 0;
   const feesNum  = parseFloat(fees)         || 0;
   const total    = unitNum * priceNum + feesNum;
-  const showTotal = unitNum > 0 && priceNum > 0;
+  const showTotal = !isFeeConsolidation && Math.abs(unitNum) > 0 && priceNum > 0;
 
   type NavStatus = 'loading' | 'hint' | 'missing' | 'idle';
   const navStatus: NavStatus =
@@ -214,15 +286,23 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
     setError('');
     if (!instrumentId) { setError('Please select a fund'); return; }
     if (!tradeDate)    { setError('Trade date is required'); return; }
-    if (unitNum  <= 0) { setError('Units must be positive'); return; }
-    if (priceNum <= 0) { setError('Price must be positive'); return; }
+    if (isFeeConsolidation) {
+      if (unitNum === 0) { setError('Unit delta cannot be zero'); return; }
+    } else {
+      if (unitNum  <= 0) { setError('Units must be positive'); return; }
+      if (priceNum <= 0) { setError('Price must be positive'); return; }
+    }
 
     setSaving(true);
     try {
       const payload = {
-        instrumentId, type, tradeDate,
+        instrumentId,
+        type: type as Transaction['type'],
+        tradeDate,
         settlementDate: settlementDate || undefined,
-        units: unitNum, pricePerUnit: priceNum, fees: feesNum,
+        units: unitNum,
+        pricePerUnit: priceNum,
+        fees: feesNum,
         notes: notes.trim() || undefined,
       };
       const result = isEdit
@@ -259,10 +339,11 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
           <div className="flex gap-2 flex-wrap">
             {TX_TYPES.map((t) => (
               <button key={t} type="button" onClick={() => handleTypeChange(t)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
                   type === t ? TYPE_STYLES[t].active : TYPE_STYLES[t].idle
                 }`}>
-                {t.replace('_', ' ')}
+                {TYPE_LABELS[t]}
+                {t === 'FEE_CONSOLIDATION' && <FeeTooltip />}
               </button>
             ))}
           </div>
@@ -315,19 +396,24 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
         {/* Units / Price / Fees */}
         <div className="grid grid-cols-3 gap-4">
           <div>
-            <label className={FIELD_LABEL_CLS}>Units <span className="text-red-400 dark:text-red-500">*</span></label>
-            <input type="number" step="0.000001" min="0" className="input"
+            <label className={FIELD_LABEL_CLS}>
+              {isFeeConsolidation ? 'Unit Delta' : 'Units'}{' '}
+              <span className="text-red-400 dark:text-red-500">*</span>
+            </label>
+            <input type="number" step="0.000001" className="input"
               value={units} onChange={(e) => setUnits(e.target.value)}
-              placeholder="e.g. 100" required />
+              placeholder={isFeeConsolidation ? 'e.g. -1.234567' : 'e.g. 100'} required />
           </div>
           <div>
             <div className="flex items-center gap-1.5 mb-1">
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Price / Unit (€) <span className="text-red-400 dark:text-red-500">*</span>
+                Price / Unit (€) {!isFeeConsolidation && <span className="text-red-400 dark:text-red-500">*</span>}
               </span>
-              <NavTooltip variant={navTooltipVariant}>
-                {navTooltipText}
-              </NavTooltip>
+              {!isFeeConsolidation && (
+                <NavTooltip variant={navTooltipVariant}>
+                  {navTooltipText}
+                </NavTooltip>
+              )}
             </div>
             <input
               type="number" step="0.000001" min="0" className="input"
@@ -336,13 +422,16 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
                 setPricePerUnit(e.target.value);
                 setPriceIsAutoFilled(false);
               }}
-              placeholder="e.g. 9.123456" required
+              placeholder="e.g. 9.123456"
+              required={!isFeeConsolidation}
+              disabled={isFeeConsolidation}
             />
           </div>
           <div>
             <label className={FIELD_LABEL_CLS}>Fees (€)</label>
             <input type="number" step="0.01" min="0" className="input"
-              value={fees} onChange={(e) => setFees(e.target.value)} placeholder="0.00" />
+              value={fees} onChange={(e) => setFees(e.target.value)} placeholder="0.00"
+              disabled={isFeeConsolidation} />
           </div>
         </div>
 
@@ -355,14 +444,16 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
               ? <>{unitNum.toLocaleString('el-GR', { maximumFractionDigits: 6 })} units
                   &nbsp;×&nbsp;€{priceNum.toFixed(6)}
                   {feesNum > 0 && ` + €${feesNum.toFixed(2)} fees`}</>
-              : <>— units &nbsp;×&nbsp; €—</>}
+              : isFeeConsolidation
+                ? 'Unit-only adjustment — no cash flow'
+                : <>— units &nbsp;×&nbsp; €—</>}
           </span>
           <span className={`text-base font-bold transition-all duration-150 ${
             showTotal ? 'text-gray-900 dark:text-gray-100' : 'text-gray-300 dark:text-gray-700 select-none'
           }`}>
             {showTotal
               ? `= €${total.toLocaleString('el-GR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-              : '= €—'}
+              : isFeeConsolidation ? '' : '= €—'}
           </span>
         </div>
 

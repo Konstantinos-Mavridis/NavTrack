@@ -297,10 +297,12 @@ NavTrack uses a single **Semantic Versioning** (`vX.Y.Z`) tag shared across all 
 | File | Field | Service |
 |---|---|---|
 | `backend/package.json` | `version` | Backend |
+| `backend/package-lock.json` | `version` | Backend |
 | `frontend/package.json` | `version` | Frontend |
+| `frontend/package-lock.json` | `version` | Frontend |
 | `worker/VERSION` | plain text | Worker |
 
-All three files are bumped atomically by the `release.yml` workflow — never edit them manually.
+All version files are bumped atomically by the `release.yml` workflow — never edit them manually.
 
 ### Release workflow (`release.yml`)
 
@@ -316,11 +318,12 @@ Workflow steps:
 
 1. **Validate** — rejects non-SemVer input and fails if the tag already exists.
 2. **Checkout** — full history of `main`.
-3. **Bump** — writes new version into all three version files.
-4. **Commit** — pushes a `chore(release): bump version to X.Y.Z [skip ci]` commit to `main`. The `[skip ci]` trailer prevents CI Gate from triggering a redundant Docker build from the bump commit.
-5. **Tag** — creates and pushes an annotated Git tag `vX.Y.Z`.
-6. **GitHub Release** — creates a release entry visible on the [Releases page](https://github.com/Konstantinos-Mavridis/NavTrack/releases), using the `release_notes` input as the body (falls back to a link to `CHANGELOG.md` if empty).
-7. **Dispatch** — triggers `docker-backend.yml`, `docker-frontend.yml`, and `docker-worker.yml` at the new tag ref.
+3. **Bump** — writes the new version into backend/frontend package + lock files and `worker/VERSION`.
+4. **Changelog** — promotes `[Unreleased]` into `## [X.Y.Z] - YYYY-MM-DD`, refreshes compare links, and resets `[Unreleased]`.
+5. **Commit** — pushes a `chore(release): bump version to X.Y.Z [skip ci]` commit to `main`. The `[skip ci]` trailer prevents CI Gate from triggering a redundant Docker build from the bump commit.
+6. **Tag** — creates and pushes an annotated Git tag `vX.Y.Z`.
+7. **GitHub Release** — creates a release entry visible on the [Releases page](https://github.com/Konstantinos-Mavridis/NavTrack/releases), using the `release_notes` input as the body (falls back to a link to `CHANGELOG.md` if empty).
+8. **Dispatch** — triggers `docker-backend.yml`, `docker-frontend.yml`, and `docker-worker.yml` at the new tag ref.
 
 ### Resulting Docker image tags
 
@@ -336,7 +339,7 @@ Every build triggered by a `vX.Y.Z` tag produces the following GHCR tags automat
 
 ### Changelog
 
-Maintain [`CHANGELOG.md`](./CHANGELOG.md) using the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format. Add entries to the `[Unreleased]` section during development; promote them to a versioned section when cutting a release. The workflow does **not** edit the changelog automatically.
+Maintain [`CHANGELOG.md`](./CHANGELOG.md) using the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format. Add entries to the `[Unreleased]` section during development; the release workflow now promotes `[Unreleased]` into the versioned section automatically during release cut.
 
 ### Version bump guide
 
@@ -546,6 +549,5 @@ The biggest long-term technical risks are:
 - absence of auth if deployed outside a private environment
 
 Those are the main axes to keep in mind for future work.
-
 
 

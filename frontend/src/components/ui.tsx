@@ -1,7 +1,7 @@
 // ─── Spinner (page-level, centred) ───────────────────────────────────────────
 export function Spinner({ size = 8 }: { size?: number }) {
   return (
-    <div className="flex items-center justify-center p-8">
+    <div className="flex items-center justify-center p-8" role="status" aria-label="Loading">
       <div
         className="rounded-full border-4 border-blue-500 dark:border-blue-400 border-t-transparent"
         style={{

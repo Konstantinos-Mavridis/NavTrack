@@ -231,7 +231,7 @@ Releases are cut via **Actions → Release → Run workflow**. Contributors do n
 
 Your responsibility as a contributor:
 - Add your changes to the `[Unreleased]` section of `CHANGELOG.md` in your PR.
-- Do not modify version files (`backend/package.json`, `frontend/package.json`, `worker/VERSION`) manually — those are managed by the release workflow.
+- Do not modify release-managed version files (`backend/package.json`, `backend/package-lock.json`, `frontend/package.json`, `frontend/package-lock.json`, `worker/VERSION`) manually — those are managed by the release workflow.
 
 ---
 

@@ -202,6 +202,14 @@ class TestFetchAndUpsert:
         fetched, upserted, points = self._run(rows, monkeypatch)
         assert fetched == 1
 
+    def test_all_invalid_rows_return_zeros(self, monkeypatch):
+        """If every close is invalid, there is nothing to persist."""
+        rows = [("2024-01-01", math.nan), ("2024-01-02", 0.0), ("2024-01-03", -1.0)]
+        fetched, upserted, points = self._run(rows, monkeypatch)
+        assert fetched == 0
+        assert upserted == 0
+        assert points == []
+
     def test_empty_history_returns_zeros(self, monkeypatch):
         fetched, upserted, points = self._run([], monkeypatch)
         assert fetched == 0

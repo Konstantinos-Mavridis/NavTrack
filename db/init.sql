@@ -7,7 +7,7 @@
 -- ─────────────────────────────────────────────
 
 CREATE TYPE nav_source AS ENUM ('MANUAL', 'FT', 'EUROBANK', 'YAHOO', 'OTHER');
-CREATE TYPE transaction_type AS ENUM ('BUY', 'SELL', 'SWITCH', 'DIVIDEND_REINVEST');
+CREATE TYPE transaction_type AS ENUM ('BUY', 'SELL', 'SWITCH', 'DIVIDEND_REINVEST', 'FEE_CONSOLIDATION');
 CREATE TYPE sync_status AS ENUM ('PENDING', 'RUNNING', 'SUCCESS', 'PARTIAL', 'FAILED');
 CREATE TYPE asset_class AS ENUM (
   'EQUITY',
