@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import Modal from './Modal';
 import { ModalErrorBanner, FIELD_LABEL_CLS } from './ui';
 import { api } from '../api/client';
-import type { Transaction, Instrument, PortfolioPosition, TransactionType } from '../types';
+import type { Transaction, Instrument, PortfolioPosition } from '../types';
 import { today } from '../utils/format';
 
 const TX_TYPES = ['BUY', 'SELL', 'SWITCH', 'DIVIDEND_REINVEST', 'FEE_CONSOLIDATION'] as const;
@@ -231,7 +231,7 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
     try {
       const payload = {
         instrumentId,
-        type: type as TransactionType,
+        type: type as Transaction['type'],
         tradeDate,
         settlementDate: settlementDate || undefined,
         units: unitNum,
