@@ -142,7 +142,7 @@ export default function PortfolioDetail() {
   const maxDate      = valuation.latestNavDate ?? today();
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+    <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
 
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500">
@@ -324,7 +324,7 @@ export default function PortfolioDetail() {
                  * This empty state is reachable when the user has positions
                  * (recalculated from an import or a previous session) but no
                  * transactions recorded yet — or after clearing all transactions
-                 * while positions haven’t been recalculated to zero yet.
+                 * while positions haven't been recalculated to zero yet.
                  * The tab card is still visible because hasData is true.
                  */
                 <EmptyState message="No transactions yet. Use the buttons above to add your first transaction." />
