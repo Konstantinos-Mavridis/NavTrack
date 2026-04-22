@@ -142,253 +142,258 @@ export default function PortfolioDetail() {
   const maxDate      = valuation.latestNavDate ?? today();
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
+    <div className="max-w-6xl mx-auto px-4 pt-6 pb-8">
 
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500">
+      {/* Breadcrumb — sits close to the navbar (pt-6) and tight above the page title (mb-2) */}
+      <div className="flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500 mb-2">
         <Link to="/" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Portfolios</Link>
         <span>/</span>
         <span className="text-gray-700 dark:text-gray-300 font-medium">{portfolio.name}</span>
       </div>
 
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{portfolio.name}</h1>
-          {portfolio.description && (
-            <p className="text-gray-500 dark:text-gray-400 mt-1 max-w-2xl">{portfolio.description}</p>
-          )}
-        </div>
-        <div className="flex items-center gap-2 flex-wrap shrink-0">
-          <button onClick={() => setModal({ type: 'editPortfolio' })} className="btn-secondary flex items-center gap-1.5">
-            ✎ Edit
-          </button>
-          <button
-            onClick={() => setModal({ type: 'deletePortfolio' })}
-            className="px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
-          >
-            Delete
-          </button>
-        </div>
-      </div>
+      {/* Remaining sections with consistent vertical rhythm */}
+      <div className="space-y-8">
 
-      {/* Date selector */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <label className="text-sm text-gray-500 dark:text-gray-400 font-medium">Valuation as of</label>
-        <input type="date" value={date} max={maxDate} onChange={(e) => handleDateChange(e.target.value)} className="input w-40" />
-        {refreshing && <span className="text-xs text-gray-400 dark:text-gray-500 animate-pulse">Updating…</span>}
-      </div>
-
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label="Total Value"    value={`€${fmtEur(valuation.totalValue)}`} sub={`as of ${valuation.date}`} />
-        <StatCard label="Total Cost"     value={`€${fmtEur(valuation.totalCost)}`} />
-        <StatCard
-          label="Unrealised P&L"
-          value={`${valuation.unrealisedPnl >= 0 ? '+' : ''}€${fmtEur(valuation.unrealisedPnl)}`}
-          accent={pnlAccent}
-        />
-        <StatCard
-          label="Return"
-          value={`${valuation.unrealisedPnlPct >= 0 ? '+' : ''}${valuation.unrealisedPnlPct.toFixed(2)}%`}
-          accent={pnlAccent}
-        />
-      </div>
-
-      {/*
-       * Onboarding card — shown only when there are no transactions and no
-       * positions at all. Once the user has any data the tab card takes over
-       * and this card is hidden.
-       */}
-      {!hasData && (
-        <div className="card p-8 text-center border-dashed dark:border-gray-700">
-          <p className="text-4xl mb-3">📋</p>
-          <p className="font-semibold text-gray-700 dark:text-gray-300 mb-1">No positions yet</p>
-          <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">
-            Add transactions below and positions will be calculated automatically.
-          </p>
-          <div className="flex justify-center gap-2 flex-wrap">
-            <button onClick={() => setModal({ type: 'addTxn' })}     className="btn-primary">+ Add First Transaction</button>
-            <button onClick={() => setModal({ type: 'buyTemplate' })} className="btn-secondary">+ Template Buy</button>
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{portfolio.name}</h1>
+            {portfolio.description && (
+              <p className="text-gray-500 dark:text-gray-400 mt-1 max-w-2xl">{portfolio.description}</p>
+            )}
+          </div>
+          <div className="flex items-center gap-2 flex-wrap shrink-0">
+            <button onClick={() => setModal({ type: 'editPortfolio' })} className="btn-secondary flex items-center gap-1.5">
+              ✎ Edit
+            </button>
+            <button
+              onClick={() => setModal({ type: 'deletePortfolio' })}
+              className="px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+            >
+              Delete
+            </button>
           </div>
         </div>
-      )}
 
-      {/* Allocation charts — only when positions exist */}
-      {hasPositions && (
-        <div className="grid md:grid-cols-2 gap-5">
-          <AllocationChart data={valuation.allocationByAssetClass} title="By Asset Class" />
-          <AllocationChart
-            data={Object.fromEntries(
-              valuation.positions.filter((p) => p.weightPct != null).map((p) => [p.instrumentName, p.weightPct!]),
-            )}
-            labelMap={Object.fromEntries(valuation.positions.map((p) => [p.instrumentName, p.instrumentName]))}
-            colorMap={Object.fromEntries(valuation.positions.map((p, i) => [p.instrumentName, PALETTE[i % PALETTE.length]]))}
-            title="By Instrument"
+        {/* Date selector */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <label className="text-sm text-gray-500 dark:text-gray-400 font-medium">Valuation as of</label>
+          <input type="date" value={date} max={maxDate} onChange={(e) => handleDateChange(e.target.value)} className="input w-40" />
+          {refreshing && <span className="text-xs text-gray-400 dark:text-gray-500 animate-pulse">Updating…</span>}
+        </div>
+
+        {/* Summary cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <StatCard label="Total Value"    value={`€${fmtEur(valuation.totalValue)}`} sub={`as of ${valuation.date}`} />
+          <StatCard label="Total Cost"     value={`€${fmtEur(valuation.totalCost)}`} />
+          <StatCard
+            label="Unrealised P&L"
+            value={`${valuation.unrealisedPnl >= 0 ? '+' : ''}€${fmtEur(valuation.unrealisedPnl)}`}
+            accent={pnlAccent}
+          />
+          <StatCard
+            label="Return"
+            value={`${valuation.unrealisedPnlPct >= 0 ? '+' : ''}${valuation.unrealisedPnlPct.toFixed(2)}%`}
+            accent={pnlAccent}
           />
         </div>
-      )}
 
-      {/*
-       * Positions / Transactions tab card.
-       * Hidden entirely when the portfolio has no data at all — the onboarding
-       * card above already surfaces the add-transaction CTAs in that state.
-       * Once the user has at least one transaction (even before positions are
-       * calculated) this card appears.
-       */}
-      {hasData && (
-        <div className="card overflow-hidden">
-          <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 px-2">
-            <div className="flex">
-              {(['positions', 'transactions'] as Tab[]).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setTab(t)}
-                  className={`px-5 py-3.5 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${
-                    tab === t
-                      ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                      : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                  }`}
-                >
-                  {t}
-                  <span className="ml-2 px-1.5 py-0.5 rounded text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
-                    {t === 'positions' ? valuation.positions.length : transactions.length}
-                  </span>
-                </button>
-              ))}
+        {/*
+         * Onboarding card — shown only when there are no transactions and no
+         * positions at all. Once the user has any data the tab card takes over
+         * and this card is hidden.
+         */}
+        {!hasData && (
+          <div className="card p-8 text-center border-dashed dark:border-gray-700">
+            <p className="text-4xl mb-3">📋</p>
+            <p className="font-semibold text-gray-700 dark:text-gray-300 mb-1">No positions yet</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">
+              Add transactions below and positions will be calculated automatically.
+            </p>
+            <div className="flex justify-center gap-2 flex-wrap">
+              <button onClick={() => setModal({ type: 'addTxn' })}     className="btn-primary">+ Add First Transaction</button>
+              <button onClick={() => setModal({ type: 'buyTemplate' })} className="btn-secondary">+ Template Buy</button>
             </div>
+          </div>
+        )}
+
+        {/* Allocation charts — only when positions exist */}
+        {hasPositions && (
+          <div className="grid md:grid-cols-2 gap-5">
+            <AllocationChart data={valuation.allocationByAssetClass} title="By Asset Class" />
+            <AllocationChart
+              data={Object.fromEntries(
+                valuation.positions.filter((p) => p.weightPct != null).map((p) => [p.instrumentName, p.weightPct!]),
+              )}
+              labelMap={Object.fromEntries(valuation.positions.map((p) => [p.instrumentName, p.instrumentName]))}
+              colorMap={Object.fromEntries(valuation.positions.map((p, i) => [p.instrumentName, PALETTE[i % PALETTE.length]]))}
+              title="By Instrument"
+            />
+          </div>
+        )}
+
+        {/*
+         * Positions / Transactions tab card.
+         * Hidden entirely when the portfolio has no data at all — the onboarding
+         * card above already surfaces the add-transaction CTAs in that state.
+         * Once the user has at least one transaction (even before positions are
+         * calculated) this card appears.
+         */}
+        {hasData && (
+          <div className="card overflow-hidden">
+            <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 px-2">
+              <div className="flex">
+                {(['positions', 'transactions'] as Tab[]).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setTab(t)}
+                    className={`px-5 py-3.5 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${
+                      tab === t
+                        ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                        : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                    }`}
+                  >
+                    {t}
+                    <span className="ml-2 px-1.5 py-0.5 rounded text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                      {t === 'positions' ? valuation.positions.length : transactions.length}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              {tab === 'transactions' && (
+                <div className="flex items-center gap-2 pr-2">
+                  <button onClick={() => setModal({ type: 'buyTemplate' })} className="btn-secondary text-sm py-1.5">+ Template Buy</button>
+                  <button onClick={() => setModal({ type: 'addTxn' })}      className="btn-primary   text-sm py-1.5">+ Add Transaction</button>
+                </div>
+              )}
+            </div>
+
+            {/* ── Positions tab ── */}
+            {tab === 'positions' && (
+              valuation.positions.length === 0
+                ? <EmptyState message="No positions yet. Add transactions and they will appear here automatically." />
+                : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 dark:bg-gray-800/60">
+                        <tr>
+                          {['Fund', 'ISIN', 'Asset Class', 'Units', 'NAV (EUR)', 'Value (EUR)', 'Cost (EUR)', 'P&L (EUR)', 'Weight'].map((h) => (
+                            <th key={h} className="table-th whitespace-nowrap">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                        {[...valuation.positions].sort((a, b) => (b.value ?? 0) - (a.value ?? 0)).map((pos) => (
+                          <tr key={pos.positionId} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                            <td className="table-td font-medium max-w-xs">
+                              <Link
+                                to={`/instruments/${pos.instrumentId}`}
+                                className="truncate block text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                                title={pos.instrumentName}
+                              >
+                                {pos.instrumentName}
+                              </Link>
+                            </td>
+                            <td className="table-td font-mono text-xs text-gray-400 dark:text-gray-500">{pos.isin}</td>
+                            <td className="table-td"><AssetClassChip ac={pos.assetClass} /></td>
+                            <td className="table-td tabular-nums">{fmtUnits(pos.units)}</td>
+                            <td className="table-td tabular-nums">{pos.nav != null ? fmtEur(pos.nav, 4) : '—'}</td>
+                            <td className="table-td tabular-nums font-semibold">{pos.value != null ? `€${fmtEur(pos.value)}` : '—'}</td>
+                            <td className="table-td tabular-nums text-gray-500 dark:text-gray-400">{pos.cost != null ? `€${fmtEur(pos.cost)}` : '—'}</td>
+                            <td className="table-td"><PnlCell value={pos.pnl} /></td>
+                            <td className="table-td text-gray-600 dark:text-gray-400 font-medium">{pos.weightPct != null ? `${pos.weightPct.toFixed(1)}%` : '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-gray-50 dark:bg-gray-800/60 border-t border-gray-100 dark:border-gray-800 font-semibold">
+                        <tr>
+                          <td colSpan={5} className="table-td text-gray-700 dark:text-gray-300">Total</td>
+                          <td className="table-td">€{fmtEur(valuation.totalValue)}</td>
+                          <td className="table-td text-gray-500 dark:text-gray-400">€{fmtEur(valuation.totalCost)}</td>
+                          <td className="table-td"><PnlCell value={valuation.unrealisedPnl} /></td>
+                          <td className="table-td text-gray-600 dark:text-gray-400">100%</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                )
+            )}
+
+            {/* ── Transactions tab ── */}
             {tab === 'transactions' && (
-              <div className="flex items-center gap-2 pr-2">
-                <button onClick={() => setModal({ type: 'buyTemplate' })} className="btn-secondary text-sm py-1.5">+ Template Buy</button>
-                <button onClick={() => setModal({ type: 'addTxn' })}      className="btn-primary   text-sm py-1.5">+ Add Transaction</button>
+              transactions.length === 0
+                ? (
+                  /*
+                   * This empty state is reachable when the user has positions
+                   * (recalculated from an import or a previous session) but no
+                   * transactions recorded yet — or after clearing all transactions
+                   * while positions haven't been recalculated to zero yet.
+                   * The tab card is still visible because hasData is true.
+                   */
+                  <EmptyState message="No transactions yet. Use the buttons above to add your first transaction." />
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 dark:bg-gray-800/60">
+                        <tr>
+                          {['Date', 'Type', 'Fund', 'Units', 'Price (EUR)', 'Fees (EUR)', 'Total (EUR)', ''].map((h) => (
+                            <th key={h} className="table-th whitespace-nowrap">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                        {transactions.map((tx) => {
+                          const total = Number(tx.units) * Number(tx.pricePerUnit) + Number(tx.fees);
+                          return (
+                            <tr key={tx.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
+                              <td className="table-td font-mono text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{tx.tradeDate}</td>
+                              <td className="table-td">
+                                <span className={`badge ${txBadgeColor(tx.type)}`}>{tx.type.replace('_', ' ')}</span>
+                              </td>
+                              <td className="table-td font-medium text-gray-800 dark:text-gray-200 max-w-[14rem]">
+                                <div className="truncate" title={tx.instrument?.name}>{tx.instrument?.name ?? '—'}</div>
+                              </td>
+                              <td className="table-td tabular-nums">{fmtUnits(tx.units)}</td>
+                              <td className="table-td tabular-nums">{fmtEur(tx.pricePerUnit, 6)}</td>
+                              <td className="table-td tabular-nums text-gray-500 dark:text-gray-400">{fmtEur(tx.fees)}</td>
+                              <td className="table-td tabular-nums font-medium">€{fmtEur(total)}</td>
+                              <td className="table-td">
+                                <div className="flex gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button
+                                    onClick={() => setModal({ type: 'editTxn', transaction: tx })}
+                                    className="p-1 rounded text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40 transition-colors text-xs"
+                                    title="Edit"
+                                  >✎</button>
+                                  <button
+                                    onClick={() => setModal({ type: 'deleteTxn', transaction: tx })}
+                                    className="p-1 rounded text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/40 transition-colors text-xs"
+                                    title="Delete"
+                                  >✕</button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )
+            )}
+
+            {tab === 'transactions' && transactions.length > 0 && (
+              <div className="flex items-center justify-end px-4 py-2.5 border-t border-gray-100 dark:border-gray-800">
+                <button
+                  onClick={() => setModal({ type: 'deleteAllTxn' })}
+                  className="px-3 py-1.5 text-xs font-medium text-red-500 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                >
+                  Clear All
+                </button>
               </div>
             )}
           </div>
+        )}
 
-          {/* ── Positions tab ── */}
-          {tab === 'positions' && (
-            valuation.positions.length === 0
-              ? <EmptyState message="No positions yet. Add transactions and they will appear here automatically." />
-              : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50 dark:bg-gray-800/60">
-                      <tr>
-                        {['Fund', 'ISIN', 'Asset Class', 'Units', 'NAV (EUR)', 'Value (EUR)', 'Cost (EUR)', 'P&L (EUR)', 'Weight'].map((h) => (
-                          <th key={h} className="table-th whitespace-nowrap">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                      {[...valuation.positions].sort((a, b) => (b.value ?? 0) - (a.value ?? 0)).map((pos) => (
-                        <tr key={pos.positionId} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                          <td className="table-td font-medium max-w-xs">
-                            <Link
-                              to={`/instruments/${pos.instrumentId}`}
-                              className="truncate block text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                              title={pos.instrumentName}
-                            >
-                              {pos.instrumentName}
-                            </Link>
-                          </td>
-                          <td className="table-td font-mono text-xs text-gray-400 dark:text-gray-500">{pos.isin}</td>
-                          <td className="table-td"><AssetClassChip ac={pos.assetClass} /></td>
-                          <td className="table-td tabular-nums">{fmtUnits(pos.units)}</td>
-                          <td className="table-td tabular-nums">{pos.nav != null ? fmtEur(pos.nav, 4) : '—'}</td>
-                          <td className="table-td tabular-nums font-semibold">{pos.value != null ? `€${fmtEur(pos.value)}` : '—'}</td>
-                          <td className="table-td tabular-nums text-gray-500 dark:text-gray-400">{pos.cost != null ? `€${fmtEur(pos.cost)}` : '—'}</td>
-                          <td className="table-td"><PnlCell value={pos.pnl} /></td>
-                          <td className="table-td text-gray-600 dark:text-gray-400 font-medium">{pos.weightPct != null ? `${pos.weightPct.toFixed(1)}%` : '—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot className="bg-gray-50 dark:bg-gray-800/60 border-t border-gray-100 dark:border-gray-800 font-semibold">
-                      <tr>
-                        <td colSpan={5} className="table-td text-gray-700 dark:text-gray-300">Total</td>
-                        <td className="table-td">€{fmtEur(valuation.totalValue)}</td>
-                        <td className="table-td text-gray-500 dark:text-gray-400">€{fmtEur(valuation.totalCost)}</td>
-                        <td className="table-td"><PnlCell value={valuation.unrealisedPnl} /></td>
-                        <td className="table-td text-gray-600 dark:text-gray-400">100%</td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              )
-          )}
-
-          {/* ── Transactions tab ── */}
-          {tab === 'transactions' && (
-            transactions.length === 0
-              ? (
-                /*
-                 * This empty state is reachable when the user has positions
-                 * (recalculated from an import or a previous session) but no
-                 * transactions recorded yet — or after clearing all transactions
-                 * while positions haven't been recalculated to zero yet.
-                 * The tab card is still visible because hasData is true.
-                 */
-                <EmptyState message="No transactions yet. Use the buttons above to add your first transaction." />
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50 dark:bg-gray-800/60">
-                      <tr>
-                        {['Date', 'Type', 'Fund', 'Units', 'Price (EUR)', 'Fees (EUR)', 'Total (EUR)', ''].map((h) => (
-                          <th key={h} className="table-th whitespace-nowrap">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                      {transactions.map((tx) => {
-                        const total = Number(tx.units) * Number(tx.pricePerUnit) + Number(tx.fees);
-                        return (
-                          <tr key={tx.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
-                            <td className="table-td font-mono text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{tx.tradeDate}</td>
-                            <td className="table-td">
-                              <span className={`badge ${txBadgeColor(tx.type)}`}>{tx.type.replace('_', ' ')}</span>
-                            </td>
-                            <td className="table-td font-medium text-gray-800 dark:text-gray-200 max-w-[14rem]">
-                              <div className="truncate" title={tx.instrument?.name}>{tx.instrument?.name ?? '—'}</div>
-                            </td>
-                            <td className="table-td tabular-nums">{fmtUnits(tx.units)}</td>
-                            <td className="table-td tabular-nums">{fmtEur(tx.pricePerUnit, 6)}</td>
-                            <td className="table-td tabular-nums text-gray-500 dark:text-gray-400">{fmtEur(tx.fees)}</td>
-                            <td className="table-td tabular-nums font-medium">€{fmtEur(total)}</td>
-                            <td className="table-td">
-                              <div className="flex gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button
-                                  onClick={() => setModal({ type: 'editTxn', transaction: tx })}
-                                  className="p-1 rounded text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40 transition-colors text-xs"
-                                  title="Edit"
-                                >✎</button>
-                                <button
-                                  onClick={() => setModal({ type: 'deleteTxn', transaction: tx })}
-                                  className="p-1 rounded text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/40 transition-colors text-xs"
-                                  title="Delete"
-                                >✕</button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )
-          )}
-
-          {tab === 'transactions' && transactions.length > 0 && (
-            <div className="flex items-center justify-end px-4 py-2.5 border-t border-gray-100 dark:border-gray-800">
-              <button
-                onClick={() => setModal({ type: 'deleteAllTxn' })}
-                className="px-3 py-1.5 text-xs font-medium text-red-500 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
-              >
-                Clear All
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+      </div>{/* end space-y-8 */}
 
       {/* ── Modals ── */}
       {modal?.type === 'addTxn' && id && (
