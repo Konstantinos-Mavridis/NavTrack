@@ -5,12 +5,13 @@ name: Release
 #
 # What it does:
 #   1. Validates the version looks like SemVer (X.Y.Z).
-#   2. Bumps `version` in backend/package.json and frontend/package.json.
+#   2. Bumps version fields in backend/frontend package + lock files.
 #   3. Writes the new version into worker/VERSION.
-#   4. Commits the changes and pushes to main [skip ci].
-#   5. Creates and pushes an annotated Git tag vX.Y.Z.
-#   6. Creates a GitHub Release for the tag (visible on the Releases page).
-#   7. Triggers docker-backend, docker-frontend, docker-worker (which pick
+#   4. Promotes CHANGELOG [Unreleased] to the new release section.
+#   5. Commits the changes and pushes to main [skip ci].
+#   6. Creates and pushes an annotated Git tag vX.Y.Z.
+#   7. Creates a GitHub Release for the tag (visible on the Releases page).
+#   8. Triggers docker-backend, docker-frontend, docker-worker (which pick
 #      up type=semver tags from docker/metadata-action automatically).
 
 on:
@@ -88,7 +89,15 @@ jobs:
           fi
 
       # ------------------------------------------------------------------ #
-      # 5. Bump versions in source files
+      # 5. Capture previous version (used for changelog compare links)
+      # ------------------------------------------------------------------ #
+      - name: Capture previous version
+        run: |
+          PREV_VERSION="$(node -p "require('./backend/package.json').version")"
+          echo "PREV_VERSION=$PREV_VERSION" >> $GITHUB_ENV
+
+      # ------------------------------------------------------------------ #
+      # 6. Bump versions in source files
       # ------------------------------------------------------------------ #
       - name: Bump backend/package.json
         run: |
@@ -108,23 +117,100 @@ jobs:
             fs.writeFileSync('frontend/package.json', JSON.stringify(p, null, 2) + '\n');
           "
 
+      - name: Bump backend/package-lock.json
+        run: |
+          node -e "
+            const fs = require('fs');
+            const p = JSON.parse(fs.readFileSync('backend/package-lock.json', 'utf8'));
+            p.version = '${{ env.VERSION }}';
+            if (p.packages && p.packages['']) p.packages[''].version = '${{ env.VERSION }}';
+            fs.writeFileSync('backend/package-lock.json', JSON.stringify(p, null, 2) + '\n');
+          "
+
+      - name: Bump frontend/package-lock.json
+        run: |
+          node -e "
+            const fs = require('fs');
+            const p = JSON.parse(fs.readFileSync('frontend/package-lock.json', 'utf8'));
+            p.version = '${{ env.VERSION }}';
+            if (p.packages && p.packages['']) p.packages[''].version = '${{ env.VERSION }}';
+            fs.writeFileSync('frontend/package-lock.json', JSON.stringify(p, null, 2) + '\n');
+          "
+
       - name: Bump worker/VERSION
         run: echo "${{ env.VERSION }}" > worker/VERSION
 
       # ------------------------------------------------------------------ #
-      # 6. Commit bumped files
+      # 7. Update CHANGELOG.md
+      # ------------------------------------------------------------------ #
+      - name: Promote CHANGELOG unreleased section
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+
+          const version = process.env.VERSION;
+          const prevVersion = process.env.PREV_VERSION;
+          const repo = process.env.GITHUB_REPOSITORY;
+          const today = new Date().toISOString().slice(0, 10);
+          const path = 'CHANGELOG.md';
+
+          let text = fs.readFileSync(path, 'utf8');
+
+          if (text.includes(`## [${version}]`)) {
+            console.error(`CHANGELOG already contains a section for ${version}`);
+            process.exit(1);
+          }
+
+          const unreleasedBlockRe = /## \[Unreleased\]\s*\n([\s\S]*?)\n---\s*\n/;
+          const match = text.match(unreleasedBlockRe);
+          if (!match) {
+            console.error("Could not find [Unreleased] section with trailing separator.");
+            process.exit(1);
+          }
+
+          const unreleasedBody = match[1].trim();
+          const releaseBody = unreleasedBody || "- No user-facing changes recorded.";
+
+          const replacement =
+            `## [Unreleased]\n\n---\n\n` +
+            `## [${version}] - ${today}\n\n` +
+            `${releaseBody}\n\n` +
+            `---\n`;
+          text = text.replace(unreleasedBlockRe, replacement);
+
+          const unreleasedLinkRe = /\[Unreleased\]:\s+https:\/\/github\.com\/[^\n]+\/compare\/v[0-9]+\.[0-9]+\.[0-9]+\.\.\.HEAD/;
+          const unreleasedLink = `[Unreleased]: https://github.com/${repo}/compare/v${version}...HEAD`;
+          if (unreleasedLinkRe.test(text)) {
+            text = text.replace(unreleasedLinkRe, unreleasedLink);
+          } else {
+            text = `${text.trimEnd()}\n${unreleasedLink}\n`;
+          }
+
+          const releaseLink = `[${version}]: https://github.com/${repo}/compare/v${prevVersion}...v${version}`;
+          if (!text.includes(`[${version}]:`)) {
+            text = text.replace(unreleasedLink, `${unreleasedLink}\n${releaseLink}`);
+          }
+
+          fs.writeFileSync(path, text);
+          NODE
+
+      # ------------------------------------------------------------------ #
+      # 8. Commit bumped files
       #    [skip ci] prevents CI Gate from re-triggering Docker builds for
-      #    this commit — the tagged builds are dispatched explicitly in step 9.
+      #    this commit — the tagged builds are dispatched explicitly in step 11.
       # ------------------------------------------------------------------ #
       - name: Commit version bump
         run: |
-          git add backend/package.json frontend/package.json worker/VERSION
+          git add \
+            backend/package.json backend/package-lock.json \
+            frontend/package.json frontend/package-lock.json \
+            worker/VERSION CHANGELOG.md
           git diff --cached --quiet && echo "Nothing to commit" && exit 0
           git commit -m "chore(release): bump version to ${{ env.VERSION }} [skip ci]"
           git push origin main
 
       # ------------------------------------------------------------------ #
-      # 7. Create annotated tag
+      # 9. Create annotated tag
       # ------------------------------------------------------------------ #
       - name: Create and push tag
         run: |
@@ -137,7 +223,7 @@ jobs:
           git push origin "v${{ env.VERSION }}"
 
       # ------------------------------------------------------------------ #
-      # 8. Create GitHub Release
+      # 10. Create GitHub Release
       # ------------------------------------------------------------------ #
       - name: Create GitHub Release
         uses: actions/github-script@v7.0.1
@@ -165,7 +251,7 @@ jobs:
             core.setOutput('release_url', release.html_url);
 
       # ------------------------------------------------------------------ #
-      # 9. Dispatch Docker builds (they read the tag via docker/metadata-action)
+      # 11. Dispatch Docker builds (they read the tag via docker/metadata-action)
       # ------------------------------------------------------------------ #
       - name: Dispatch Docker builds
         uses: actions/github-script@v7.0.1

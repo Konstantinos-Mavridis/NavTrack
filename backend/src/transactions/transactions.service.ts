@@ -39,6 +39,12 @@ export class TransactionsService {
   }
 
   async create(portfolioId: string, dto: CreateTransactionDto): Promise<Transaction> {
+    if (dto.type !== TransactionType.FEE_CONSOLIDATION && dto.units <= 0) {
+      throw new BadRequestException('units must be positive for this transaction type');
+    }
+    if (dto.type === TransactionType.FEE_CONSOLIDATION && dto.units === 0) {
+      throw new BadRequestException('unit delta cannot be zero for FEE_CONSOLIDATION');
+    }
     const saved = await this.repo.save(
       this.repo.create({
         portfolioId,
@@ -53,7 +59,6 @@ export class TransactionsService {
       }),
     );
     await this.portfolios.recalculateFromTransactions(portfolioId);
-    // Re-fetch so the response always includes the instrument relation
     return this.findOneWithRelations(saved.id);
   }
 
@@ -154,18 +159,27 @@ export class TransactionsService {
     const txn = await this.repo.findOne({ where: { id: txnId, portfolioId } });
     if (!txn) throw new NotFoundException(`Transaction ${txnId} not found`);
 
-    if (dto.instrumentId  !== undefined) txn.instrumentId   = dto.instrumentId;
-    if (dto.type          !== undefined) txn.type           = dto.type;
-    if (dto.tradeDate     !== undefined) txn.tradeDate      = dto.tradeDate;
+    if (dto.instrumentId   !== undefined) txn.instrumentId   = dto.instrumentId;
+    if (dto.type           !== undefined) txn.type           = dto.type;
+    if (dto.tradeDate      !== undefined) txn.tradeDate      = dto.tradeDate;
     if (dto.settlementDate !== undefined) txn.settlementDate = dto.settlementDate;
-    if (dto.units         !== undefined) txn.units          = dto.units;
-    if (dto.pricePerUnit  !== undefined) txn.pricePerUnit   = dto.pricePerUnit;
-    if (dto.fees          !== undefined) txn.fees           = dto.fees;
-    if (dto.notes         !== undefined) txn.notes          = dto.notes;
+    if (dto.pricePerUnit   !== undefined) txn.pricePerUnit   = dto.pricePerUnit;
+    if (dto.fees           !== undefined) txn.fees           = dto.fees;
+    if (dto.notes          !== undefined) txn.notes          = dto.notes;
+
+    if (dto.units !== undefined) {
+      const effectiveType = dto.type ?? txn.type;
+      if (effectiveType !== TransactionType.FEE_CONSOLIDATION && dto.units <= 0) {
+        throw new BadRequestException('units must be positive for this transaction type');
+      }
+      if (effectiveType === TransactionType.FEE_CONSOLIDATION && dto.units === 0) {
+        throw new BadRequestException('unit delta cannot be zero for FEE_CONSOLIDATION');
+      }
+      txn.units = dto.units;
+    }
 
     await this.repo.save(txn);
     await this.portfolios.recalculateFromTransactions(portfolioId);
-    // Re-fetch so the response always includes the instrument relation
     return this.findOneWithRelations(txn.id);
   }
 

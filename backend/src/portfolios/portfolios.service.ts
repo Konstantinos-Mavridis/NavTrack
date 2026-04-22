@@ -173,6 +173,7 @@ export class PortfoliosService {
             CASE t.type
               WHEN 'BUY'               THEN  t.units
               WHEN 'DIVIDEND_REINVEST' THEN  t.units
+              WHEN 'FEE_CONSOLIDATION' THEN  t.units
               WHEN 'SELL'              THEN -t.units
               WHEN 'SWITCH'            THEN -t.units
               ELSE 0
@@ -192,6 +193,7 @@ export class PortfoliosService {
             CASE t.type
               WHEN 'BUY'               THEN  t.units
               WHEN 'DIVIDEND_REINVEST' THEN  t.units
+              WHEN 'FEE_CONSOLIDATION' THEN  t.units
               WHEN 'SELL'              THEN -t.units
               WHEN 'SWITCH'            THEN -t.units
               ELSE 0
@@ -553,7 +555,9 @@ export class PortfoliosService {
             continue;
           }
 
-          const units = toPositiveNumber(tx.units);
+          // FEE_CONSOLIDATION rows may carry negative units (unit reduction).
+          // All other types require strictly positive units.
+          const units = toFiniteNumber(tx.units);
           const pricePerUnit = toPositiveNumber(tx.pricePerUnit);
           const fees = toNonNegativeNumber(tx.fees ?? 0);
           const tradeDate = String(tx.tradeDate ?? '');
@@ -570,7 +574,8 @@ export class PortfoliosService {
             continue;
           }
 
-          if (units <= 0 || pricePerUnit <= 0 || fees < 0) {
+          const unitsInvalid = units === 0 || (typeStr !== 'FEE_CONSOLIDATION' && units < 0);
+          if (unitsInvalid || pricePerUnit <= 0 || fees < 0) {
             summary.transactionsSkipped++;
             summary.skippedReasons.push(`Invalid numeric values for ISIN ${isin}`);
             continue;
@@ -639,7 +644,7 @@ export class PortfoliosService {
   /**
    * Recalculate positions from the transaction ledger.
    * For each instrument with transactions in this portfolio:
-   *   units          = sum of signed units (BUY/DIVIDEND_REINVEST +, SELL -)
+   *   units          = sum of signed units (BUY/DIVIDEND_REINVEST +, SELL -, FEE_CONSOLIDATION signed)
    *   costBasisPerUnit = weighted average cost of BUY + DIVIDEND_REINVEST lots
    * Existing positions are replaced atomically.
    */
@@ -658,6 +663,7 @@ export class PortfoliosService {
           CASE type
             WHEN 'BUY'               THEN  units
             WHEN 'DIVIDEND_REINVEST' THEN  units
+            WHEN 'FEE_CONSOLIDATION' THEN  units
             WHEN 'SELL'              THEN -units
             WHEN 'SWITCH'            THEN -units
             ELSE 0
@@ -680,6 +686,7 @@ export class PortfoliosService {
                CASE type
                  WHEN 'BUY'               THEN  units
                  WHEN 'DIVIDEND_REINVEST' THEN  units
+                 WHEN 'FEE_CONSOLIDATION' THEN  units
                  WHEN 'SELL'              THEN -units
                  WHEN 'SWITCH'            THEN -units
                  ELSE 0
@@ -718,7 +725,7 @@ export interface ImportSummary {
 
 function csvEscape(value: unknown): string {
   const s = String(value ?? '');
-  if (/(["\,\n])/.test(s)) {
+  if (/(["\\,\n])/.test(s)) {
     return `"${s.replace(/"/g, '""')}`;
   }
   return s;
@@ -810,6 +817,17 @@ function parseCsv(csv: string): Array<Record<string, string>> {
     });
     return obj;
   });
+}
+
+/**
+ * Parse a numeric value preserving its sign.
+ * Returns 0 for non-finite results (NaN, Infinity).
+ * Used for fields like `units` where negative values are semantically valid
+ * (e.g. FEE_CONSOLIDATION unit reductions).
+ */
+function toFiniteNumber(value: unknown): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
 }
 
 function toPositiveNumber(value: unknown): number {

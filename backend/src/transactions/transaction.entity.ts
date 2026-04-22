@@ -10,6 +10,7 @@ export enum TransactionType {
   SELL              = 'SELL',
   SWITCH            = 'SWITCH',
   DIVIDEND_REINVEST = 'DIVIDEND_REINVEST',
+  FEE_CONSOLIDATION = 'FEE_CONSOLIDATION',
 }
 
 @Entity('transactions')
