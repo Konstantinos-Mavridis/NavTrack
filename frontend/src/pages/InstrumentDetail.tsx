@@ -154,7 +154,7 @@ export default function InstrumentDetail() {
   const dataLinks = instrument.dataSources?.filter(Boolean) ?? [];
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-10 space-y-8">
+    <div className="max-w-6xl mx-auto px-4 py-10 space-y-8">
       <div className="flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500">
         <Link to="/strategies" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
           Strategies
