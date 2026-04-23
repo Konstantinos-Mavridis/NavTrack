@@ -90,9 +90,76 @@ jobs:
       - name: Run tests with coverage
         env:
           NODE_ENV: test
-        # Jest 30 ships a built-in 'github-actions' reporter that writes a
-        # test-results summary to $GITHUB_STEP_SUMMARY automatically.
-        run: npm run test:cov -- --reporters=default --reporters=github-actions
+        # --testResultsProcessor writes a JUnit XML that the summary step reads.
+        # jest-junit is already available via npx; no extra devDependency needed.
+        run: |
+          npx --yes jest-junit
+          npm run test:cov -- --testResultsProcessor=jest-junit
+        env:
+          NODE_ENV: test
+          JEST_JUNIT_OUTPUT_FILE: test-results.xml
+          JEST_JUNIT_OUTPUT_NAME: test-results.xml
+
+      - name: Write Jest summary
+        if: always()
+        run: |
+          node - <<'EOF'
+          const fs   = require('fs');
+          const path = require('path');
+          const { XMLParser } = require('@xmldom/xmldom') || {};
+
+          const xmlFile   = 'test-results.xml';
+          const summaryFile = process.env.GITHUB_STEP_SUMMARY;
+
+          if (!fs.existsSync(xmlFile)) {
+            fs.appendFileSync(summaryFile,
+              '## Jest Test Report\n\n' +
+              '\u26a0\ufe0f `test-results.xml` not found \u2014 Jest may have failed before producing output.\n');
+            process.exit(0);
+          }
+
+          // Parse with regex to avoid needing a dep
+          const xml = fs.readFileSync(xmlFile, 'utf8');
+          const attr = (str, name) => { const m = str.match(new RegExp(`${name}="([^"]*)"`)); return m ? m[1] : '0'; };
+
+          // Sum across all <testsuite> elements
+          let total = 0, failures = 0, errors = 0, skipped = 0;
+          for (const m of xml.matchAll(/<testsuite\s[^>]*>/g)) {
+            total    += parseInt(attr(m[0], 'tests'),    10) || 0;
+            failures += parseInt(attr(m[0], 'failures'), 10) || 0;
+            errors   += parseInt(attr(m[0], 'errors'),   10) || 0;
+            skipped  += parseInt(attr(m[0], 'skipped'),  10) || 0;
+          }
+          const passed = total - failures - errors - skipped;
+          const status = (failures + errors) === 0 ? '\u2705' : '\u274c';
+
+          let lines = [
+            '## Jest Test Report',
+            '',
+            '### Summary',
+            '',
+            '| | Count |',
+            '|---|---|',
+            `| ${status} Passed  | ${passed}  |`,
+            `| \U0001F7E1 Skipped | ${skipped} |`,
+            `| \u274c Failed  | ${failures} |`,
+            `| \U0001F534 Errors  | ${errors}  |`,
+            `| **Total**  | **${total}** |`,
+          ];
+
+          if (failures > 0 || errors > 0) {
+            lines.push('', '### Failures');
+            for (const m of xml.matchAll(/<testcase[^>]+name="([^"]*)"[^>]*classname="([^"]*)"[^\/]*>([\s\S]*?)<\/testcase>/g)) {
+              const inner = m[3];
+              if (inner.includes('<failure') || inner.includes('<error')) {
+                const msg = (inner.match(/message="([^"]*)"/) || [])[1] || '';
+                lines.push(`- **${m[2]}.${m[1]}**: ${msg}`);
+              }
+            }
+          }
+
+          fs.appendFileSync(summaryFile, lines.join('\n') + '\n');
+          EOF
 
       - name: SonarQube Scan – backend
         uses: SonarSource/sonarqube-scan-action@v7.1.0
@@ -114,7 +181,7 @@ jobs:
             -Dsonar.qualitygate.wait=false
             -Dsonar.pullrequest.github.summary_comment=false
 
-  # ── 2. Frontend (React / TypeScript / Vite) ───────────────────────────────────────────────────────────────────────────────────────────────────────────
+  # ── 2. Frontend (React / TypeScript / Vite) ─────────────────────────────────────────────────────────────────────────────────────────────────────────
   sonar-frontend:
     name: Sonar – frontend
     runs-on: ubuntu-latest
@@ -167,7 +234,7 @@ jobs:
             -Dsonar.qualitygate.wait=false
             -Dsonar.pullrequest.github.summary_comment=false
 
-  # ── 3. Worker (Python 3.14 / APScheduler) ──────────────────────────────────────────────────────────────────────────────────────────────────────────
+  # ── 3. Worker (Python 3.14 / APScheduler) ─────────────────────────────────────────────────────────────────────────────────────────────────────────
   sonar-worker:
     name: Sonar – worker
     runs-on: ubuntu-latest
