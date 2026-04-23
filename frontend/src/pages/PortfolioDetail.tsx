@@ -197,10 +197,6 @@ export default function PortfolioDetail() {
           />
         </div>
 
-        {/*
-         * Onboarding card — shown only when there are no transactions and no
-         * positions at all.
-         */}
         {!hasData && (
           <div className="card p-8 text-center border-dashed dark:border-gray-700">
             <p className="text-4xl mb-3">📋</p>
@@ -215,7 +211,6 @@ export default function PortfolioDetail() {
           </div>
         )}
 
-        {/* Allocation charts — only when positions exist */}
         {hasPositions && (
           <div className="grid md:grid-cols-2 gap-5">
             <AllocationChart data={valuation.allocationByAssetClass} title="By Asset Class" />
@@ -230,9 +225,6 @@ export default function PortfolioDetail() {
           </div>
         )}
 
-        {/*
-         * Positions / Transactions tab card.
-         */}
         {hasData && (
           <div className="card overflow-hidden">
             <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 px-2">
@@ -267,13 +259,13 @@ export default function PortfolioDetail() {
               valuation.positions.length === 0
                 ? <EmptyState message="No positions yet. Add transactions and they will appear here automatically." />
                 : (
-                  <div className="overflow-x-auto">
+                  {/*
+                   * dark:bg-gray-800 on the scroll wrapper fills the subpixel gap
+                   * between the tab-bar border-b and the thead, which otherwise
+                   * shows the card’s gray-900 background as a thin lighter stripe.
+                   */}
+                  <div className="overflow-x-auto dark:bg-gray-800">
                     <table className="w-full text-sm">
-                      {/*
-                       * Use opaque dark:bg-gray-800 (not /60) so that the semi-transparent
-                       * alpha layer does not composite against the overflow-x-auto paint
-                       * context and produce a lighter stripe (the "white line" bug).
-                       */}
                       <thead className="bg-gray-50 dark:bg-gray-800">
                         <tr>
                           {['Fund', 'ISIN', 'Asset Class', 'Units', 'NAV (EUR)', 'Value (EUR)', 'Cost (EUR)', 'P&L (EUR)', 'Weight'].map((h) => (
@@ -324,7 +316,7 @@ export default function PortfolioDetail() {
                 ? (
                   <EmptyState message="No transactions yet. Use the buttons above to add your first transaction." />
                 ) : (
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto dark:bg-gray-800">
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50 dark:bg-gray-800">
                         <tr>
