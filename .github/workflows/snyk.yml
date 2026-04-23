@@ -31,10 +31,6 @@ jobs:
       contents: read
       security-events: write
 
-    defaults:
-      run:
-        working-directory: backend
-
     steps:
       - uses: actions/checkout@v6
         with:
@@ -47,9 +43,11 @@ jobs:
           cache-dependency-path: backend/package-lock.json
 
       - name: Install dependencies
+        working-directory: backend
         run: npm install --include=dev
 
       # ── Open Source (SCA): dependency vulnerabilities ──────────────────────────
+      # snyk/actions always run from the repo root — all paths are root-relative.
       - name: Snyk Open Source – backend
         continue-on-error: true
         uses: snyk/actions/node@master
@@ -63,24 +61,25 @@ jobs:
         uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
-          sarif_file: backend/snyk-oss-backend.sarif
+          sarif_file: snyk-oss-backend.sarif
           category: snyk-oss-backend
 
       # ── Code (SAST): source code vulnerabilities ───────────────────────────
+      # `snyk code test <path>` scans a directory; --file is not valid here.
       - name: Snyk Code – backend
         continue-on-error: true
         uses: snyk/actions/node@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          args: --sarif-file-output=snyk-code-backend.sarif
+          args: --sarif-file-output=snyk-code-backend.sarif backend
           command: code test
 
       - name: Upload Code SARIF – backend
         uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
-          sarif_file: backend/snyk-code-backend.sarif
+          sarif_file: snyk-code-backend.sarif
           category: snyk-code-backend
 
   # ── 2. Frontend (React / TypeScript / Vite) ───────────────────────────────────────────────────────────────────────────────────────
@@ -92,10 +91,6 @@ jobs:
     permissions:
       contents: read
       security-events: write
-
-    defaults:
-      run:
-        working-directory: frontend
 
     steps:
       - uses: actions/checkout@v6
@@ -109,6 +104,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
+        working-directory: frontend
         run: npm install --include=dev
 
       # ── Open Source (SCA) ─────────────────────────────────────────────────────────
@@ -125,7 +121,7 @@ jobs:
         uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
-          sarif_file: frontend/snyk-oss-frontend.sarif
+          sarif_file: snyk-oss-frontend.sarif
           category: snyk-oss-frontend
 
       # ── Code (SAST) ─────────────────────────────────────────────────────────
@@ -135,14 +131,14 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          args: --sarif-file-output=snyk-code-frontend.sarif
+          args: --sarif-file-output=snyk-code-frontend.sarif frontend
           command: code test
 
       - name: Upload Code SARIF – frontend
         uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
-          sarif_file: frontend/snyk-code-frontend.sarif
+          sarif_file: snyk-code-frontend.sarif
           category: snyk-code-frontend
 
   # ── 3. Worker (Python 3.14 / APScheduler) ───────────────────────────────────────────────────────────────────────────────────────
@@ -194,7 +190,7 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          args: --sarif-file-output=snyk-code-worker.sarif
+          args: --sarif-file-output=snyk-code-worker.sarif worker
           command: code test
 
       - name: Upload Code SARIF – worker
