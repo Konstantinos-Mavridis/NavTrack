@@ -56,31 +56,24 @@ const REQUIRES_POSITION: Set<TxType> = new Set(['SELL', 'SWITCH', 'FEE_CONSOLIDA
 const SPIN_STYLE: React.CSSProperties = { animation: 'spin 0.75s linear infinite' };
 
 // Shared tooltip bubble classes
-// Light: zinc-800 bg / white text  |  Dark: zinc-100 bg / zinc-900 text
 const TOOLTIP_BUBBLE =
   'pointer-events-none absolute top-full mt-2 z-50 rounded-lg px-3 py-2 ' +
   'text-xs leading-snug shadow-lg ' +
   'bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900 ' +
   'transition-all duration-150';
 
-// Caret pointing UP toward the trigger (sits above the bubble)
 const TOOLTIP_CARET =
   'absolute bottom-full border-4 border-transparent ' +
   'border-b-zinc-800 dark:border-b-zinc-100';
 
 // ---------------------------------------------------------------------------
-// Inline tooltip for the FEE_CONSOLIDATION ⓘ icon
-// Bubble anchors to the RIGHT edge of the icon so it opens leftward
-// and never clips the right side of the modal.
+// FeeTooltip — inline ⓘ on the FEE_CONSOLIDATION type button
 // ---------------------------------------------------------------------------
 function FeeTooltip() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
 
   return (
-    // Plain layout wrapper — no event handlers (avoids S6819 on non-interactive elements).
-    // stopPropagation is handled directly on the <button> below so clicks on the ⓘ
-    // icon do not bubble up to the parent type-selector <button>.
     <span ref={ref} className="relative inline-flex items-center ml-1">
       <button
         type="button"
@@ -98,14 +91,12 @@ function FeeTooltip() {
           <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1Zm0 1.5a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11ZM8 6a.75.75 0 1 0 0-1.5A.75.75 0 0 0 8 6Zm-.75 1.25a.75.75 0 0 1 1.5 0v3.5a.75.75 0 0 1-1.5 0v-3.5Z"/>
         </svg>
       </button>
-      {/* Bubble anchored to right edge — opens leftward into the modal */}
       <span
         id="fee-tooltip"
         role="tooltip"
         className={`${TOOLTIP_BUBBLE} right-0 w-56 ${open ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1'}`}
       >
         {FEE_CONSOLIDATION_TOOLTIP}
-        {/* Caret aligned to the right to sit under the ⓘ icon */}
         <span className={`${TOOLTIP_CARET} right-1`} />
       </span>
     </span>
@@ -113,7 +104,7 @@ function FeeTooltip() {
 }
 
 // ---------------------------------------------------------------------------
-// NAV tooltip — opens downward, centered under the ⓘ icon
+// NavTooltip — opens downward, centered under the ⓘ icon
 // ---------------------------------------------------------------------------
 interface NavTooltipProps {
   variant?: 'idle' | 'loading' | 'success' | 'warning';
@@ -160,7 +151,6 @@ function NavTooltip({ variant = 'idle', children }: NavTooltipProps) {
         className={`${TOOLTIP_BUBBLE} left-1/2 -translate-x-1/2 w-max max-w-[220px] ${open ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1'}`}
       >
         {children}
-        {/* Caret centered under the icon */}
         <span className={`${TOOLTIP_CARET} left-1/2 -translate-x-1/2`} />
       </span>
     </span>
@@ -364,7 +354,7 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
                   : 'opacity-0 pointer-events-none select-none'
               }`}
             >
-              {fundHint ?? ' '}
+              {fundHint ?? ' '}
             </span>
           </div>
           <select
@@ -395,21 +385,44 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
 
         {/* Units / Price / Fees */}
         <div className="grid grid-cols-3 gap-4">
+
+          {/* Units — label always "Units", hint line shows "Unit Delta" for Fee Consolidation */}
           <div>
-            <label className={FIELD_LABEL_CLS}>
-              {isFeeConsolidation ? 'Unit Delta' : 'Units'}{' '}
-              <span className="text-red-400 dark:text-red-500">*</span>
-            </label>
+            <div className="flex items-baseline justify-between mb-1">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Units <span className="text-red-400 dark:text-red-500">*</span>
+              </label>
+              <span
+                className={`text-xs transition-opacity duration-150 ${
+                  isFeeConsolidation
+                    ? 'text-gray-400 dark:text-gray-500 opacity-100'
+                    : 'opacity-0 pointer-events-none select-none'
+                }`}
+              >
+                Unit Delta
+              </span>
+            </div>
             <input type="number" step="0.000001" className="input"
               value={units} onChange={(e) => setUnits(e.target.value)}
               placeholder={isFeeConsolidation ? 'e.g. -1.234567' : 'e.g. 100'} required />
           </div>
+
+          {/* Price / Unit — label row is a stable flex row; asterisk uses opacity so tooltip never shifts */}
           <div>
             <div className="flex items-center gap-1.5 mb-1">
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Price / Unit (€) {!isFeeConsolidation && <span className="text-red-400 dark:text-red-500">*</span>}
+                Price / Unit (€)
               </span>
-              {/* Always render NavTooltip so the label row height stays constant */}
+              {/* Asterisk occupies space at all times; only visible for non-Fee types */}
+              <span
+                className={`text-red-400 dark:text-red-500 text-sm transition-opacity duration-150 ${
+                  isFeeConsolidation ? 'opacity-0 pointer-events-none select-none' : 'opacity-100'
+                }`}
+                aria-hidden={isFeeConsolidation}
+              >
+                *
+              </span>
+              {/* NavTooltip always rendered — content adapts to transaction type */}
               <NavTooltip variant={isFeeConsolidation ? 'idle' : navTooltipVariant}>
                 {isFeeConsolidation
                   ? 'Not applicable for Fee Consolidation — no cash price is recorded'
@@ -428,6 +441,8 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
               disabled={isFeeConsolidation}
             />
           </div>
+
+          {/* Fees */}
           <div>
             <label className={FIELD_LABEL_CLS}>Fees (€)</label>
             <input type="number" step="0.01" min="0" className="input"
@@ -436,7 +451,7 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
           </div>
         </div>
 
-        {/* Total row — min-h keeps the card the same height across all transaction types */}
+        {/* Total row */}
         <div className="rounded-lg border border-gray-100 dark:border-gray-700/60 bg-gray-50 dark:bg-gray-800/40 px-4 py-3 flex items-center justify-between min-h-[3rem]">
           <span className={`text-sm transition-all duration-150 ${
             showTotal ? 'text-gray-500 dark:text-gray-400' : 'text-gray-300 dark:text-gray-700 select-none'
