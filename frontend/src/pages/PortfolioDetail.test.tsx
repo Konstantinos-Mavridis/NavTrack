@@ -35,6 +35,7 @@ const mockValuation = {
   unrealisedPnlPct: 25,
   positions: [],
   allocationByAssetClass: {},
+  allocationByInstrument: {},
   latestNavDate: '2024-01-15',
 };
 

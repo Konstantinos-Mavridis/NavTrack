@@ -33,6 +33,19 @@ const mockPortfolio = {
   updatedAt: '2024-01-01T00:00:00Z',
 };
 
+const mockValuation = {
+  portfolioId: 'p1',
+  date: '2024-01-15',
+  latestNavDate: '2024-01-15',
+  totalValue: 1000,
+  totalCost: 900,
+  unrealisedPnl: 100,
+  unrealisedPnlPct: 11.11,
+  positions: [],
+  allocationByAssetClass: {},
+  allocationByInstrument: {},
+};
+
 function renderPage() {
   return render(
     <ThemeProvider>
@@ -62,7 +75,7 @@ describe('PortfolioList', () => {
   it('renders portfolio cards after successful load', async () => {
     vi.mocked(api.portfolios.list).mockResolvedValue([mockPortfolio]);
     vi.mocked(api.portfolios.aggregateSeries).mockResolvedValue([]);
-    vi.mocked(api.valuation.get).mockResolvedValue(null);
+    vi.mocked(api.valuation.get).mockResolvedValue(mockValuation);
 
     renderPage();
 
