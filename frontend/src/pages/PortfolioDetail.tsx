@@ -144,14 +144,13 @@ export default function PortfolioDetail() {
   return (
     <div className="max-w-6xl mx-auto px-4 pt-6 pb-8">
 
-      {/* Breadcrumb — sits close to the navbar (pt-6) and tight above the page title (mb-2) */}
+      {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500 mb-2">
         <Link to="/" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Portfolios</Link>
         <span>/</span>
         <span className="text-gray-700 dark:text-gray-300 font-medium">{portfolio.name}</span>
       </div>
 
-      {/* Remaining sections with consistent vertical rhythm */}
       <div className="space-y-8">
 
         {/* Header */}
@@ -200,8 +199,7 @@ export default function PortfolioDetail() {
 
         {/*
          * Onboarding card — shown only when there are no transactions and no
-         * positions at all. Once the user has any data the tab card takes over
-         * and this card is hidden.
+         * positions at all.
          */}
         {!hasData && (
           <div className="card p-8 text-center border-dashed dark:border-gray-700">
@@ -234,10 +232,6 @@ export default function PortfolioDetail() {
 
         {/*
          * Positions / Transactions tab card.
-         * Hidden entirely when the portfolio has no data at all — the onboarding
-         * card above already surfaces the add-transaction CTAs in that state.
-         * Once the user has at least one transaction (even before positions are
-         * calculated) this card appears.
          */}
         {hasData && (
           <div className="card overflow-hidden">
@@ -275,7 +269,12 @@ export default function PortfolioDetail() {
                 : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                      <thead className="bg-gray-50 dark:bg-gray-800/60">
+                      {/*
+                       * Use opaque dark:bg-gray-800 (not /60) so that the semi-transparent
+                       * alpha layer does not composite against the overflow-x-auto paint
+                       * context and produce a lighter stripe (the "white line" bug).
+                       */}
+                      <thead className="bg-gray-50 dark:bg-gray-800">
                         <tr>
                           {['Fund', 'ISIN', 'Asset Class', 'Units', 'NAV (EUR)', 'Value (EUR)', 'Cost (EUR)', 'P&L (EUR)', 'Weight'].map((h) => (
                             <th key={h} className="table-th whitespace-nowrap">{h}</th>
@@ -305,7 +304,7 @@ export default function PortfolioDetail() {
                           </tr>
                         ))}
                       </tbody>
-                      <tfoot className="bg-gray-50 dark:bg-gray-800/60 border-t border-gray-100 dark:border-gray-800 font-semibold">
+                      <tfoot className="bg-gray-50 dark:bg-gray-800 border-t border-gray-100 dark:border-gray-800 font-semibold">
                         <tr>
                           <td colSpan={5} className="table-td text-gray-700 dark:text-gray-300">Total</td>
                           <td className="table-td">€{fmtEur(valuation.totalValue)}</td>
@@ -323,18 +322,11 @@ export default function PortfolioDetail() {
             {tab === 'transactions' && (
               transactions.length === 0
                 ? (
-                  /*
-                   * This empty state is reachable when the user has positions
-                   * (recalculated from an import or a previous session) but no
-                   * transactions recorded yet — or after clearing all transactions
-                   * while positions haven't been recalculated to zero yet.
-                   * The tab card is still visible because hasData is true.
-                   */
                   <EmptyState message="No transactions yet. Use the buttons above to add your first transaction." />
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                      <thead className="bg-gray-50 dark:bg-gray-800/60">
+                      <thead className="bg-gray-50 dark:bg-gray-800">
                         <tr>
                           {['Date', 'Type', 'Fund', 'Units', 'Price (EUR)', 'Fees (EUR)', 'Total (EUR)', ''].map((h) => (
                             <th key={h} className="table-th whitespace-nowrap">{h}</th>
