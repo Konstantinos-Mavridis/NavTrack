@@ -103,6 +103,7 @@ describe('TemplatesPage', () => {
     await waitFor(() => {
       expect(screen.queryByRole('status')).not.toBeInTheDocument();
     });
-    expect(screen.getByRole('button', { name: /new template|add template|create/i })).toBeInTheDocument();
+    // Match the exact header button label to avoid the empty-state "Create Template" duplicate.
+    expect(screen.getByRole('button', { name: '+ New Template' })).toBeInTheDocument();
   });
 });
