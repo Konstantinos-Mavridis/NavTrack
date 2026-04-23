@@ -60,17 +60,16 @@ function NavTooltip({ variant = 'idle', children }: TooltipProps) {
     : 'text-gray-300 dark:text-gray-600';
 
   return (
-    <span
-      className="relative inline-flex items-center"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-      onFocus={() => setOpen(true)}
-      onBlur={() => setOpen(false)}
-    >
+    <span className="relative inline-flex items-center">
       <button
         type="button"
         tabIndex={0}
         aria-label="NAV price info"
+        aria-describedby="nav-tooltip"
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
         className={`inline-flex items-center justify-center w-4 h-4 rounded-full transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${iconCls}`}
       >
         {variant === 'loading' ? (
@@ -86,6 +85,7 @@ function NavTooltip({ variant = 'idle', children }: TooltipProps) {
       </button>
 
       <span
+        id="nav-tooltip"
         role="tooltip"
         className={`pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50
           w-max max-w-[240px] rounded-lg px-3 py-2 text-xs leading-snug shadow-lg
