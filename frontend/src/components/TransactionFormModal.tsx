@@ -55,16 +55,27 @@ const REQUIRES_POSITION: Set<TxType> = new Set(['SELL', 'SWITCH', 'FEE_CONSOLIDA
 
 const SPIN_STYLE: React.CSSProperties = { animation: 'spin 0.75s linear infinite' };
 
-// Shared tooltip bubble classes
+// ---------------------------------------------------------------------------
+// Shared tooltip styles
+// Light mode : dark-gray bubble, white text — pops against the white modal
+// Dark mode  : elevated surface (gray-800) with a subtle border + light text
+//              stays within the dark UI instead of flashing a white bubble
+// ---------------------------------------------------------------------------
 const TOOLTIP_BUBBLE =
-  'pointer-events-none absolute top-full mt-2 z-50 rounded-lg px-3 py-2 ' +
-  'text-xs leading-snug shadow-lg ' +
-  'bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900 ' +
+  'pointer-events-none absolute top-full mt-2 z-50 ' +
+  'rounded-xl px-3.5 py-2.5 ' +
+  'text-xs font-medium leading-relaxed tracking-wide ' +
+  'shadow-lg ring-1 ' +
+  // light
+  'bg-gray-900 text-gray-100 ring-gray-700/60 ' +
+  // dark
+  'dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-600/70 ' +
   'transition-all duration-150';
 
+// Caret pointing UP (sits just above the bubble top edge)
 const TOOLTIP_CARET =
-  'absolute bottom-full border-4 border-transparent ' +
-  'border-b-zinc-800 dark:border-b-zinc-100';
+  'absolute bottom-full border-[5px] border-transparent ' +
+  'border-b-gray-900 dark:border-b-gray-800';
 
 // ---------------------------------------------------------------------------
 // FeeTooltip — inline ⓘ on the FEE_CONSOLIDATION type button
@@ -94,10 +105,10 @@ function FeeTooltip() {
       <span
         id="fee-tooltip"
         role="tooltip"
-        className={`${TOOLTIP_BUBBLE} right-0 w-56 ${open ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1'}`}
+        className={`${TOOLTIP_BUBBLE} right-0 w-60 ${open ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1 pointer-events-none'}`}
       >
         {FEE_CONSOLIDATION_TOOLTIP}
-        <span className={`${TOOLTIP_CARET} right-1`} />
+        <span className={`${TOOLTIP_CARET} right-1.5`} />
       </span>
     </span>
   );
@@ -115,7 +126,7 @@ function NavTooltip({ variant = 'idle', children }: NavTooltipProps) {
   const [open, setOpen] = useState(false);
 
   const iconCls =
-    variant === 'loading' ? 'text-blue-400 dark:text-blue-500'
+    variant === 'loading' ? 'text-blue-400 dark:text-blue-400'
     : variant === 'success' ? 'text-emerald-500 dark:text-emerald-400'
     : variant === 'warning' ? 'text-amber-500 dark:text-amber-400'
     : 'text-gray-300 dark:text-gray-600';
@@ -148,7 +159,7 @@ function NavTooltip({ variant = 'idle', children }: NavTooltipProps) {
       <span
         id="nav-tooltip"
         role="tooltip"
-        className={`${TOOLTIP_BUBBLE} left-1/2 -translate-x-1/2 w-max max-w-[220px] ${open ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1'}`}
+        className={`${TOOLTIP_BUBBLE} left-1/2 -translate-x-1/2 w-max max-w-[230px] ${open ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1 pointer-events-none'}`}
       >
         {children}
         <span className={`${TOOLTIP_CARET} left-1/2 -translate-x-1/2`} />
@@ -386,7 +397,7 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
         {/* Units / Price / Fees */}
         <div className="grid grid-cols-3 gap-4">
 
-          {/* Units — label always "Units", hint line shows "Unit Delta" for Fee Consolidation */}
+          {/* Units — label always "Units", hint shows "Unit Delta" for Fee Consolidation */}
           <div>
             <div className="flex items-baseline justify-between mb-1">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -407,13 +418,12 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
               placeholder={isFeeConsolidation ? 'e.g. -1.234567' : 'e.g. 100'} required />
           </div>
 
-          {/* Price / Unit — label row is a stable flex row; asterisk uses opacity so tooltip never shifts */}
+          {/* Price / Unit — asterisk always in DOM (opacity toggle) so tooltip never shifts */}
           <div>
             <div className="flex items-center gap-1.5 mb-1">
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Price / Unit (€)
               </span>
-              {/* Asterisk occupies space at all times; only visible for non-Fee types */}
               <span
                 className={`text-red-400 dark:text-red-500 text-sm transition-opacity duration-150 ${
                   isFeeConsolidation ? 'opacity-0 pointer-events-none select-none' : 'opacity-100'
@@ -422,7 +432,6 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
               >
                 *
               </span>
-              {/* NavTooltip always rendered — content adapts to transaction type */}
               <NavTooltip variant={isFeeConsolidation ? 'idle' : navTooltipVariant}>
                 {isFeeConsolidation
                   ? 'Not applicable for Fee Consolidation — no cash price is recorded'
