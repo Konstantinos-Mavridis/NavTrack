@@ -46,8 +46,8 @@ jobs:
         working-directory: backend
         run: npm install --include=dev
 
-      # ── Open Source (SCA): dependency vulnerabilities ──────────────────────────
       # snyk/actions always run from the repo root — all paths are root-relative.
+      # ── Open Source (SCA): dependency vulnerabilities ──────────────────────────
       - name: Snyk Open Source – backend
         continue-on-error: true
         uses: snyk/actions/node@master
@@ -156,6 +156,10 @@ jobs:
         with:
           persist-credentials: false
 
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
       - uses: actions/setup-python@v6
         with:
           python-version: '3.14'
@@ -166,15 +170,19 @@ jobs:
         working-directory: worker
         run: pip install -r requirements-dev.txt
 
+      - name: Install Snyk CLI
+        run: npm install -g snyk
+
       # ── Open Source (SCA) ─────────────────────────────────────────────────────────
+      # Run snyk directly so it shares the pip environment from the
+      # install step above. working-directory puts snyk next to
+      # requirements.txt so no --file flag is needed.
       - name: Snyk Open Source – worker
         continue-on-error: true
-        uses: snyk/actions/python@master
+        working-directory: worker
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --file=worker/requirements.txt --sarif-file-output=snyk-oss-worker.sarif
-          command: test
+        run: snyk test --sarif-file-output=../snyk-oss-worker.sarif
 
       - name: Upload OSS SARIF – worker
         uses: github/codeql-action/upload-sarif@v4
@@ -186,12 +194,9 @@ jobs:
       # ── Code (SAST) ─────────────────────────────────────────────────────────
       - name: Snyk Code – worker
         continue-on-error: true
-        uses: snyk/actions/python@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --sarif-file-output=snyk-code-worker.sarif worker
-          command: code test
+        run: snyk code test --sarif-file-output=snyk-code-worker.sarif worker
 
       - name: Upload Code SARIF – worker
         uses: github/codeql-action/upload-sarif@v4
