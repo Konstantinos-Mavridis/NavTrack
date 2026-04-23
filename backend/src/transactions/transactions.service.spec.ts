@@ -277,9 +277,9 @@ describe('TransactionsService', () => {
           { instrumentId: 'inst-1', weight: '1', instrument: { name: 'Fund A' } },
         ],
       });
-      navPrices.navOnDate.mockResolvedValue({ nav: '20.00', date: '2024-06-01' });
+      // nav is typed as number on the NavPrice entity
+      navPrices.navOnDate.mockResolvedValue({ nav: 20, date: '2024-06-01' } as any);
 
-      // Override the entity manager mock to return our created transactions
       txnRepo.manager.transaction.mockImplementation(async (cb: any) =>
         cb({
           save: jest.fn(async (_cls: any, vals: any[]) =>
