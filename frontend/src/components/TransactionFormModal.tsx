@@ -78,11 +78,10 @@ function FeeTooltip() {
   const ref = useRef<HTMLSpanElement>(null);
 
   return (
-    <span
-      ref={ref}
-      className="relative inline-flex items-center ml-1"
-      onClick={(e) => e.stopPropagation()}
-    >
+    // Plain layout wrapper — no event handlers (avoids S6819 on non-interactive elements).
+    // stopPropagation is handled directly on the <button> below so clicks on the ⓘ
+    // icon do not bubble up to the parent type-selector <button>.
+    <span ref={ref} className="relative inline-flex items-center ml-1">
       <button
         type="button"
         tabIndex={0}
@@ -92,6 +91,7 @@ function FeeTooltip() {
         onMouseLeave={() => setOpen(false)}
         onFocus={() => setOpen(true)}
         onBlur={() => setOpen(false)}
+        onClick={(e) => e.stopPropagation()}
         className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full text-current opacity-60 hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 transition-opacity"
       >
         <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5" aria-hidden="true">
