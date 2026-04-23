@@ -227,7 +227,12 @@ export default function PortfolioDetail() {
 
         {hasData && (
           <div className="card overflow-hidden">
-            <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 px-2">
+            {/*
+             * Tab bar: dark:bg-gray-900 matches the card surface so the 1px gap
+             * created by -mb-px on tab buttons is invisible against the card bg.
+             * Without this, the gap shows as a stripe between the border-b and thead.
+             */}
+            <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 px-2 bg-white dark:bg-gray-900">
               <div className="flex">
                 {(['positions', 'transactions'] as Tab[]).map((t) => (
                   <button
@@ -259,7 +264,7 @@ export default function PortfolioDetail() {
               valuation.positions.length === 0
                 ? <EmptyState message="No positions yet. Add transactions and they will appear here automatically." />
                 : (
-                  <div className="overflow-x-auto bg-gray-50 dark:bg-gray-800">
+                  <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50 dark:bg-gray-800">
                         <tr>
@@ -311,7 +316,7 @@ export default function PortfolioDetail() {
                 ? (
                   <EmptyState message="No transactions yet. Use the buttons above to add your first transaction." />
                 ) : (
-                  <div className="overflow-x-auto bg-gray-50 dark:bg-gray-800">
+                  <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50 dark:bg-gray-800">
                         <tr>
