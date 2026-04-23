@@ -23,7 +23,7 @@ on:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
-# ── 0. Detect which service trees changed ─────────────────────────────────────────────────────────────────────────────────────
+# ── 0. Detect which service trees changed ───────────────────────────────────────────────────────────────────────────────────
 jobs:
   changes:
     name: Detect changed services
@@ -59,7 +59,7 @@ jobs:
           echo "frontend=true" >> $GITHUB_OUTPUT
           echo "worker=true"   >> $GITHUB_OUTPUT
 
-  # ── 1. Backend (NestJS / TypeScript) ──────────────────────────────────────────────────────────────────────────────────────────
+  # ── 1. Backend (NestJS / TypeScript) ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   sonar-backend:
     name: Sonar – backend
     runs-on: ubuntu-latest
@@ -83,14 +83,66 @@ jobs:
           cache-dependency-path: backend/package-lock.json
 
       - name: Install dependencies
-        # --include=dev guarantees devDependencies (ts-jest, @nestjs/testing, etc.)
-        # are always installed regardless of NODE_ENV.
         run: npm install --include=dev
 
       - name: Run tests with coverage
         env:
           NODE_ENV: test
-        run: npm run test:cov
+        # --json writes test-results.json natively; no extra package needed.
+        run: npm run test:cov -- --json --outputFile=test-results.json
+
+      - name: Write Jest summary
+        if: always()
+        run: |
+          node - <<'EOF'
+          const fs = require('fs');
+          const summaryFile = process.env.GITHUB_STEP_SUMMARY;
+
+          if (!fs.existsSync('test-results.json')) {
+            fs.appendFileSync(summaryFile,
+              '## Jest Test Report\n\n' +
+              '\u26a0\ufe0f `test-results.json` not found \u2014 Jest may have failed before producing output.\n');
+            process.exit(0);
+          }
+
+          const r = JSON.parse(fs.readFileSync('test-results.json', 'utf8'));
+          const total    = r.numTotalTests    || 0;
+          const passed   = r.numPassedTests   || 0;
+          const failed   = r.numFailedTests   || 0;
+          const skipped  = r.numPendingTests  || 0;
+          const totalFiles  = r.numTotalTestSuites  || 0;
+          const passedFiles = r.numPassedTestSuites || 0;
+          const status = failed === 0 ? '\u2705' : '\u274c';
+
+          const lines = [
+            '## Jest Test Report', '',
+            '### Summary', '',
+            '| | Count |', '|---|---|',
+            `| ${status} Test Files | ${passedFiles} passes \u00b7 ${totalFiles} total |`,
+            `| ${status} Tests      | ${passed} passes \u00b7 ${total} total |`,
+          ];
+
+          if (skipped > 0)  lines.push(`| \U0001F7E1 Skipped | ${skipped} |`);
+          if (failed > 0)   lines.push(`| \u274c Failed  | ${failed} |`);
+
+          if (failed > 0) {
+            lines.push('', '### Failures');
+            for (const suite of (r.testResults || [])) {
+              for (const t of (suite.testResults || [])) {
+                if (t.status === 'failed') {
+                  lines.push(`- **${t.ancestorTitles.join(' > ')} > ${t.title}**`);
+                  if (t.failureMessages && t.failureMessages[0]) {
+                    lines.push('  ```');
+                    lines.push('  ' + t.failureMessages[0].split('\n')[0]);
+                    lines.push('  ```');
+                  }
+                }
+              }
+            }
+          }
+
+          fs.appendFileSync(summaryFile, lines.join('\n') + '\n');
+          EOF
 
       - name: SonarQube Scan – backend
         uses: SonarSource/sonarqube-scan-action@v7.1.0
@@ -112,7 +164,7 @@ jobs:
             -Dsonar.qualitygate.wait=false
             -Dsonar.pullrequest.github.summary_comment=false
 
-  # ── 2. Frontend (React / TypeScript / Vite) ──────────────────────────────────────────────────────────────────────────────────────────
+  # ── 2. Frontend (React / TypeScript / Vite) ─────────────────────────────────────────────────────────────────────────────────────────────────────────
   sonar-frontend:
     name: Sonar – frontend
     runs-on: ubuntu-latest
@@ -136,8 +188,6 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
-        # --include=dev guarantees devDependencies (@vitest/coverage-v8, jsdom, etc.)
-        # are always installed regardless of NODE_ENV.
         run: npm install --include=dev
 
       - name: Run tests with coverage
@@ -165,7 +215,7 @@ jobs:
             -Dsonar.qualitygate.wait=false
             -Dsonar.pullrequest.github.summary_comment=false
 
-  # ── 3. Worker (Python 3.14 / APScheduler) ──────────────────────────────────────────────────────────────────────────────────────────
+  # ── 3. Worker (Python 3.14 / APScheduler) ─────────────────────────────────────────────────────────────────────────────────────────────────────────
   sonar-worker:
     name: Sonar – worker
     runs-on: ubuntu-latest
@@ -192,7 +242,57 @@ jobs:
         run: pip install -r requirements-dev.txt
 
       - name: Run tests with coverage
-        run: pytest --cov=worker --cov-report=xml:coverage.xml
+        run: pytest --cov=worker --cov-report=xml:coverage.xml --junitxml=test-results.xml
+
+      - name: Write pytest summary
+        if: always()
+        shell: python
+        run: |
+          import os, xml.etree.ElementTree as ET
+
+          results_path = "test-results.xml"
+          summary_file = os.environ["GITHUB_STEP_SUMMARY"]
+
+          try:
+              tree = ET.parse(results_path)
+              suite = tree.getroot()
+              if suite.tag == "testsuites":
+                  suites = list(suite)
+              else:
+                  suites = [suite]
+
+              total    = sum(int(s.get("tests",    0)) for s in suites)
+              errors   = sum(int(s.get("errors",   0)) for s in suites)
+              failures = sum(int(s.get("failures", 0)) for s in suites)
+              skipped  = sum(int(s.get("skipped",  0)) for s in suites)
+              passed   = total - errors - failures - skipped
+              status   = "✅" if (errors + failures) == 0 else "❌"
+
+              lines = [
+                  "## Pytest Test Report", "",
+                  "### Summary", "",
+                  "| | Count |", "|---|---|",
+                  f"| {status} Passed  | {passed}  |",
+                  f"| 🟡 Skipped | {skipped} |",
+                  f"| ❌ Failed  | {failures} |",
+                  f"| 🔴 Errors  | {errors}  |",
+                  f"| **Total**  | **{total}** |",
+              ]
+
+              if failures > 0 or errors > 0:
+                  lines += ["", "### Failures"]
+                  for s in suites:
+                      for tc in s.iter("testcase"):
+                          for child in tc:
+                              if child.tag in ("failure", "error"):
+                                  lines.append(f"- **{tc.get('classname')}.{tc.get('name')}**: {child.get('message', '')}")
+
+          except FileNotFoundError:
+              lines = ["## Pytest Test Report", "",
+                       "⚠️ `test-results.xml` not found — pytest may have failed before producing output."]
+
+          with open(summary_file, "a") as f:
+              f.write("\n".join(lines) + "\n")
 
       - name: SonarQube Scan – worker
         uses: SonarSource/sonarqube-scan-action@v7.1.0
