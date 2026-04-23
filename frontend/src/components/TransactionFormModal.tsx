@@ -57,25 +57,27 @@ const SPIN_STYLE: React.CSSProperties = { animation: 'spin 0.75s linear infinite
 
 // ---------------------------------------------------------------------------
 // Shared tooltip styles
-// Light mode : dark-gray bubble, white text — pops against the white modal
-// Dark mode  : elevated surface (gray-800) with a subtle border + light text
-//              stays within the dark UI instead of flashing a white bubble
+// Light mode : white card with border + soft shadow — blends with the modal
+// Dark mode  : elevated gray-800 surface with subtle ring — stays in the UI
 // ---------------------------------------------------------------------------
 const TOOLTIP_BUBBLE =
   'pointer-events-none absolute top-full mt-2 z-50 ' +
   'rounded-xl px-3.5 py-2.5 ' +
   'text-xs font-medium leading-relaxed tracking-wide ' +
   'shadow-lg ring-1 ' +
-  // light
-  'bg-gray-900 text-gray-100 ring-gray-700/60 ' +
-  // dark
+  // light mode
+  'bg-white text-gray-700 ring-gray-200 ' +
+  // dark mode
   'dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-600/70 ' +
   'transition-all duration-150';
 
-// Caret pointing UP (sits just above the bubble top edge)
-const TOOLTIP_CARET =
-  'absolute bottom-full border-[5px] border-transparent ' +
-  'border-b-gray-900 dark:border-b-gray-800';
+// Caret — light: white fill matching bubble; dark: gray-800 fill
+const TOOLTIP_CARET_LIGHT =
+  'absolute bottom-full border-[5px] border-transparent border-b-white';
+const TOOLTIP_CARET_DARK =
+  'absolute bottom-full border-[5px] border-transparent dark:border-b-gray-800';
+// Combined (both applied together on the same element)
+const TOOLTIP_CARET = `${TOOLTIP_CARET_LIGHT} ${TOOLTIP_CARET_DARK}`;
 
 // ---------------------------------------------------------------------------
 // FeeTooltip — inline ⓘ on the FEE_CONSOLIDATION type button
@@ -397,7 +399,7 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
         {/* Units / Price / Fees */}
         <div className="grid grid-cols-3 gap-4">
 
-          {/* Units — label always "Units", hint shows "Unit Delta" for Fee Consolidation */}
+          {/* Units — label always "Units"; hint "Unit Delta ±" fades in for Fee Consolidation */}
           <div>
             <div className="flex items-baseline justify-between mb-1">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -410,7 +412,7 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
                     : 'opacity-0 pointer-events-none select-none'
                 }`}
               >
-                Unit Delta
+                Unit Delta ±
               </span>
             </div>
             <input type="number" step="0.000001" className="input"
