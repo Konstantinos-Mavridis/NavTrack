@@ -259,7 +259,7 @@ export default function PortfolioDetail() {
               valuation.positions.length === 0
                 ? <EmptyState message="No positions yet. Add transactions and they will appear here automatically." />
                 : (
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto bg-gray-50 dark:bg-gray-800">
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50 dark:bg-gray-800">
                         <tr>
@@ -311,7 +311,7 @@ export default function PortfolioDetail() {
                 ? (
                   <EmptyState message="No transactions yet. Use the buttons above to add your first transaction." />
                 ) : (
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto bg-gray-50 dark:bg-gray-800">
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50 dark:bg-gray-800">
                         <tr>
