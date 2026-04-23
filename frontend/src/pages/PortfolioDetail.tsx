@@ -259,7 +259,7 @@ export default function PortfolioDetail() {
               valuation.positions.length === 0
                 ? <EmptyState message="No positions yet. Add transactions and they will appear here automatically." />
                 : (
-                  <div className="overflow-x-auto dark:bg-gray-800">
+                  <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50 dark:bg-gray-800">
                         <tr>
@@ -270,7 +270,7 @@ export default function PortfolioDetail() {
                       </thead>
                       <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                         {[...valuation.positions].sort((a, b) => (b.value ?? 0) - (a.value ?? 0)).map((pos) => (
-                          <tr key={pos.positionId} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                          <tr key={pos.positionId} className="bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                             <td className="table-td font-medium max-w-xs">
                               <Link
                                 to={`/instruments/${pos.instrumentId}`}
@@ -311,7 +311,7 @@ export default function PortfolioDetail() {
                 ? (
                   <EmptyState message="No transactions yet. Use the buttons above to add your first transaction." />
                 ) : (
-                  <div className="overflow-x-auto dark:bg-gray-800">
+                  <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50 dark:bg-gray-800">
                         <tr>
@@ -324,7 +324,7 @@ export default function PortfolioDetail() {
                         {transactions.map((tx) => {
                           const total = Number(tx.units) * Number(tx.pricePerUnit) + Number(tx.fees);
                           return (
-                            <tr key={tx.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
+                            <tr key={tx.id} className="bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
                               <td className="table-td font-mono text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{tx.tradeDate}</td>
                               <td className="table-td">
                                 <span className={`badge ${txBadgeColor(tx.type)}`}>{tx.type.replace('_', ' ')}</span>
