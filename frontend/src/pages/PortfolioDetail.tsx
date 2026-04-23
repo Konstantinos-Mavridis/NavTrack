@@ -23,7 +23,7 @@ type ModalState =
   | { type: 'deletePortfolio' };
 
 // Table-only display label — keeps the full name everywhere else in the UI
-const TX_TABLE_LABEL: Partial<Record<string, string>> = {
+const TX_TABLE_LABEL: Record<string, string> = {
   FEE_CONSOLIDATION: 'FEE',
 };
 
@@ -35,7 +35,7 @@ function txTableLabel(type: string): string {
 function fmtTxUnits(units: number | string, type: string): string {
   const n = Number(units);
   if (type === 'FEE_CONSOLIDATION') {
-    return (n >= 0 ? '+' : '') + fmtUnits(n);
+    return (n >= 0 ? '+' : '') + fmtUnits(Math.abs(n));
   }
   return fmtUnits(n);
 }
@@ -342,8 +342,9 @@ export default function PortfolioDetail() {
                       </thead>
                       <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                         {transactions.map((tx) => {
-                          const isFee = tx.type === 'FEE_CONSOLIDATION';
-                          const total = Number(tx.units) * Number(tx.pricePerUnit) + Number(tx.fees);
+                          const txType = tx.type as string;
+                          const isFee  = txType === 'FEE_CONSOLIDATION';
+                          const total  = Number(tx.units) * Number(tx.pricePerUnit) + Number(tx.fees);
                           return (
                             <tr key={tx.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
                               <td className="table-td font-mono text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{tx.tradeDate}</td>
@@ -351,20 +352,20 @@ export default function PortfolioDetail() {
                                 <div className="truncate" title={tx.instrument?.name}>{tx.instrument?.name ?? '—'}</div>
                               </td>
                               <td className="table-td">
-                                <span className={`badge ${txBadgeColor(tx.type)}`}>{txTableLabel(tx.type)}</span>
+                                <span className={`badge ${txBadgeColor(tx.type)}`}>{txTableLabel(txType)}</span>
                               </td>
-                              <td className={`table-td tabular-nums ${
+                              <td className={`table-td tabular-nums${
                                 isFee
                                   ? Number(tx.units) >= 0
-                                    ? 'text-emerald-600 dark:text-emerald-400 font-medium'
-                                    : 'text-red-500 dark:text-red-400 font-medium'
+                                    ? ' text-emerald-600 dark:text-emerald-400 font-medium'
+                                    : ' text-red-500 dark:text-red-400 font-medium'
                                   : ''
                               }`}>
-                                {fmtTxUnits(tx.units, tx.type)}
+                                {fmtTxUnits(tx.units, txType)}
                               </td>
-                              <td className="table-td tabular-nums">{isFee ? '—' : fmtEur(tx.pricePerUnit, 6)}</td>
-                              <td className="table-td tabular-nums text-gray-500 dark:text-gray-400">{isFee ? '—' : fmtEur(tx.fees)}</td>
-                              <td className="table-td tabular-nums font-medium">{isFee ? '—' : `€${fmtEur(total)}`}</td>
+                              <td className="table-td tabular-nums">{fmtEur(tx.pricePerUnit, 6)}</td>
+                              <td className="table-td tabular-nums text-gray-500 dark:text-gray-400">{fmtEur(tx.fees)}</td>
+                              <td className="table-td tabular-nums font-medium">€{fmtEur(total)}</td>
                               <td className="table-td">
                                 <div className="flex gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                                   <button
