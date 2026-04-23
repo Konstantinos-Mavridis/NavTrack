@@ -55,9 +55,23 @@ const REQUIRES_POSITION: Set<TxType> = new Set(['SELL', 'SWITCH', 'FEE_CONSOLIDA
 
 const SPIN_STYLE: React.CSSProperties = { animation: 'spin 0.75s linear infinite' };
 
+// Shared tooltip bubble classes
+// Light: zinc-800 bg / white text  |  Dark: zinc-100 bg / zinc-900 text
+const TOOLTIP_BUBBLE =
+  'pointer-events-none absolute top-full mt-2 z-50 rounded-lg px-3 py-2 ' +
+  'text-xs leading-snug shadow-lg ' +
+  'bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900 ' +
+  'transition-all duration-150';
+
+// Caret pointing UP toward the trigger (sits above the bubble)
+const TOOLTIP_CARET =
+  'absolute bottom-full border-4 border-transparent ' +
+  'border-b-zinc-800 dark:border-b-zinc-100';
+
 // ---------------------------------------------------------------------------
 // Inline tooltip for the FEE_CONSOLIDATION ⓘ icon
-// Opens DOWNWARD so it stays within the modal boundaries.
+// Bubble anchors to the RIGHT edge of the icon so it opens leftward
+// and never clips the right side of the modal.
 // ---------------------------------------------------------------------------
 function FeeTooltip() {
   const [open, setOpen] = useState(false);
@@ -67,7 +81,6 @@ function FeeTooltip() {
     <span
       ref={ref}
       className="relative inline-flex items-center ml-1"
-      // Stop click from toggling the parent type button
       onClick={(e) => e.stopPropagation()}
     >
       <button
@@ -85,27 +98,22 @@ function FeeTooltip() {
           <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1Zm0 1.5a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11ZM8 6a.75.75 0 1 0 0-1.5A.75.75 0 0 0 8 6Zm-.75 1.25a.75.75 0 0 1 1.5 0v3.5a.75.75 0 0 1-1.5 0v-3.5Z"/>
         </svg>
       </button>
+      {/* Bubble anchored to right edge — opens leftward into the modal */}
       <span
         id="fee-tooltip"
         role="tooltip"
-        className={`pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50
-          w-56 rounded-lg px-3 py-2 text-xs leading-snug shadow-lg
-          bg-gray-900 text-gray-100 dark:bg-gray-100 dark:text-gray-900
-          transition-all duration-150 ${
-            open ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1'
-          }`}
+        className={`${TOOLTIP_BUBBLE} right-0 w-56 ${open ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1'}`}
       >
         {FEE_CONSOLIDATION_TOOLTIP}
-        {/* Caret points UP toward the trigger button */}
-        <span className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-gray-900 dark:border-b-gray-100" />
+        {/* Caret aligned to the right to sit under the ⓘ icon */}
+        <span className={`${TOOLTIP_CARET} right-1`} />
       </span>
     </span>
   );
 }
 
 // ---------------------------------------------------------------------------
-// NAV tooltip
-// Opens DOWNWARD so it stays within the modal boundaries.
+// NAV tooltip — opens downward, centered under the ⓘ icon
 // ---------------------------------------------------------------------------
 interface NavTooltipProps {
   variant?: 'idle' | 'loading' | 'success' | 'warning';
@@ -149,16 +157,11 @@ function NavTooltip({ variant = 'idle', children }: NavTooltipProps) {
       <span
         id="nav-tooltip"
         role="tooltip"
-        className={`pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50
-          w-max max-w-[240px] rounded-lg px-3 py-2 text-xs leading-snug shadow-lg
-          bg-gray-900 text-gray-100 dark:bg-gray-100 dark:text-gray-900
-          transition-all duration-150 ${
-            open ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1'
-          }`}
+        className={`${TOOLTIP_BUBBLE} left-1/2 -translate-x-1/2 w-max max-w-[220px] ${open ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1'}`}
       >
         {children}
-        {/* Caret points UP toward the trigger button */}
-        <span className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-gray-900 dark:border-b-gray-100" />
+        {/* Caret centered under the icon */}
+        <span className={`${TOOLTIP_CARET} left-1/2 -translate-x-1/2`} />
       </span>
     </span>
   );
