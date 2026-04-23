@@ -61,8 +61,9 @@ describe('InstrumentDetail', () => {
 
     renderPage();
 
+    // Use heading role to avoid matching the breadcrumb <span> with the same text.
     await waitFor(() => {
-      expect(screen.getByText('Vanguard Global Equity')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Vanguard Global Equity' })).toBeInTheDocument();
     });
     expect(screen.getByText('IE00B3RBWM25')).toBeInTheDocument();
   });
@@ -85,10 +86,8 @@ describe('InstrumentDetail', () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText('Vanguard Global Equity')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Vanguard Global Equity' })).toBeInTheDocument();
     });
-    // Breadcrumb should contain a back link
-    const backLink = screen.getByRole('link', { name: /instruments|funds|strategies/i });
-    expect(backLink).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /instruments|funds|strategies/i })).toBeInTheDocument();
   });
 });
