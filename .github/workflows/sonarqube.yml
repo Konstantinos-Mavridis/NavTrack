@@ -88,56 +88,55 @@ jobs:
       - name: Run tests with coverage
         env:
           NODE_ENV: test
-          JEST_JUNIT_OUTPUT_FILE: test-results.xml
-        run: |
-          npx --yes jest-junit
-          npm run test:cov -- --testResultsProcessor=jest-junit
+        # --json writes test-results.json natively; no extra package needed.
+        run: npm run test:cov -- --json --outputFile=test-results.json
 
       - name: Write Jest summary
         if: always()
         run: |
           node - <<'EOF'
           const fs = require('fs');
-          const xml = fs.existsSync('test-results.xml')
-            ? fs.readFileSync('test-results.xml', 'utf8')
-            : null;
           const summaryFile = process.env.GITHUB_STEP_SUMMARY;
 
-          if (!xml) {
+          if (!fs.existsSync('test-results.json')) {
             fs.appendFileSync(summaryFile,
               '## Jest Test Report\n\n' +
-              '\u26a0\ufe0f `test-results.xml` not found \u2014 Jest may have failed before producing output.\n');
+              '\u26a0\ufe0f `test-results.json` not found \u2014 Jest may have failed before producing output.\n');
             process.exit(0);
           }
 
-          const attr = (str, name) => { const m = str.match(new RegExp(`${name}="([^"]*)"`)); return m ? parseInt(m[1], 10) : 0; };
-          let total = 0, failures = 0, errors = 0, skipped = 0;
-          for (const m of xml.matchAll(/<testsuite\s[^>]*>/g)) {
-            total    += attr(m[0], 'tests');
-            failures += attr(m[0], 'failures');
-            errors   += attr(m[0], 'errors');
-            skipped  += attr(m[0], 'skipped');
-          }
-          const passed = total - failures - errors - skipped;
-          const status = (failures + errors) === 0 ? '\u2705' : '\u274c';
+          const r = JSON.parse(fs.readFileSync('test-results.json', 'utf8'));
+          const total    = r.numTotalTests    || 0;
+          const passed   = r.numPassedTests   || 0;
+          const failed   = r.numFailedTests   || 0;
+          const skipped  = r.numPendingTests  || 0;
+          const totalFiles  = r.numTotalTestSuites  || 0;
+          const passedFiles = r.numPassedTestSuites || 0;
+          const status = failed === 0 ? '\u2705' : '\u274c';
 
           const lines = [
             '## Jest Test Report', '',
             '### Summary', '',
             '| | Count |', '|---|---|',
-            `| ${status} Passed  | ${passed}  |`,
-            `| \U0001F7E1 Skipped | ${skipped} |`,
-            `| \u274c Failed  | ${failures} |`,
-            `| \U0001F534 Errors  | ${errors}  |`,
-            `| **Total**  | **${total}** |`,
+            `| ${status} Test Files | ${passedFiles} passes \u00b7 ${totalFiles} total |`,
+            `| ${status} Tests      | ${passed} passes \u00b7 ${total} total |`,
           ];
 
-          if (failures > 0 || errors > 0) {
+          if (skipped > 0)  lines.push(`| \U0001F7E1 Skipped | ${skipped} |`);
+          if (failed > 0)   lines.push(`| \u274c Failed  | ${failed} |`);
+
+          if (failed > 0) {
             lines.push('', '### Failures');
-            for (const m of xml.matchAll(/<testcase[^>]+name="([^"]*)"[^>]*classname="([^"]*)"[^/]*>([\s\S]*?)<\/testcase>/g)) {
-              if (m[3].includes('<failure') || m[3].includes('<error')) {
-                const msg = (m[3].match(/message="([^"]*)"/) || [])[1] || '';
-                lines.push(`- **${m[2]}.${m[1]}**: ${msg}`);
+            for (const suite of (r.testResults || [])) {
+              for (const t of (suite.testResults || [])) {
+                if (t.status === 'failed') {
+                  lines.push(`- **${t.ancestorTitles.join(' > ')} > ${t.title}**`);
+                  if (t.failureMessages && t.failureMessages[0]) {
+                    lines.push('  ```');
+                    lines.push('  ' + t.failureMessages[0].split('\n')[0]);
+                    lines.push('  ```');
+                  }
+                }
               }
             }
           }
