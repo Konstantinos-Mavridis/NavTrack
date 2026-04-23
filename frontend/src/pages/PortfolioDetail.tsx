@@ -35,7 +35,7 @@ function txTableLabel(type: string): string {
 function fmtTxUnits(units: number | string, type: string): string {
   const n = Number(units);
   if (type === 'FEE_CONSOLIDATION') {
-    return (n >= 0 ? '+' : '') + fmtUnits(Math.abs(n));
+    return (n >= 0 ? '+' : '-') + fmtUnits(Math.abs(n));
   }
   return fmtUnits(n);
 }
@@ -367,7 +367,7 @@ export default function PortfolioDetail() {
                               <td className="table-td tabular-nums text-gray-500 dark:text-gray-400">{fmtEur(tx.fees)}</td>
                               <td className="table-td tabular-nums font-medium">€{fmtEur(total)}</td>
                               <td className="table-td">
-                                <div className="flex gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="flex gap-1 justify-end">
                                   <button
                                     onClick={() => setModal({ type: 'editTxn', transaction: tx })}
                                     className="p-1 rounded text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40 transition-colors text-xs"
