@@ -55,13 +55,6 @@ const REQUIRES_POSITION: Set<TxType> = new Set(['SELL', 'SWITCH', 'FEE_CONSOLIDA
 
 const SPIN_STYLE: React.CSSProperties = { animation: 'spin 0.75s linear infinite' };
 
-// ---------------------------------------------------------------------------
-// Shared tooltip styles
-// Light mode : white card with border + soft shadow
-// Dark mode  : elevated gray-800 surface with subtle ring
-// text-left  : explicit so both bubbles render identically regardless of
-//              their anchor position (right-0 vs centred)
-// ---------------------------------------------------------------------------
 const TOOLTIP_BUBBLE =
   'pointer-events-none absolute top-full mt-2 z-50 ' +
   'rounded-xl px-3.5 py-2.5 text-left ' +
@@ -75,9 +68,6 @@ const TOOLTIP_CARET_LIGHT = 'absolute bottom-full border-[5px] border-transparen
 const TOOLTIP_CARET_DARK  = 'absolute bottom-full border-[5px] border-transparent dark:border-b-gray-800';
 const TOOLTIP_CARET = `${TOOLTIP_CARET_LIGHT} ${TOOLTIP_CARET_DARK}`;
 
-// ---------------------------------------------------------------------------
-// FeeTooltip
-// ---------------------------------------------------------------------------
 function FeeTooltip() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
@@ -112,9 +102,6 @@ function FeeTooltip() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// NavTooltip
-// ---------------------------------------------------------------------------
 interface NavTooltipProps {
   variant?: 'idle' | 'loading' | 'success' | 'warning';
   children: React.ReactNode;
@@ -166,9 +153,6 @@ function NavTooltip({ variant = 'idle', children }: NavTooltipProps) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Main modal
-// ---------------------------------------------------------------------------
 export default function TransactionFormModal({ portfolioId, transaction, onSaved, onClose }: Props) {
   const isEdit = !!transaction;
 
@@ -321,6 +305,12 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
       : 'Only funds currently held in this portfolio'
     : null;
 
+  const fundHintCls = fundHint
+    ? (selectableInstruments.length === 0
+        ? 'text-amber-500 dark:text-amber-400 opacity-100'
+        : 'text-gray-400 dark:text-gray-500 opacity-100')
+    : 'opacity-0 pointer-events-none select-none';
+
   return (
     <Modal
       title={isEdit ? 'Edit Transaction' : 'Add Transaction'}
@@ -351,22 +341,15 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
         {/* Fund */}
         <div>
           <div className="flex items-baseline justify-between mb-1">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label htmlFor="txn-fund" className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Fund <span className="text-red-400 dark:text-red-500">*</span>
             </label>
-            <span
-              className={`text-xs transition-opacity duration-150 ${
-                fundHint
-                  ? (selectableInstruments.length === 0
-                      ? 'text-amber-500 dark:text-amber-400 opacity-100'
-                      : 'text-gray-400 dark:text-gray-500 opacity-100')
-                  : 'opacity-0 pointer-events-none select-none'
-              }`}
-            >
-              {fundHint ?? ' '}
+            <span className={`text-xs transition-opacity duration-150 ${fundHintCls}`}>
+              {fundHint ?? ' '}
             </span>
           </div>
           <select
+            id="txn-fund"
             className="input"
             value={instrumentId}
             onChange={(e) => setInstrumentId(e.target.value)}
@@ -383,12 +366,14 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
         {/* Dates */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className={FIELD_LABEL_CLS}>Trade Date <span className="text-red-400 dark:text-red-500">*</span></label>
-            <input type="date" className="input" value={tradeDate} onChange={(e) => setTradeDate(e.target.value)} required />
+            <label htmlFor="txn-trade-date" className={FIELD_LABEL_CLS}>
+              Trade Date <span className="text-red-400 dark:text-red-500">*</span>
+            </label>
+            <input id="txn-trade-date" type="date" className="input" value={tradeDate} onChange={(e) => setTradeDate(e.target.value)} required />
           </div>
           <div>
-            <label className={FIELD_LABEL_CLS}>Settlement Date</label>
-            <input type="date" className="input" value={settlementDate} onChange={(e) => setSettlementDate(e.target.value)} />
+            <label htmlFor="txn-settlement-date" className={FIELD_LABEL_CLS}>Settlement Date</label>
+            <input id="txn-settlement-date" type="date" className="input" value={settlementDate} onChange={(e) => setSettlementDate(e.target.value)} />
           </div>
         </div>
 
@@ -398,7 +383,7 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
           {/* Units */}
           <div>
             <div className="flex items-baseline justify-between mb-1">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label htmlFor="txn-units" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Units <span className="text-red-400 dark:text-red-500">*</span>
               </label>
               <span
@@ -411,7 +396,7 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
                 Unit Delta ±
               </span>
             </div>
-            <input type="number" step="0.000001" className="input"
+            <input id="txn-units" type="number" step="0.000001" className="input"
               value={units} onChange={(e) => setUnits(e.target.value)}
               placeholder={isFeeConsolidation ? 'e.g. -1.234567' : 'e.g. 100'} required />
           </div>
@@ -419,9 +404,9 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
           {/* Price / Unit */}
           <div>
             <div className="flex items-center gap-1.5 mb-1">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label htmlFor="txn-price" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Price / Unit (€)
-              </span>
+              </label>
               <span
                 className={`text-red-400 dark:text-red-500 text-sm transition-opacity duration-150 ${
                   isFeeConsolidation ? 'opacity-0 pointer-events-none select-none' : 'opacity-100'
@@ -437,6 +422,7 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
               </NavTooltip>
             </div>
             <input
+              id="txn-price"
               type="number" step="0.000001" min="0" className="input"
               value={pricePerUnit}
               onChange={(e) => {
@@ -451,8 +437,8 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
 
           {/* Fees */}
           <div>
-            <label className={FIELD_LABEL_CLS}>Fees (€)</label>
-            <input type="number" step="0.01" min="0" className="input"
+            <label htmlFor="txn-fees" className={FIELD_LABEL_CLS}>Fees (€)</label>
+            <input id="txn-fees" type="number" step="0.01" min="0" className="input"
               value={fees} onChange={(e) => setFees(e.target.value)} placeholder="0.00"
               disabled={isFeeConsolidation} />
           </div>
@@ -482,8 +468,8 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
 
         {/* Notes */}
         <div>
-          <label className={FIELD_LABEL_CLS}>Notes</label>
-          <input type="text" className="input" value={notes}
+          <label htmlFor="txn-notes" className={FIELD_LABEL_CLS}>Notes</label>
+          <input id="txn-notes" type="text" className="input" value={notes}
             onChange={(e) => setNotes(e.target.value)} placeholder="Optional note…" />
         </div>
 

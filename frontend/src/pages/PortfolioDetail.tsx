@@ -22,7 +22,6 @@ type ModalState =
   | { type: 'editPortfolio' }
   | { type: 'deletePortfolio' };
 
-// Table-only display label — keeps the full name everywhere else in the UI
 const TX_TABLE_LABEL: Record<string, string> = {
   FEE_CONSOLIDATION: 'FEE',
 };
@@ -31,13 +30,18 @@ function txTableLabel(type: string): string {
   return TX_TABLE_LABEL[type] ?? type.replace(/_/g, ' ');
 }
 
-// Show explicit +/- prefix on units only for FEE_CONSOLIDATION rows
 function fmtTxUnits(units: number | string, type: string): string {
   const n = Number(units);
   if (type === 'FEE_CONSOLIDATION') {
     return (n >= 0 ? '+' : '-') + fmtUnits(Math.abs(n));
   }
   return fmtUnits(n);
+}
+
+function feeUnitsCls(units: number | string): string {
+  return Number(units) >= 0
+    ? 'text-emerald-600 dark:text-emerald-400 font-medium'
+    : 'text-red-500 dark:text-red-400 font-medium';
 }
 
 export default function PortfolioDetail() {
@@ -342,9 +346,10 @@ export default function PortfolioDetail() {
                       </thead>
                       <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                         {transactions.map((tx) => {
-                          const txType = tx.type as string;
-                          const isFee  = txType === 'FEE_CONSOLIDATION';
-                          const total  = Number(tx.units) * Number(tx.pricePerUnit) + Number(tx.fees);
+                          const txType   = tx.type as string;
+                          const isFee    = txType === 'FEE_CONSOLIDATION';
+                          const total    = Number(tx.units) * Number(tx.pricePerUnit) + Number(tx.fees);
+                          const unitsCls = isFee ? feeUnitsCls(tx.units) : '';
                           return (
                             <tr key={tx.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
                               <td className="table-td font-mono text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{tx.tradeDate}</td>
@@ -354,13 +359,7 @@ export default function PortfolioDetail() {
                               <td className="table-td">
                                 <span className={`badge ${txBadgeColor(tx.type)}`}>{txTableLabel(txType)}</span>
                               </td>
-                              <td className={`table-td tabular-nums${
-                                isFee
-                                  ? Number(tx.units) >= 0
-                                    ? ' text-emerald-600 dark:text-emerald-400 font-medium'
-                                    : ' text-red-500 dark:text-red-400 font-medium'
-                                  : ''
-                              }`}>
+                              <td className={`table-td tabular-nums ${unitsCls}`}>
                                 {fmtTxUnits(tx.units, txType)}
                               </td>
                               <td className="table-td tabular-nums">{fmtEur(tx.pricePerUnit, 6)}</td>
