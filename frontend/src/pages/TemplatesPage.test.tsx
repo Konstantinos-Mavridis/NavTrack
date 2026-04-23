@@ -17,13 +17,26 @@ vi.mock('../api/client', () => ({
 import { api } from '../api/client';
 import TemplatesPage from './TemplatesPage';
 
+// Shape matches AllocationTemplate: uses `code` (not `name`) and `items` (not `allocations`).
 const mockTemplate = {
   id: 't1',
-  name: 'Balanced 60/40',
+  code: 'BALANCED_60_40',
   description: 'Classic balanced allocation',
-  allocations: [
-    { instrumentId: 'i1', instrumentName: 'Equity Fund', weightPct: 60 },
-    { instrumentId: 'i2', instrumentName: 'Bond Fund',   weightPct: 40 },
+  items: [
+    {
+      id: 'ti1',
+      templateId: 't1',
+      instrumentId: 'i1',
+      weight: '60.0000',
+      instrument: { id: 'i1', name: 'Equity Fund', isin: 'IE00B3RBWM25', assetClass: 'EQUITY', riskLevel: 4, currency: 'EUR', description: '' },
+    },
+    {
+      id: 'ti2',
+      templateId: 't1',
+      instrumentId: 'i2',
+      weight: '40.0000',
+      instrument: { id: 'i2', name: 'Bond Fund', isin: 'IE00B04GQ505', assetClass: 'BOND', riskLevel: 2, currency: 'EUR', description: '' },
+    },
   ],
   createdAt: '2024-01-01T00:00:00Z',
   updatedAt: '2024-01-01T00:00:00Z',
@@ -57,7 +70,7 @@ describe('TemplatesPage', () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText('Balanced 60/40')).toBeInTheDocument();
+      expect(screen.getByText('BALANCED_60_40')).toBeInTheDocument();
     });
   });
 
@@ -69,7 +82,7 @@ describe('TemplatesPage', () => {
     await waitFor(() => {
       expect(screen.queryByRole('status')).not.toBeInTheDocument();
     });
-    expect(screen.queryByText('Balanced 60/40')).not.toBeInTheDocument();
+    expect(screen.queryByText('BALANCED_60_40')).not.toBeInTheDocument();
   });
 
   it('shows an error banner when the API call fails', async () => {

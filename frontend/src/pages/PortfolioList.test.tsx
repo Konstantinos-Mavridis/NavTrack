@@ -14,9 +14,10 @@ vi.mock('../api/client', () => ({
   api: {
     portfolios: {
       list: vi.fn(),
+      aggregateSeries: vi.fn(),
     },
     valuation: {
-      getAll: vi.fn(),
+      get: vi.fn(),
     },
   },
 }));
@@ -32,18 +33,6 @@ const mockPortfolio = {
   updatedAt: '2024-01-01T00:00:00Z',
 };
 
-const mockValuation = {
-  portfolioId: 'p1',
-  date: '2024-01-15',
-  totalValue: 10000,
-  totalCost: 9000,
-  unrealisedPnl: 1000,
-  unrealisedPnlPct: 11.11,
-  positions: [],
-  allocationByAssetClass: {},
-  latestNavDate: '2024-01-15',
-};
-
 function renderPage() {
   return render(
     <ThemeProvider>
@@ -56,13 +45,15 @@ function renderPage() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // aggregateSeries and valuation.get are called after list resolves;
+  // default them to never-resolve so they don't cause unhandled rejections.
+  vi.mocked(api.portfolios.aggregateSeries).mockReturnValue(new Promise(() => {}));
+  vi.mocked(api.valuation.get).mockReturnValue(new Promise(() => {}));
 });
 
 describe('PortfolioList', () => {
   it('shows a loading spinner while fetching', () => {
-    // Never resolve so the spinner stays visible
     vi.mocked(api.portfolios.list).mockReturnValue(new Promise(() => {}));
-    vi.mocked(api.valuation.getAll).mockReturnValue(new Promise(() => {}));
 
     renderPage();
     expect(screen.getByRole('status')).toBeInTheDocument();
@@ -70,7 +61,8 @@ describe('PortfolioList', () => {
 
   it('renders portfolio cards after successful load', async () => {
     vi.mocked(api.portfolios.list).mockResolvedValue([mockPortfolio]);
-    vi.mocked(api.valuation.getAll).mockResolvedValue([mockValuation]);
+    vi.mocked(api.portfolios.aggregateSeries).mockResolvedValue([]);
+    vi.mocked(api.valuation.get).mockResolvedValue(null);
 
     renderPage();
 
@@ -81,20 +73,17 @@ describe('PortfolioList', () => {
 
   it('renders an empty state when no portfolios exist', async () => {
     vi.mocked(api.portfolios.list).mockResolvedValue([]);
-    vi.mocked(api.valuation.getAll).mockResolvedValue([]);
 
     renderPage();
 
     await waitFor(() => {
       expect(screen.queryByRole('status')).not.toBeInTheDocument();
     });
-    // The page should not render any portfolio card links
     expect(screen.queryByText('My Portfolio')).not.toBeInTheDocument();
   });
 
   it('shows an error banner when the API call fails', async () => {
     vi.mocked(api.portfolios.list).mockRejectedValue(new Error('Network error'));
-    vi.mocked(api.valuation.getAll).mockResolvedValue([]);
 
     renderPage();
 
