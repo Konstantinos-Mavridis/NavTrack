@@ -62,20 +62,16 @@ export default function Modal({
         </div>
 
         {/*
-          * Body — overflow-y-auto with scrollbarGutter:'stable' reserves the
-          * scrollbar track width at all times, preventing the content from
-          * shifting horizontally when the scrollbar appears/disappears as
-          * content grows (e.g. form validation errors, dynamic lists).
-          * Using overflow-y-auto (not scroll) avoids a persistent scrollbar
-          * on short content like ConfirmDialog.
+          * Body — overflow-y-auto lets content scroll when it exceeds
+          * max-h-[90vh].
           *
-          * dark:bg-gray-900 matches the outer shell so the stable gutter
-          * reservation doesn't render as a light line in dark mode.
+          * scrollbarGutter:'stable' is intentionally absent: the browser
+          * paints the stable gutter track via the native scrollbar
+          * stylesheet, which ignores CSS background-color and renders a
+          * bright white strip in dark mode. The modal's fixed max-w means
+          * the occasional scrollbar appearance causes no jarring shift.
           */}
-        <div
-          className="overflow-y-auto flex-1 px-6 py-5 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-900 rounded-b-2xl"
-          style={{ scrollbarGutter: 'stable' }}
-        >
+        <div className="overflow-y-auto flex-1 px-6 py-5 text-gray-900 dark:text-gray-100 rounded-b-2xl">
           {children}
         </div>
       </div>
