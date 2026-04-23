@@ -22,6 +22,24 @@ type ModalState =
   | { type: 'editPortfolio' }
   | { type: 'deletePortfolio' };
 
+// Table-only display label — keeps the full name everywhere else in the UI
+const TX_TABLE_LABEL: Partial<Record<string, string>> = {
+  FEE_CONSOLIDATION: 'FEE',
+};
+
+function txTableLabel(type: string): string {
+  return TX_TABLE_LABEL[type] ?? type.replace(/_/g, ' ');
+}
+
+// Show explicit +/- prefix on units only for FEE_CONSOLIDATION rows
+function fmtTxUnits(units: number | string, type: string): string {
+  const n = Number(units);
+  if (type === 'FEE_CONSOLIDATION') {
+    return (n >= 0 ? '+' : '') + fmtUnits(n);
+  }
+  return fmtUnits(n);
+}
+
 export default function PortfolioDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -144,14 +162,13 @@ export default function PortfolioDetail() {
   return (
     <div className="max-w-6xl mx-auto px-4 pt-6 pb-8">
 
-      {/* Breadcrumb — sits close to the navbar (pt-6) and tight above the page title (mb-2) */}
+      {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500 mb-2">
         <Link to="/" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Portfolios</Link>
         <span>/</span>
         <span className="text-gray-700 dark:text-gray-300 font-medium">{portfolio.name}</span>
       </div>
 
-      {/* Remaining sections with consistent vertical rhythm */}
       <div className="space-y-8">
 
         {/* Header */}
@@ -198,11 +215,7 @@ export default function PortfolioDetail() {
           />
         </div>
 
-        {/*
-         * Onboarding card — shown only when there are no transactions and no
-         * positions at all. Once the user has any data the tab card takes over
-         * and this card is hidden.
-         */}
+        {/* Onboarding card */}
         {!hasData && (
           <div className="card p-8 text-center border-dashed dark:border-gray-700">
             <p className="text-4xl mb-3">📋</p>
@@ -217,7 +230,7 @@ export default function PortfolioDetail() {
           </div>
         )}
 
-        {/* Allocation charts — only when positions exist */}
+        {/* Allocation charts */}
         {hasPositions && (
           <div className="grid md:grid-cols-2 gap-5">
             <AllocationChart data={valuation.allocationByAssetClass} title="By Asset Class" />
@@ -232,13 +245,7 @@ export default function PortfolioDetail() {
           </div>
         )}
 
-        {/*
-         * Positions / Transactions tab card.
-         * Hidden entirely when the portfolio has no data at all — the onboarding
-         * card above already surfaces the add-transaction CTAs in that state.
-         * Once the user has at least one transaction (even before positions are
-         * calculated) this card appears.
-         */}
+        {/* Positions / Transactions tab card */}
         {hasData && (
           <div className="card overflow-hidden">
             <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 px-2">
@@ -322,41 +329,42 @@ export default function PortfolioDetail() {
             {/* ── Transactions tab ── */}
             {tab === 'transactions' && (
               transactions.length === 0
-                ? (
-                  /*
-                   * This empty state is reachable when the user has positions
-                   * (recalculated from an import or a previous session) but no
-                   * transactions recorded yet — or after clearing all transactions
-                   * while positions haven't been recalculated to zero yet.
-                   * The tab card is still visible because hasData is true.
-                   */
-                  <EmptyState message="No transactions yet. Use the buttons above to add your first transaction." />
-                ) : (
+                ? <EmptyState message="No transactions yet. Use the buttons above to add your first transaction." />
+                : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50 dark:bg-gray-800/60">
                         <tr>
-                          {['Date', 'Type', 'Fund', 'Units', 'Price (EUR)', 'Fees (EUR)', 'Total (EUR)', ''].map((h) => (
+                          {['Date', 'Fund', 'Type', 'Units', 'Price (EUR)', 'Fees (EUR)', 'Total (EUR)', ''].map((h) => (
                             <th key={h} className="table-th whitespace-nowrap">{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                         {transactions.map((tx) => {
+                          const isFee = tx.type === 'FEE_CONSOLIDATION';
                           const total = Number(tx.units) * Number(tx.pricePerUnit) + Number(tx.fees);
                           return (
                             <tr key={tx.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
                               <td className="table-td font-mono text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{tx.tradeDate}</td>
-                              <td className="table-td">
-                                <span className={`badge ${txBadgeColor(tx.type)}`}>{tx.type.replace('_', ' ')}</span>
-                              </td>
                               <td className="table-td font-medium text-gray-800 dark:text-gray-200 max-w-[14rem]">
                                 <div className="truncate" title={tx.instrument?.name}>{tx.instrument?.name ?? '—'}</div>
                               </td>
-                              <td className="table-td tabular-nums">{fmtUnits(tx.units)}</td>
-                              <td className="table-td tabular-nums">{fmtEur(tx.pricePerUnit, 6)}</td>
-                              <td className="table-td tabular-nums text-gray-500 dark:text-gray-400">{fmtEur(tx.fees)}</td>
-                              <td className="table-td tabular-nums font-medium">€{fmtEur(total)}</td>
+                              <td className="table-td">
+                                <span className={`badge ${txBadgeColor(tx.type)}`}>{txTableLabel(tx.type)}</span>
+                              </td>
+                              <td className={`table-td tabular-nums ${
+                                isFee
+                                  ? Number(tx.units) >= 0
+                                    ? 'text-emerald-600 dark:text-emerald-400 font-medium'
+                                    : 'text-red-500 dark:text-red-400 font-medium'
+                                  : ''
+                              }`}>
+                                {fmtTxUnits(tx.units, tx.type)}
+                              </td>
+                              <td className="table-td tabular-nums">{isFee ? '—' : fmtEur(tx.pricePerUnit, 6)}</td>
+                              <td className="table-td tabular-nums text-gray-500 dark:text-gray-400">{isFee ? '—' : fmtEur(tx.fees)}</td>
+                              <td className="table-td tabular-nums font-medium">{isFee ? '—' : `€${fmtEur(total)}`}</td>
                               <td className="table-td">
                                 <div className="flex gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                                   <button
@@ -393,7 +401,7 @@ export default function PortfolioDetail() {
           </div>
         )}
 
-      </div>{/* end space-y-8 */}
+      </div>
 
       {/* ── Modals ── */}
       {modal?.type === 'addTxn' && id && (
