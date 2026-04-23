@@ -57,6 +57,7 @@ const SPIN_STYLE: React.CSSProperties = { animation: 'spin 0.75s linear infinite
 
 // ---------------------------------------------------------------------------
 // Inline tooltip for the FEE_CONSOLIDATION ⓘ icon
+// Opens DOWNWARD so it stays within the modal boundaries.
 // ---------------------------------------------------------------------------
 function FeeTooltip() {
   const [open, setOpen] = useState(false);
@@ -66,10 +67,6 @@ function FeeTooltip() {
     <span
       ref={ref}
       className="relative inline-flex items-center ml-1"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-      onFocus={() => setOpen(true)}
-      onBlur={() => setOpen(false)}
       // Stop click from toggling the parent type button
       onClick={(e) => e.stopPropagation()}
     >
@@ -77,6 +74,11 @@ function FeeTooltip() {
         type="button"
         tabIndex={0}
         aria-label="Fee Consolidation info"
+        aria-describedby="fee-tooltip"
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
         className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full text-current opacity-60 hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 transition-opacity"
       >
         <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5" aria-hidden="true">
@@ -84,30 +86,33 @@ function FeeTooltip() {
         </svg>
       </button>
       <span
+        id="fee-tooltip"
         role="tooltip"
-        className={`pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50
+        className={`pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50
           w-56 rounded-lg px-3 py-2 text-xs leading-snug shadow-lg
           bg-gray-900 text-gray-100 dark:bg-gray-100 dark:text-gray-900
           transition-all duration-150 ${
-            open ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'
+            open ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1'
           }`}
       >
         {FEE_CONSOLIDATION_TOOLTIP}
-        <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-gray-100" />
+        {/* Caret points UP toward the trigger button */}
+        <span className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-gray-900 dark:border-b-gray-100" />
       </span>
     </span>
   );
 }
 
 // ---------------------------------------------------------------------------
-// NAV tooltip (unchanged)
+// NAV tooltip
+// Opens DOWNWARD so it stays within the modal boundaries.
 // ---------------------------------------------------------------------------
-interface TooltipProps {
+interface NavTooltipProps {
   variant?: 'idle' | 'loading' | 'success' | 'warning';
   children: React.ReactNode;
 }
 
-function NavTooltip({ variant = 'idle', children }: TooltipProps) {
+function NavTooltip({ variant = 'idle', children }: NavTooltipProps) {
   const [open, setOpen] = useState(false);
 
   const iconCls =
@@ -117,17 +122,16 @@ function NavTooltip({ variant = 'idle', children }: TooltipProps) {
     : 'text-gray-300 dark:text-gray-600';
 
   return (
-    <span
-      className="relative inline-flex items-center"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-      onFocus={() => setOpen(true)}
-      onBlur={() => setOpen(false)}
-    >
+    <span className="relative inline-flex items-center">
       <button
         type="button"
         tabIndex={0}
         aria-label="NAV price info"
+        aria-describedby="nav-tooltip"
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
         className={`inline-flex items-center justify-center w-4 h-4 rounded-full transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${iconCls}`}
       >
         {variant === 'loading' ? (
@@ -143,16 +147,18 @@ function NavTooltip({ variant = 'idle', children }: TooltipProps) {
       </button>
 
       <span
+        id="nav-tooltip"
         role="tooltip"
-        className={`pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50
+        className={`pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50
           w-max max-w-[240px] rounded-lg px-3 py-2 text-xs leading-snug shadow-lg
           bg-gray-900 text-gray-100 dark:bg-gray-100 dark:text-gray-900
           transition-all duration-150 ${
-            open ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'
+            open ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1'
           }`}
       >
         {children}
-        <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-gray-100" />
+        {/* Caret points UP toward the trigger button */}
+        <span className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-gray-900 dark:border-b-gray-100" />
       </span>
     </span>
   );
