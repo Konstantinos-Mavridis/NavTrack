@@ -68,9 +68,12 @@ export default function Modal({
           * content grows (e.g. form validation errors, dynamic lists).
           * Using overflow-y-auto (not scroll) avoids a persistent scrollbar
           * on short content like ConfirmDialog.
+          *
+          * dark:bg-gray-900 matches the outer shell so the stable gutter
+          * reservation doesn't render as a light line in dark mode.
           */}
         <div
-          className="overflow-y-auto flex-1 px-6 py-5 text-gray-900 dark:text-gray-100"
+          className="overflow-y-auto flex-1 px-6 py-5 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-900 rounded-b-2xl"
           style={{ scrollbarGutter: 'stable' }}
         >
           {children}
