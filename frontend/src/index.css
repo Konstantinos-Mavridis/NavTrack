@@ -80,6 +80,8 @@
 
 /* ── Scrollbar ───────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar          { width: 6px; height: 6px; }
-::-webkit-scrollbar-track    { @apply bg-gray-100 dark:bg-gray-800; }
+/* Track must match the card surface (gray-900) so it is invisible when the
+   scroll container sits inside a card and content does not overflow. */
+::-webkit-scrollbar-track    { @apply bg-gray-100 dark:bg-gray-900; }
 ::-webkit-scrollbar-thumb    { @apply bg-gray-300 rounded-full dark:bg-gray-600; }
 ::-webkit-scrollbar-thumb:hover { @apply bg-gray-400 dark:bg-gray-500; }
