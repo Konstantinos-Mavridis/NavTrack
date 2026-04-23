@@ -259,11 +259,6 @@ export default function PortfolioDetail() {
               valuation.positions.length === 0
                 ? <EmptyState message="No positions yet. Add transactions and they will appear here automatically." />
                 : (
-                  {/*
-                   * dark:bg-gray-800 on the scroll wrapper fills the subpixel gap
-                   * between the tab-bar border-b and the thead, which otherwise
-                   * shows the card’s gray-900 background as a thin lighter stripe.
-                   */}
                   <div className="overflow-x-auto dark:bg-gray-800">
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50 dark:bg-gray-800">
