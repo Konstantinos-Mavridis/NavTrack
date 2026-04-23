@@ -71,8 +71,9 @@ describe('PortfolioDetail', () => {
 
     renderPage();
 
+    // Use heading role to avoid matching the breadcrumb <span> with the same text.
     await waitFor(() => {
-      expect(screen.getByText('Growth Portfolio')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Growth Portfolio' })).toBeInTheDocument();
     });
     expect(screen.getByText('Total Value')).toBeInTheDocument();
     expect(screen.getByText('Unrealised P&L')).toBeInTheDocument();
@@ -86,9 +87,8 @@ describe('PortfolioDetail', () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText('Growth Portfolio')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Growth Portfolio' })).toBeInTheDocument();
     });
-    // The empty-state card is shown when there are no positions/transactions
     expect(screen.getByText(/no positions yet/i)).toBeInTheDocument();
   });
 
@@ -112,7 +112,7 @@ describe('PortfolioDetail', () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText('Portfolios')).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Portfolios' })).toBeInTheDocument();
     });
   });
 });
