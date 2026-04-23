@@ -144,14 +144,13 @@ export default function PortfolioDetail() {
   return (
     <div className="max-w-6xl mx-auto px-4 pt-6 pb-8">
 
-      {/* Breadcrumb — sits close to the navbar (pt-6) and tight above the page title (mb-2) */}
+      {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500 mb-2">
         <Link to="/" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Portfolios</Link>
         <span>/</span>
         <span className="text-gray-700 dark:text-gray-300 font-medium">{portfolio.name}</span>
       </div>
 
-      {/* Remaining sections with consistent vertical rhythm */}
       <div className="space-y-8">
 
         {/* Header */}
@@ -198,11 +197,7 @@ export default function PortfolioDetail() {
           />
         </div>
 
-        {/*
-         * Onboarding card — shown only when there are no transactions and no
-         * positions at all. Once the user has any data the tab card takes over
-         * and this card is hidden.
-         */}
+        {/* Onboarding card */}
         {!hasData && (
           <div className="card p-8 text-center border-dashed dark:border-gray-700">
             <p className="text-4xl mb-3">📋</p>
@@ -217,7 +212,7 @@ export default function PortfolioDetail() {
           </div>
         )}
 
-        {/* Allocation charts — only when positions exist */}
+        {/* Allocation charts */}
         {hasPositions && (
           <div className="grid md:grid-cols-2 gap-5">
             <AllocationChart data={valuation.allocationByAssetClass} title="By Asset Class" />
@@ -232,13 +227,7 @@ export default function PortfolioDetail() {
           </div>
         )}
 
-        {/*
-         * Positions / Transactions tab card.
-         * Hidden entirely when the portfolio has no data at all — the onboarding
-         * card above already surfaces the add-transaction CTAs in that state.
-         * Once the user has at least one transaction (even before positions are
-         * calculated) this card appears.
-         */}
+        {/* Positions / Transactions tab card */}
         {hasData && (
           <div className="card overflow-hidden">
             <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 px-2">
@@ -273,7 +262,7 @@ export default function PortfolioDetail() {
               valuation.positions.length === 0
                 ? <EmptyState message="No positions yet. Add transactions and they will appear here automatically." />
                 : (
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto dark:bg-gray-900">
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50 dark:bg-gray-800/60">
                         <tr>
@@ -323,16 +312,9 @@ export default function PortfolioDetail() {
             {tab === 'transactions' && (
               transactions.length === 0
                 ? (
-                  /*
-                   * This empty state is reachable when the user has positions
-                   * (recalculated from an import or a previous session) but no
-                   * transactions recorded yet — or after clearing all transactions
-                   * while positions haven't been recalculated to zero yet.
-                   * The tab card is still visible because hasData is true.
-                   */
                   <EmptyState message="No transactions yet. Use the buttons above to add your first transaction." />
                 ) : (
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto dark:bg-gray-900">
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50 dark:bg-gray-800/60">
                         <tr>
