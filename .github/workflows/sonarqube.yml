@@ -23,7 +23,7 @@ on:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
-# ── 0. Detect which service trees changed ──────────────────────────────────────────────────────
+# ── 0. Detect which service trees changed ─────────────────────────────────────────────────────────────────────────────────────
 jobs:
   changes:
     name: Detect changed services
@@ -59,7 +59,7 @@ jobs:
           echo "frontend=true" >> $GITHUB_OUTPUT
           echo "worker=true"   >> $GITHUB_OUTPUT
 
-  # ── 1. Backend (NestJS / TypeScript) ──────────────────────────────────────────────────────────
+  # ── 1. Backend (NestJS / TypeScript) ──────────────────────────────────────────────────────────────────────────────────────────
   sonar-backend:
     name: Sonar – backend
     runs-on: ubuntu-latest
@@ -104,7 +104,7 @@ jobs:
             -Dsonar.projectName="NavTrack – Backend"
             -Dsonar.organization=konstantinos-mavridis
             -Dsonar.sources=src
-            -Dsonar.exclusions=**/node_modules/**,**/*.spec.ts,**/*.e2e-spec.ts,**/dist/**
+            -Dsonar.exclusions=**/node_modules/**,**/*.spec.ts,**/*.e2e-spec.ts,**/dist/**,**/coverage/**
             -Dsonar.tests=src
             -Dsonar.test.inclusions=**/*.spec.ts,**/*.e2e-spec.ts
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
@@ -112,7 +112,7 @@ jobs:
             -Dsonar.qualitygate.wait=false
             -Dsonar.pullrequest.github.summary_comment=false
 
-  # ── 2. Frontend (React / TypeScript / Vite) ──────────────────────────────────────────────────────────
+  # ── 2. Frontend (React / TypeScript / Vite) ──────────────────────────────────────────────────────────────────────────────────────────
   sonar-frontend:
     name: Sonar – frontend
     runs-on: ubuntu-latest
@@ -157,7 +157,7 @@ jobs:
             -Dsonar.projectName="NavTrack – Frontend"
             -Dsonar.organization=konstantinos-mavridis
             -Dsonar.sources=src
-            -Dsonar.exclusions=**/node_modules/**,**/*.test.ts,**/*.test.tsx,**/dist/**
+            -Dsonar.exclusions=**/node_modules/**,**/*.test.ts,**/*.test.tsx,**/dist/**,**/coverage/**
             -Dsonar.tests=src
             -Dsonar.test.inclusions=**/*.test.ts,**/*.test.tsx
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
@@ -165,7 +165,7 @@ jobs:
             -Dsonar.qualitygate.wait=false
             -Dsonar.pullrequest.github.summary_comment=false
 
-  # ── 3. Worker (Python 3.14 / APScheduler) ──────────────────────────────────────────────────────────
+  # ── 3. Worker (Python 3.14 / APScheduler) ──────────────────────────────────────────────────────────────────────────────────────────
   sonar-worker:
     name: Sonar – worker
     runs-on: ubuntu-latest
