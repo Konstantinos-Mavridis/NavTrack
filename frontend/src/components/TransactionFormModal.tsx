@@ -57,30 +57,26 @@ const SPIN_STYLE: React.CSSProperties = { animation: 'spin 0.75s linear infinite
 
 // ---------------------------------------------------------------------------
 // Shared tooltip styles
-// Light mode : white card with border + soft shadow — blends with the modal
-// Dark mode  : elevated gray-800 surface with subtle ring — stays in the UI
+// Light mode : white card with border + soft shadow
+// Dark mode  : elevated gray-800 surface with subtle ring
+// text-left  : explicit so both bubbles render identically regardless of
+//              their anchor position (right-0 vs centred)
 // ---------------------------------------------------------------------------
 const TOOLTIP_BUBBLE =
   'pointer-events-none absolute top-full mt-2 z-50 ' +
-  'rounded-xl px-3.5 py-2.5 ' +
+  'rounded-xl px-3.5 py-2.5 text-left ' +
   'text-xs font-medium leading-relaxed tracking-wide ' +
   'shadow-lg ring-1 ' +
-  // light mode
   'bg-white text-gray-700 ring-gray-200 ' +
-  // dark mode
   'dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-600/70 ' +
   'transition-all duration-150';
 
-// Caret — light: white fill matching bubble; dark: gray-800 fill
-const TOOLTIP_CARET_LIGHT =
-  'absolute bottom-full border-[5px] border-transparent border-b-white';
-const TOOLTIP_CARET_DARK =
-  'absolute bottom-full border-[5px] border-transparent dark:border-b-gray-800';
-// Combined (both applied together on the same element)
+const TOOLTIP_CARET_LIGHT = 'absolute bottom-full border-[5px] border-transparent border-b-white';
+const TOOLTIP_CARET_DARK  = 'absolute bottom-full border-[5px] border-transparent dark:border-b-gray-800';
 const TOOLTIP_CARET = `${TOOLTIP_CARET_LIGHT} ${TOOLTIP_CARET_DARK}`;
 
 // ---------------------------------------------------------------------------
-// FeeTooltip — inline ⓘ on the FEE_CONSOLIDATION type button
+// FeeTooltip
 // ---------------------------------------------------------------------------
 function FeeTooltip() {
   const [open, setOpen] = useState(false);
@@ -117,7 +113,7 @@ function FeeTooltip() {
 }
 
 // ---------------------------------------------------------------------------
-// NavTooltip — opens downward, centered under the ⓘ icon
+// NavTooltip
 // ---------------------------------------------------------------------------
 interface NavTooltipProps {
   variant?: 'idle' | 'loading' | 'success' | 'warning';
@@ -399,7 +395,7 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
         {/* Units / Price / Fees */}
         <div className="grid grid-cols-3 gap-4">
 
-          {/* Units — label always "Units"; hint "Unit Delta ±" fades in for Fee Consolidation */}
+          {/* Units */}
           <div>
             <div className="flex items-baseline justify-between mb-1">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -420,7 +416,7 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
               placeholder={isFeeConsolidation ? 'e.g. -1.234567' : 'e.g. 100'} required />
           </div>
 
-          {/* Price / Unit — asterisk always in DOM (opacity toggle) so tooltip never shifts */}
+          {/* Price / Unit */}
           <div>
             <div className="flex items-center gap-1.5 mb-1">
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
