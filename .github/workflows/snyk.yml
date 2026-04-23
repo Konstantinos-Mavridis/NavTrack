@@ -1,0 +1,205 @@
+name: Snyk Security Scan
+
+# Manual trigger only — avoids burning the free-tier test quota
+# (100 Snyk Code tests/month) on every push/PR.
+# Disable the Snyk GitHub App to prevent duplicate automatic scans.
+on:
+  workflow_dispatch:
+    inputs:
+      services:
+        description: 'Services to scan'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - backend
+          - frontend
+          - worker
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  # ── 1. Backend (NestJS / TypeScript) ───────────────────────────────────────────────────────────────────────────────────────
+  snyk-backend:
+    name: Snyk – backend
+    runs-on: ubuntu-latest
+    if: inputs.services == 'all' || inputs.services == 'backend'
+
+    permissions:
+      contents: read
+      security-events: write
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm install --include=dev
+
+      # ── Open Source (SCA): dependency vulnerabilities ──────────────────────────
+      - name: Snyk Open Source – backend
+        continue-on-error: true
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --file=backend/package.json --sarif-file-output=snyk-oss-backend.sarif
+          command: test
+
+      - name: Upload OSS SARIF – backend
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: backend/snyk-oss-backend.sarif
+          category: snyk-oss-backend
+
+      # ── Code (SAST): source code vulnerabilities ───────────────────────────
+      - name: Snyk Code – backend
+        continue-on-error: true
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --sarif-file-output=snyk-code-backend.sarif
+          command: code test
+
+      - name: Upload Code SARIF – backend
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: backend/snyk-code-backend.sarif
+          category: snyk-code-backend
+
+  # ── 2. Frontend (React / TypeScript / Vite) ───────────────────────────────────────────────────────────────────────────────────────
+  snyk-frontend:
+    name: Snyk – frontend
+    runs-on: ubuntu-latest
+    if: inputs.services == 'all' || inputs.services == 'frontend'
+
+    permissions:
+      contents: read
+      security-events: write
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm install --include=dev
+
+      # ── Open Source (SCA) ─────────────────────────────────────────────────────────
+      - name: Snyk Open Source – frontend
+        continue-on-error: true
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --file=frontend/package.json --sarif-file-output=snyk-oss-frontend.sarif
+          command: test
+
+      - name: Upload OSS SARIF – frontend
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: frontend/snyk-oss-frontend.sarif
+          category: snyk-oss-frontend
+
+      # ── Code (SAST) ─────────────────────────────────────────────────────────
+      - name: Snyk Code – frontend
+        continue-on-error: true
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --sarif-file-output=snyk-code-frontend.sarif
+          command: code test
+
+      - name: Upload Code SARIF – frontend
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: frontend/snyk-code-frontend.sarif
+          category: snyk-code-frontend
+
+  # ── 3. Worker (Python 3.14 / APScheduler) ───────────────────────────────────────────────────────────────────────────────────────
+  snyk-worker:
+    name: Snyk – worker
+    runs-on: ubuntu-latest
+    if: inputs.services == 'all' || inputs.services == 'worker'
+
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+          cache: 'pip'
+          cache-dependency-path: worker/requirements-dev.txt
+
+      - name: Install dependencies
+        working-directory: worker
+        run: pip install -r requirements-dev.txt
+
+      # ── Open Source (SCA) ─────────────────────────────────────────────────────────
+      - name: Snyk Open Source – worker
+        continue-on-error: true
+        uses: snyk/actions/python@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --file=worker/requirements.txt --sarif-file-output=snyk-oss-worker.sarif
+          command: test
+
+      - name: Upload OSS SARIF – worker
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: snyk-oss-worker.sarif
+          category: snyk-oss-worker
+
+      # ── Code (SAST) ─────────────────────────────────────────────────────────
+      - name: Snyk Code – worker
+        continue-on-error: true
+        uses: snyk/actions/python@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --sarif-file-output=snyk-code-worker.sarif
+          command: code test
+
+      - name: Upload Code SARIF – worker
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: snyk-code-worker.sarif
+          category: snyk-code-worker
