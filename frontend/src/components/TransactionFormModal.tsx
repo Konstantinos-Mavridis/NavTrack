@@ -409,11 +409,12 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Price / Unit (€) {!isFeeConsolidation && <span className="text-red-400 dark:text-red-500">*</span>}
               </span>
-              {!isFeeConsolidation && (
-                <NavTooltip variant={navTooltipVariant}>
-                  {navTooltipText}
-                </NavTooltip>
-              )}
+              {/* Always render NavTooltip so the label row height stays constant */}
+              <NavTooltip variant={isFeeConsolidation ? 'idle' : navTooltipVariant}>
+                {isFeeConsolidation
+                  ? 'Not applicable for Fee Consolidation — no cash price is recorded'
+                  : navTooltipText}
+              </NavTooltip>
             </div>
             <input
               type="number" step="0.000001" min="0" className="input"
@@ -435,8 +436,8 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
           </div>
         </div>
 
-        {/* Total row */}
-        <div className="rounded-lg border border-gray-100 dark:border-gray-700/60 bg-gray-50 dark:bg-gray-800/40 px-4 py-3 flex items-center justify-between">
+        {/* Total row — min-h keeps the card the same height across all transaction types */}
+        <div className="rounded-lg border border-gray-100 dark:border-gray-700/60 bg-gray-50 dark:bg-gray-800/40 px-4 py-3 flex items-center justify-between min-h-[3rem]">
           <span className={`text-sm transition-all duration-150 ${
             showTotal ? 'text-gray-500 dark:text-gray-400' : 'text-gray-300 dark:text-gray-700 select-none'
           }`}>
@@ -453,7 +454,7 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
           }`}>
             {showTotal
               ? `= €${total.toLocaleString('el-GR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-              : isFeeConsolidation ? '' : '= €—'}
+              : '\u00a0'}
           </span>
         </div>
 
