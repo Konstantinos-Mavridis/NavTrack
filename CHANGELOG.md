@@ -9,10 +9,6 @@ NavTrack uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
----
-
-## [0.0.13] - 2026-04-23
-
 ### Added
 - Added smoke tests for all 5 page components (PortfolioList, PortfolioDetail, InstrumentDetail, TemplatesPage, TransactionsPage).
 - Added unit tests for `TransactionsService`, `InstrumentsService`, and `TransactionsController` in the backend.
@@ -20,7 +16,23 @@ NavTrack uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 - Fixed positions table overflow causing a bottom scrollbar stripe in dark mode (`dark:bg-gray-900` on `overflow-x-auto` wrapper).
+- Fixed accessibility violation in `FeeTooltip`: moved `onClick` from non-interactive `<span>` to the inner `<button>` (SonarCloud S6819).
+- Fixed accessibility violation in `NavTooltip`: moved `onMouseEnter`/`onMouseLeave` handlers from wrapper `<span>` to inner `<button>`.
 - Fixed frontend Dockerfile to remediate `SNYK-ALPINE323-LIBXPM-16117329` vulnerability.
+- Fixed Snyk worker scan by replacing `snyk/actions/python` with direct CLI run steps to share the pip install environment.
+- Fixed Snyk SARIF output paths and action invocation for all three services.
+- Fixed SonarQube frontend scan: excluded `coverage/lcov-report/` to suppress Istanbul-generated false-positive XSS finding.
+- Fixed CodeQL analysis: added config file excluding generated/vendored directories (`coverage`, `dist`, `node_modules`, `__pycache__`).
+- Fixed Fee Consolidation modal: `NavTooltip` on Price / Unit (€) is now always rendered (shows a contextual message when fee consolidation is active) so the label row height stays stable when switching transaction types.
+- Fixed Fee Consolidation modal: total-row height no longer collapses when switching to Fee Consolidation; the right-hand amount span now renders a non-breaking space instead of an empty string.
+
+### CI
+- Switched backend Jest test reporting to `--json` summary (no extra dependency).
+- Added job summaries for backend (Jest) and worker (pytest) in the SonarQube workflow.
+
+---
+
+## [0.0.13] - 2026-04-23
 
 ---
 
