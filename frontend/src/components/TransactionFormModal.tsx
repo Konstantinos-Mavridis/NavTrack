@@ -55,32 +55,24 @@ const REQUIRES_POSITION: Set<TxType> = new Set(['SELL', 'SWITCH', 'FEE_CONSOLIDA
 
 const SPIN_STYLE: React.CSSProperties = { animation: 'spin 0.75s linear infinite' };
 
-// Shared tooltip bubble classes
-// Light: zinc-800 bg / white text  |  Dark: zinc-100 bg / zinc-900 text
 const TOOLTIP_BUBBLE =
-  'pointer-events-none absolute top-full mt-2 z-50 rounded-lg px-3 py-2 ' +
-  'text-xs leading-snug shadow-lg ' +
-  'bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900 ' +
+  'pointer-events-none absolute top-full mt-2 z-50 ' +
+  'rounded-xl px-3.5 py-2.5 text-left ' +
+  'text-xs font-medium leading-relaxed tracking-wide ' +
+  'shadow-lg ring-1 ' +
+  'bg-white text-gray-700 ring-gray-200 ' +
+  'dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-600/70 ' +
   'transition-all duration-150';
 
-// Caret pointing UP toward the trigger (sits above the bubble)
-const TOOLTIP_CARET =
-  'absolute bottom-full border-4 border-transparent ' +
-  'border-b-zinc-800 dark:border-b-zinc-100';
+const TOOLTIP_CARET_LIGHT = 'absolute bottom-full border-[5px] border-transparent border-b-white';
+const TOOLTIP_CARET_DARK  = 'absolute bottom-full border-[5px] border-transparent dark:border-b-gray-800';
+const TOOLTIP_CARET = `${TOOLTIP_CARET_LIGHT} ${TOOLTIP_CARET_DARK}`;
 
-// ---------------------------------------------------------------------------
-// Inline tooltip for the FEE_CONSOLIDATION ⓘ icon
-// Bubble anchors to the RIGHT edge of the icon so it opens leftward
-// and never clips the right side of the modal.
-// ---------------------------------------------------------------------------
 function FeeTooltip() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
 
   return (
-    // Plain layout wrapper — no event handlers (avoids S6819 on non-interactive elements).
-    // stopPropagation is handled directly on the <button> below so clicks on the ⓘ
-    // icon do not bubble up to the parent type-selector <button>.
     <span ref={ref} className="relative inline-flex items-center ml-1">
       <button
         type="button"
@@ -98,23 +90,18 @@ function FeeTooltip() {
           <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1Zm0 1.5a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11ZM8 6a.75.75 0 1 0 0-1.5A.75.75 0 0 0 8 6Zm-.75 1.25a.75.75 0 0 1 1.5 0v3.5a.75.75 0 0 1-1.5 0v-3.5Z"/>
         </svg>
       </button>
-      {/* Bubble anchored to right edge — opens leftward into the modal */}
       <span
         id="fee-tooltip"
         role="tooltip"
-        className={`${TOOLTIP_BUBBLE} right-0 w-56 ${open ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1'}`}
+        className={`${TOOLTIP_BUBBLE} right-0 w-60 ${open ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1 pointer-events-none'}`}
       >
         {FEE_CONSOLIDATION_TOOLTIP}
-        {/* Caret aligned to the right to sit under the ⓘ icon */}
-        <span className={`${TOOLTIP_CARET} right-1`} />
+        <span className={`${TOOLTIP_CARET} right-1.5`} />
       </span>
     </span>
   );
 }
 
-// ---------------------------------------------------------------------------
-// NAV tooltip — opens downward, centered under the ⓘ icon
-// ---------------------------------------------------------------------------
 interface NavTooltipProps {
   variant?: 'idle' | 'loading' | 'success' | 'warning';
   children: React.ReactNode;
@@ -124,7 +111,7 @@ function NavTooltip({ variant = 'idle', children }: NavTooltipProps) {
   const [open, setOpen] = useState(false);
 
   const iconCls =
-    variant === 'loading' ? 'text-blue-400 dark:text-blue-500'
+    variant === 'loading' ? 'text-blue-400 dark:text-blue-400'
     : variant === 'success' ? 'text-emerald-500 dark:text-emerald-400'
     : variant === 'warning' ? 'text-amber-500 dark:text-amber-400'
     : 'text-gray-300 dark:text-gray-600';
@@ -157,19 +144,15 @@ function NavTooltip({ variant = 'idle', children }: NavTooltipProps) {
       <span
         id="nav-tooltip"
         role="tooltip"
-        className={`${TOOLTIP_BUBBLE} left-1/2 -translate-x-1/2 w-max max-w-[220px] ${open ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1'}`}
+        className={`${TOOLTIP_BUBBLE} left-1/2 -translate-x-1/2 w-max max-w-[230px] ${open ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1 pointer-events-none'}`}
       >
         {children}
-        {/* Caret centered under the icon */}
         <span className={`${TOOLTIP_CARET} left-1/2 -translate-x-1/2`} />
       </span>
     </span>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Main modal
-// ---------------------------------------------------------------------------
 export default function TransactionFormModal({ portfolioId, transaction, onSaved, onClose }: Props) {
   const isEdit = !!transaction;
 
@@ -322,6 +305,12 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
       : 'Only funds currently held in this portfolio'
     : null;
 
+  const fundHintCls = fundHint
+    ? (selectableInstruments.length === 0
+        ? 'text-amber-500 dark:text-amber-400 opacity-100'
+        : 'text-gray-400 dark:text-gray-500 opacity-100')
+    : 'opacity-0 pointer-events-none select-none';
+
   return (
     <Modal
       title={isEdit ? 'Edit Transaction' : 'Add Transaction'}
@@ -352,22 +341,15 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
         {/* Fund */}
         <div>
           <div className="flex items-baseline justify-between mb-1">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label htmlFor="txn-fund" className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Fund <span className="text-red-400 dark:text-red-500">*</span>
             </label>
-            <span
-              className={`text-xs transition-opacity duration-150 ${
-                fundHint
-                  ? (selectableInstruments.length === 0
-                      ? 'text-amber-500 dark:text-amber-400 opacity-100'
-                      : 'text-gray-400 dark:text-gray-500 opacity-100')
-                  : 'opacity-0 pointer-events-none select-none'
-              }`}
-            >
+            <span className={`text-xs transition-opacity duration-150 ${fundHintCls}`}>
               {fundHint ?? ' '}
             </span>
           </div>
           <select
+            id="txn-fund"
             className="input"
             value={instrumentId}
             onChange={(e) => setInstrumentId(e.target.value)}
@@ -384,38 +366,63 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
         {/* Dates */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className={FIELD_LABEL_CLS}>Trade Date <span className="text-red-400 dark:text-red-500">*</span></label>
-            <input type="date" className="input" value={tradeDate} onChange={(e) => setTradeDate(e.target.value)} required />
+            <label htmlFor="txn-trade-date" className={FIELD_LABEL_CLS}>
+              Trade Date <span className="text-red-400 dark:text-red-500">*</span>
+            </label>
+            <input id="txn-trade-date" type="date" className="input" value={tradeDate} onChange={(e) => setTradeDate(e.target.value)} required />
           </div>
           <div>
-            <label className={FIELD_LABEL_CLS}>Settlement Date</label>
-            <input type="date" className="input" value={settlementDate} onChange={(e) => setSettlementDate(e.target.value)} />
+            <label htmlFor="txn-settlement-date" className={FIELD_LABEL_CLS}>Settlement Date</label>
+            <input id="txn-settlement-date" type="date" className="input" value={settlementDate} onChange={(e) => setSettlementDate(e.target.value)} />
           </div>
         </div>
 
         {/* Units / Price / Fees */}
         <div className="grid grid-cols-3 gap-4">
+
+          {/* Units */}
           <div>
-            <label className={FIELD_LABEL_CLS}>
-              {isFeeConsolidation ? 'Unit Delta' : 'Units'}{' '}
-              <span className="text-red-400 dark:text-red-500">*</span>
-            </label>
-            <input type="number" step="0.000001" className="input"
+            <div className="flex items-baseline justify-between mb-1">
+              <label htmlFor="txn-units" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Units <span className="text-red-400 dark:text-red-500">*</span>
+              </label>
+              <span
+                className={`text-xs transition-opacity duration-150 ${
+                  isFeeConsolidation
+                    ? 'text-gray-400 dark:text-gray-500 opacity-100'
+                    : 'opacity-0 pointer-events-none select-none'
+                }`}
+              >
+                Unit Delta ±
+              </span>
+            </div>
+            <input id="txn-units" type="number" step="0.000001" className="input"
               value={units} onChange={(e) => setUnits(e.target.value)}
               placeholder={isFeeConsolidation ? 'e.g. -1.234567' : 'e.g. 100'} required />
           </div>
+
+          {/* Price / Unit */}
           <div>
             <div className="flex items-center gap-1.5 mb-1">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Price / Unit (€) {!isFeeConsolidation && <span className="text-red-400 dark:text-red-500">*</span>}
+              <label htmlFor="txn-price" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Price / Unit (€)
+              </label>
+              <span
+                className={`text-red-400 dark:text-red-500 text-sm transition-opacity duration-150 ${
+                  isFeeConsolidation ? 'opacity-0 pointer-events-none select-none' : 'opacity-100'
+                }`}
+                aria-hidden={isFeeConsolidation}
+              >
+                *
               </span>
-              {!isFeeConsolidation && (
-                <NavTooltip variant={navTooltipVariant}>
-                  {navTooltipText}
-                </NavTooltip>
-              )}
+              <NavTooltip variant={isFeeConsolidation ? 'idle' : navTooltipVariant}>
+                {isFeeConsolidation
+                  ? 'Not applicable for Fee Consolidation — no cash price is recorded'
+                  : navTooltipText}
+              </NavTooltip>
             </div>
             <input
+              id="txn-price"
               type="number" step="0.000001" min="0" className="input"
               value={pricePerUnit}
               onChange={(e) => {
@@ -427,16 +434,18 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
               disabled={isFeeConsolidation}
             />
           </div>
+
+          {/* Fees */}
           <div>
-            <label className={FIELD_LABEL_CLS}>Fees (€)</label>
-            <input type="number" step="0.01" min="0" className="input"
+            <label htmlFor="txn-fees" className={FIELD_LABEL_CLS}>Fees (€)</label>
+            <input id="txn-fees" type="number" step="0.01" min="0" className="input"
               value={fees} onChange={(e) => setFees(e.target.value)} placeholder="0.00"
               disabled={isFeeConsolidation} />
           </div>
         </div>
 
         {/* Total row */}
-        <div className="rounded-lg border border-gray-100 dark:border-gray-700/60 bg-gray-50 dark:bg-gray-800/40 px-4 py-3 flex items-center justify-between">
+        <div className="rounded-lg border border-gray-100 dark:border-gray-700/60 bg-gray-50 dark:bg-gray-800/40 px-4 py-3 flex items-center justify-between min-h-[3rem]">
           <span className={`text-sm transition-all duration-150 ${
             showTotal ? 'text-gray-500 dark:text-gray-400' : 'text-gray-300 dark:text-gray-700 select-none'
           }`}>
@@ -453,14 +462,14 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
           }`}>
             {showTotal
               ? `= €${total.toLocaleString('el-GR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-              : isFeeConsolidation ? '' : '= €—'}
+              : '\u00a0'}
           </span>
         </div>
 
         {/* Notes */}
         <div>
-          <label className={FIELD_LABEL_CLS}>Notes</label>
-          <input type="text" className="input" value={notes}
+          <label htmlFor="txn-notes" className={FIELD_LABEL_CLS}>Notes</label>
+          <input id="txn-notes" type="text" className="input" value={notes}
             onChange={(e) => setNotes(e.target.value)} placeholder="Optional note…" />
         </div>
 

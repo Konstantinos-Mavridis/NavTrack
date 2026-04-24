@@ -9,18 +9,47 @@ NavTrack uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
----
-
-## [0.0.13] - 2026-04-23
-
 ### Added
 - Added smoke tests for all 5 page components (PortfolioList, PortfolioDetail, InstrumentDetail, TemplatesPage, TransactionsPage).
 - Added unit tests for `TransactionsService`, `InstrumentsService`, and `TransactionsController` in the backend.
 - Added manual Snyk security scan workflow covering SCA and SAST for all three services; results uploaded to GitHub Security.
+- Added `FEE_CONSOLIDATION` transaction type: bank-initiated unit adjustment for portfolio maintenance fees with no cash flow recorded.
+- Added `FeeTooltip` inline info button on the Fee Consolidation type button explaining unit-delta semantics.
+- Added `NavTooltip` component on the Price / Unit field with four states: idle, loading, success (NAV found), and warning (no NAV data).
+- Added NAV auto-fill on the transaction form: when a fund and trade date are selected, the latest available NAV is fetched and pre-filled into the Price / Unit field; the tooltip confirms the date used.
+- Added `Unit Delta ±` hint label on the Units field when Fee Consolidation is active.
+- Added coloured `+`/`−` unit display for Fee Consolidation rows in the transaction table (emerald for positive, red for negative).
+- Added `FEE` short badge label for Fee Consolidation rows in the transaction table.
+
+### Changed
+- Transaction table column order corrected to Date → Fund → Type → Units → Price → Fees → Total → Actions.
+- Fee Consolidation rows in the transaction table now show the full price, fees, and total columns (previously suppressed); Price / Unit and Fees inputs are disabled in the form instead.
+- Edit and Delete action buttons in the transaction table are now always visible (previously only on row hover) for improved accessibility and discoverability.
+- Tooltip bubbles for `FeeTooltip` and `NavTooltip` unified to a shared style: white card with border and soft shadow in light mode, elevated `gray-800` surface with subtle ring in dark mode; both use `text-left` alignment for consistent rendering regardless of anchor position.
 
 ### Fixed
+- Fixed accessibility violation in `FeeTooltip`: moved `onClick` from non-interactive `<span>` to the inner `<button>` (SonarCloud S6819).
+- Fixed accessibility violation in `NavTooltip`: moved `onMouseEnter`/`onMouseLeave` handlers from wrapper `<span>` to inner `<button>`.
+- Fixed Fee Consolidation modal: `NavTooltip` on Price / Unit (€) is now always rendered (shows a contextual message when fee consolidation is active) so the label row height stays stable when switching transaction types.
+- Fixed Fee Consolidation modal: total-row height no longer collapses when switching to Fee Consolidation; the right-hand amount span renders a non-breaking space instead of an empty string.
+- Fixed Fee Consolidation modal: tooltip position on the Price / Unit label is now stable; the `*` required indicator fades out via opacity instead of being removed from the DOM, preventing layout shift.
+- Fixed `TransactionFormModal`: all form labels are now properly associated with their controls via `htmlFor`/`id` pairs (SonarCloud — "A form label must be associated with a control").
+- Fixed `PortfolioDetail`: extracted nested ternary for Fee Consolidation unit cell class into a standalone `feeUnitsCls()` helper (SonarCloud — "Extract this nested ternary operation into an independent statement").
+- Fixed TypeScript error TS2367 in `PortfolioDetail`: cast `tx.type` to `string` before comparing to `'FEE_CONSOLIDATION'` to satisfy strict union type checking.
 - Fixed positions table overflow causing a bottom scrollbar stripe in dark mode (`dark:bg-gray-900` on `overflow-x-auto` wrapper).
 - Fixed frontend Dockerfile to remediate `SNYK-ALPINE323-LIBXPM-16117329` vulnerability.
+- Fixed Snyk worker scan by replacing `snyk/actions/python` with direct CLI run steps to share the pip install environment.
+- Fixed Snyk SARIF output paths and action invocation for all three services.
+- Fixed SonarQube frontend scan: excluded `coverage/lcov-report/` to suppress Istanbul-generated false-positive XSS finding.
+- Fixed CodeQL analysis: added config file excluding generated/vendored directories (`coverage`, `dist`, `node_modules`, `__pycache__`).
+
+### CI
+- Switched backend Jest test reporting to `--json` summary (no extra dependency).
+- Added job summaries for backend (Jest) and worker (pytest) in the SonarQube workflow.
+
+---
+
+## [0.0.13] - 2026-04-23
 
 ---
 
