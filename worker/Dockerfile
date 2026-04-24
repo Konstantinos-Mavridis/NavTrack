@@ -31,8 +31,7 @@ WORKDIR /app
 RUN chown -R appuser:appuser /app /opt/venv
 
 # Copy requirements and install before copying source for better caching
-COPY --chown=appuser:appuser requirements.txt .
-RUN chmod 444 requirements.txt
+COPY --chown=appuser:appuser --chmod=444 requirements.txt .
 
 USER appuser
 
@@ -40,7 +39,7 @@ RUN python -m pip --version \
     && python -m pip install --no-cache-dir -r requirements.txt
 
 # Copy application source
-COPY --chown=appuser:appuser . .
+COPY --chown=appuser:appuser --chmod=555 . .
 
 # Timezone data so APScheduler can resolve Europe/Athens
 ENV TZ=Europe/Athens
