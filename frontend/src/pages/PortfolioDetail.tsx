@@ -285,18 +285,18 @@ export default function PortfolioDetail() {
                 ? <EmptyState message="No positions yet. Add transactions and they will appear here automatically." />
                 : (
                   <div className="overflow-x-hidden">
-                    <table className="w-full text-sm">
+                    <table className="w-full">
                       <thead className="bg-gray-50 dark:bg-gray-800/60">
                         <tr>
                           {['Fund', 'Asset Class', 'Units', 'NAV (EUR)', 'Value (EUR)', 'Cost (EUR)', 'P&L (EUR)', 'Weight'].map((h) => (
-                            <th key={h} className="table-th whitespace-nowrap">{h}</th>
+                            <th key={h} className="table-th-pos">{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                         {[...valuation.positions].sort((a, b) => (b.value ?? 0) - (a.value ?? 0)).map((pos) => (
                           <tr key={pos.positionId} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                            <td className="table-td font-medium max-w-xs">
+                            <td className="table-td-pos font-medium max-w-xs">
                               <Link
                                 to={`/instruments/${pos.instrumentId}`}
                                 className="truncate block text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
@@ -305,23 +305,23 @@ export default function PortfolioDetail() {
                                 {pos.instrumentName}
                               </Link>
                             </td>
-                            <td className="table-td"><AssetClassChip ac={pos.assetClass} /></td>
-                            <td className="table-td tabular-nums">{fmtUnits(pos.units)}</td>
-                            <td className="table-td tabular-nums">{pos.nav != null ? fmtEur(pos.nav, 4) : '—'}</td>
-                            <td className="table-td tabular-nums font-semibold">{pos.value != null ? `€${fmtEur(pos.value)}` : '—'}</td>
-                            <td className="table-td tabular-nums text-gray-500 dark:text-gray-400">{pos.cost != null ? `€${fmtEur(pos.cost)}` : '—'}</td>
-                            <td className="table-td"><PnlCell value={pos.pnl} /></td>
-                            <td className="table-td text-gray-600 dark:text-gray-400 font-medium">{pos.weightPct != null ? `${pos.weightPct.toFixed(1)}%` : '—'}</td>
+                            <td className="table-td-pos"><AssetClassChip ac={pos.assetClass} /></td>
+                            <td className="table-td-pos tabular-nums">{fmtUnits(pos.units)}</td>
+                            <td className="table-td-pos tabular-nums">{pos.nav != null ? fmtEur(pos.nav, 4) : '—'}</td>
+                            <td className="table-td-pos tabular-nums font-semibold">{pos.value != null ? `€${fmtEur(pos.value)}` : '—'}</td>
+                            <td className="table-td-pos tabular-nums text-gray-500 dark:text-gray-400">{pos.cost != null ? `€${fmtEur(pos.cost)}` : '—'}</td>
+                            <td className="table-td-pos"><PnlCell value={pos.pnl} /></td>
+                            <td className="table-td-pos text-gray-600 dark:text-gray-400 font-medium">{pos.weightPct != null ? `${pos.weightPct.toFixed(1)}%` : '—'}</td>
                           </tr>
                         ))}
                       </tbody>
                       <tfoot className="bg-gray-50 dark:bg-gray-800/60 border-t border-gray-100 dark:border-gray-800 font-semibold">
                         <tr>
-                          <td colSpan={4} className="table-td text-gray-700 dark:text-gray-300">Total</td>
-                          <td className="table-td">€{fmtEur(valuation.totalValue)}</td>
-                          <td className="table-td text-gray-500 dark:text-gray-400">€{fmtEur(valuation.totalCost)}</td>
-                          <td className="table-td"><PnlCell value={valuation.unrealisedPnl} /></td>
-                          <td className="table-td text-gray-600 dark:text-gray-400">100%</td>
+                          <td colSpan={4} className="table-td-pos text-gray-700 dark:text-gray-300">Total</td>
+                          <td className="table-td-pos">€{fmtEur(valuation.totalValue)}</td>
+                          <td className="table-td-pos text-gray-500 dark:text-gray-400">€{fmtEur(valuation.totalCost)}</td>
+                          <td className="table-td-pos"><PnlCell value={valuation.unrealisedPnl} /></td>
+                          <td className="table-td-pos text-gray-600 dark:text-gray-400">100%</td>
                         </tr>
                       </tfoot>
                     </table>
