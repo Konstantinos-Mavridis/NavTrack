@@ -307,11 +307,11 @@ export default function PortfolioDetail() {
                             </td>
                             <td className="table-td-pos"><AssetClassChip ac={pos.assetClass} /></td>
                             <td className="table-td-pos tabular-nums">{fmtUnits(pos.units)}</td>
-                            <td className="table-td-pos tabular-nums">{pos.nav != null ? fmtEur(pos.nav, 4) : '—'}</td>
-                            <td className="table-td-pos tabular-nums font-semibold">{pos.value != null ? `€${fmtEur(pos.value)}` : '—'}</td>
-                            <td className="table-td-pos tabular-nums text-gray-500 dark:text-gray-400">{pos.cost != null ? `€${fmtEur(pos.cost)}` : '—'}</td>
+                            <td className="table-td-pos tabular-nums">{pos.nav == null ? '—' : fmtEur(pos.nav, 4)}</td>
+                            <td className="table-td-pos tabular-nums font-semibold">{pos.value == null ? '—' : `€${fmtEur(pos.value)}`}</td>
+                            <td className="table-td-pos tabular-nums text-gray-500 dark:text-gray-400">{pos.cost == null ? '—' : `€${fmtEur(pos.cost)}`}</td>
                             <td className="table-td-pos"><PnlCell value={pos.pnl} /></td>
-                            <td className="table-td-pos text-gray-600 dark:text-gray-400 font-medium">{pos.weightPct != null ? `${pos.weightPct.toFixed(1)}%` : '—'}</td>
+                            <td className="table-td-pos text-gray-600 dark:text-gray-400 font-medium">{pos.weightPct == null ? '—' : `${pos.weightPct.toFixed(1)}%`}</td>
                           </tr>
                         ))}
                       </tbody>
