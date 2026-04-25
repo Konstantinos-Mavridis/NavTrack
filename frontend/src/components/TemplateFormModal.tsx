@@ -19,6 +19,7 @@ export default function TemplateFormModal({ template, onSaved, onClose }: Props)
   const isEdit = !!template;
 
   const [instruments, setInstruments] = useState<Instrument[]>([]);
+  const [name, setName] = useState(template?.name ?? '');
   const [code, setCode] = useState(template?.code ?? '');
   const [description, setDescription] = useState(template?.description ?? '');
   const [rows, setRows] = useState<RowState[]>(
@@ -54,6 +55,9 @@ export default function TemplateFormModal({ template, onSaved, onClose }: Props)
     e.preventDefault();
     setError('');
 
+    const cleanName = name.trim();
+    if (!cleanName) { setError('Template name is required'); return; }
+
     const cleanCode = code.trim();
     if (!cleanCode) { setError('Template code is required'); return; }
 
@@ -71,7 +75,7 @@ export default function TemplateFormModal({ template, onSaved, onClose }: Props)
 
     setSaving(true);
     try {
-      const payload = { code: cleanCode, description: description.trim() || undefined, items };
+      const payload = { name: cleanName, code: cleanCode, description: description.trim() || undefined, items };
       const saved = isEdit
         ? await api.templates.update(template!.id, payload)
         : await api.templates.create(payload);
@@ -100,6 +104,15 @@ export default function TemplateFormModal({ template, onSaved, onClose }: Props)
     >
       <form onSubmit={handleSubmit} className="space-y-5">
         <ModalErrorBanner error={error} />
+
+        <div>
+          <label className={FIELD_LABEL_CLS}>Template Name *</label>
+          <input
+            className="input" value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Flexible Greek Portfolio" required
+          />
+        </div>
 
         <div>
           <label className={FIELD_LABEL_CLS}>Template Code *</label>
