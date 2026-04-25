@@ -164,7 +164,7 @@ export default function PortfolioDetail() {
   const maxDate      = valuation.latestNavDate ?? today();
 
   return (
-    <div className="max-w-6xl mx-auto px-4 pt-6 pb-8">
+    <div className="max-w-5xl mx-auto px-4 pt-6 pb-8">
 
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500 mb-2">
@@ -288,7 +288,7 @@ export default function PortfolioDetail() {
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50 dark:bg-gray-800/60">
                         <tr>
-                          {['Fund', 'ISIN', 'Asset Class', 'Units', 'NAV (EUR)', 'Value (EUR)', 'Cost (EUR)', 'P&L (EUR)', 'Weight'].map((h) => (
+                          {['Fund', 'Asset Class', 'Units', 'NAV (EUR)', 'Value (EUR)', 'Cost (EUR)', 'P&L (EUR)', 'Weight'].map((h) => (
                             <th key={h} className="table-th whitespace-nowrap">{h}</th>
                           ))}
                         </tr>
@@ -300,12 +300,11 @@ export default function PortfolioDetail() {
                               <Link
                                 to={`/instruments/${pos.instrumentId}`}
                                 className="truncate block text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                                title={pos.instrumentName}
+                                title={`${pos.instrumentName} - ${pos.isin}`}
                               >
                                 {pos.instrumentName}
                               </Link>
                             </td>
-                            <td className="table-td font-mono text-xs text-gray-400 dark:text-gray-500">{pos.isin}</td>
                             <td className="table-td"><AssetClassChip ac={pos.assetClass} /></td>
                             <td className="table-td tabular-nums">{fmtUnits(pos.units)}</td>
                             <td className="table-td tabular-nums">{pos.nav != null ? fmtEur(pos.nav, 4) : '—'}</td>
@@ -318,7 +317,7 @@ export default function PortfolioDetail() {
                       </tbody>
                       <tfoot className="bg-gray-50 dark:bg-gray-800/60 border-t border-gray-100 dark:border-gray-800 font-semibold">
                         <tr>
-                          <td colSpan={5} className="table-td text-gray-700 dark:text-gray-300">Total</td>
+                          <td colSpan={4} className="table-td text-gray-700 dark:text-gray-300">Total</td>
                           <td className="table-td">€{fmtEur(valuation.totalValue)}</td>
                           <td className="table-td text-gray-500 dark:text-gray-400">€{fmtEur(valuation.totalCost)}</td>
                           <td className="table-td"><PnlCell value={valuation.unrealisedPnl} /></td>

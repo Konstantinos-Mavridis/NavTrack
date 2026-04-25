@@ -124,7 +124,7 @@ export default function StrategyList() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-10">
+    <div className="max-w-5xl mx-auto px-4 py-10">
 
       {/* ── Page header ── */}
       <div className="flex items-center justify-between mb-8">

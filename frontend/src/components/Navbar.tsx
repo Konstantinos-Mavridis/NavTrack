@@ -80,7 +80,7 @@ export default function Navbar() {
       {/*
         Full-width outer row.
         Left gutter  : flex-1, logo flush at its RIGHT edge  (justify-end)
-        Centre block : max-w-6xl, nav links at LEFT edge
+        Centre block : max-w-5xl, nav links at LEFT edge
         Right gutter : flex-1, toggle flush at its LEFT edge (justify-start)
       */}
       <div className="flex items-center h-16">
@@ -93,8 +93,8 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Centre — fixed max-w-6xl, nav links left-aligned, NO mx-auto */}
-        <div className="w-full max-w-6xl shrink-0 flex items-center gap-1 px-4 sm:px-6 lg:px-8">
+        {/* Centre — fixed max-w-5xl, nav links left-aligned, NO mx-auto */}
+        <div className="w-full max-w-5xl shrink-0 flex items-center gap-1 px-4 sm:px-6 lg:px-8">
           {links.map((l) => (
             <NavLink
               key={l.to}

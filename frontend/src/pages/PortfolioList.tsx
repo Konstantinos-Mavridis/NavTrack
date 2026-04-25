@@ -143,7 +143,7 @@ export default function PortfolioList() {
   if (error)   return <div className="p-6"><ErrorBanner message={error} /></div>;
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-10">
+    <div className="max-w-5xl mx-auto px-4 py-10">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Portfolios</h1>
