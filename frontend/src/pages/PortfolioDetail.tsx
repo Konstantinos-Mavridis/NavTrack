@@ -352,8 +352,14 @@ export default function PortfolioDetail() {
                           return (
                             <tr key={tx.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
                               <td className="table-td-pos font-mono text-gray-500 dark:text-gray-400 whitespace-nowrap">{tx.tradeDate}</td>
-                              <td className="table-td-pos font-medium text-gray-800 dark:text-gray-200 max-w-[14rem]">
-                                <div className="truncate" title={tx.instrument?.name}>{tx.instrument?.name ?? '—'}</div>
+                              <td className="table-td-pos font-medium max-w-[14rem]">
+                                <Link
+                                  to={`/instruments/${tx.instrumentId}`}
+                                  className="truncate block text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                                  title={tx.instrument ? `${tx.instrument.name} - ${tx.instrument.isin}` : undefined}
+                                >
+                                  {tx.instrument?.name ?? '—'}
+                                </Link>
                               </td>
                               <td className="table-td-pos">
                                 <span className={`badge ${txBadgeColor(tx.type)}`}>{txTableLabel(txType)}</span>
