@@ -349,11 +349,25 @@ export default function PortfolioDetail() {
                           const isFee    = txType === 'FEE_CONSOLIDATION';
                           const total    = Number(tx.units) * Number(tx.pricePerUnit) + Number(tx.fees);
                           const unitsCls = isFee ? feeUnitsCls(tx.units) : '';
+                          const isin     = tx.instrument?.isin;
+                          const tipLabel = isin
+                            ? `${tx.instrument?.name} - ${isin}`
+                            : (tx.instrument?.name ?? '—');
                           return (
                             <tr key={tx.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
                               <td className="table-td font-mono text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{tx.tradeDate}</td>
                               <td className="table-td font-medium text-gray-800 dark:text-gray-200 max-w-[14rem]">
-                                <div className="truncate" title={tx.instrument?.name}>{tx.instrument?.name ?? '—'}</div>
+                                {tx.instrument ? (
+                                  <Link
+                                    to={`/instruments/${tx.instrument.id}`}
+                                    className="truncate block hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                                    title={tipLabel}
+                                  >
+                                    {tx.instrument.name}
+                                  </Link>
+                                ) : (
+                                  <span className="truncate block" title={tipLabel}>—</span>
+                                )}
                               </td>
                               <td className="table-td">
                                 <span className={`badge ${txBadgeColor(tx.type)}`}>{txTableLabel(txType)}</span>
