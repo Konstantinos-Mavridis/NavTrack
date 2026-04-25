@@ -33,7 +33,6 @@ export default function PortfolioList() {
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState('');
   const [modal,   setModal]   = useState<Modal | null>(null);
-  const [deleting, setDeleting] = useState(false);
   const [aggregateSeries, setAggregateSeries] = useState<AggregatePortfolioValuePoint[]>([]);
   const [aggregateLoading, setAggregateLoading] = useState(true);
   const [aggregateError, setAggregateError] = useState('');
@@ -108,7 +107,6 @@ export default function PortfolioList() {
 
   async function handleDelete() {
     if (modal?.type !== 'delete') return;
-    setDeleting(true);
     try {
       await api.portfolios.delete(modal.portfolio.id);
       const remaining = rows.filter((r) => r.id !== modal.portfolio.id);
@@ -126,8 +124,6 @@ export default function PortfolioList() {
       setModal(null);
     } catch (e: any) {
       setError(e.message);
-    } finally {
-      setDeleting(false);
     }
   }
 
@@ -274,7 +270,6 @@ export default function PortfolioList() {
           message={`Delete "${modal.portfolio.name}"? This will permanently remove all positions and transactions.`}
           confirmLabel="Delete"
           danger
-          loading={deleting}
           onConfirm={handleDelete}
           onCancel={() => setModal(null)}
         />

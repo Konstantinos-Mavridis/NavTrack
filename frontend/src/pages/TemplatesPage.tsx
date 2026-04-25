@@ -16,7 +16,6 @@ export default function TemplatesPage() {
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState('');
   const [modal,     setModal]     = useState<Modal | null>(null);
-  const [deleting,  setDeleting]  = useState(false);
 
   async function load() {
     try {
@@ -32,15 +31,12 @@ export default function TemplatesPage() {
 
   async function handleDelete() {
     if (modal?.type !== 'delete') return;
-    setDeleting(true);
     try {
       await api.templates.delete(modal.template.id);
       setTemplates((prev) => prev.filter((t) => t.id !== modal.template.id));
       setModal(null);
     } catch (e: any) {
       setError(e.message);
-    } finally {
-      setDeleting(false);
     }
   }
 
@@ -124,8 +120,10 @@ export default function TemplatesPage() {
         <ConfirmDialog
           title="Delete Template"
           message={`Delete "${modal.template.name}"? This cannot be undone.`}
-          confirmLabel="Delete" danger loading={deleting}
-          onConfirm={handleDelete} onCancel={() => setModal(null)}
+          confirmLabel="Delete"
+          danger
+          onConfirm={handleDelete}
+          onCancel={() => setModal(null)}
         />
       )}
     </div>

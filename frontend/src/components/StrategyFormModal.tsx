@@ -1,16 +1,19 @@
 import { useState } from 'react';
 import { api } from '../api/client';
-import type { Strategy } from '../types';
+import type { AllocationTemplate } from '../types';
 import Modal from './Modal';
 
 interface Props {
-  strategy?: Strategy;
+  /** When provided the modal is in edit mode. */
+  strategy?: AllocationTemplate;
   onClose: () => void;
-  onSaved: (s: Strategy) => void;
+  onSaved: (s: AllocationTemplate) => void;
 }
 
 /**
- * Create / edit a Strategy.
+ * Create / edit an AllocationTemplate through the "Strategies" UI.
+ * Strategies are stored as AllocationTemplates; this modal only manages
+ * the name/code and description — items are managed separately.
  */
 export default function StrategyFormModal({ strategy, onClose, onSaved }: Props) {
   const editing = !!strategy;
@@ -24,10 +27,16 @@ export default function StrategyFormModal({ strategy, onClose, onSaved }: Props)
     setSaving(true);
     setError('');
     try {
-      const payload = { name: name.trim(), description: description.trim() };
+      const trimmedName = name.trim();
+      const code = strategy?.code ?? trimmedName.toLowerCase().replace(/\s+/g, '-');
+      const payload = {
+        code,
+        description: description.trim() || undefined,
+        items: strategy?.items ?? [],
+      };
       const saved = editing
-        ? await api.strategies.update(strategy!.id, payload)
-        : await api.strategies.create(payload);
+        ? await api.templates.update(strategy!.id, payload)
+        : await api.templates.create({ ...payload, name: trimmedName });
       onSaved(saved);
     } catch (err: any) {
       setError(err.message ?? 'An error occurred');

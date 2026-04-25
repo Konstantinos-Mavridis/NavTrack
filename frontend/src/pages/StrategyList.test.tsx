@@ -1,5 +1,6 @@
 /**
  * Smoke tests for StrategyList page.
+ * Strategies are backed by AllocationTemplates; the mock uses api.templates.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
@@ -8,7 +9,7 @@ import { ThemeProvider } from '../ThemeContext';
 
 vi.mock('../api/client', () => ({
   api: {
-    strategies: {
+    templates: {
       list: vi.fn(),
     },
     instruments: {
@@ -53,7 +54,7 @@ beforeEach(() => {
 
 describe('StrategyList', () => {
   it('shows a loading spinner while fetching', () => {
-    vi.mocked(api.strategies.list).mockReturnValue(new Promise(() => {}));
+    vi.mocked(api.templates.list).mockReturnValue(new Promise(() => {}));
     vi.mocked(api.instruments.list).mockReturnValue(new Promise(() => {}));
 
     renderPage();
@@ -61,7 +62,7 @@ describe('StrategyList', () => {
   });
 
   it('renders empty state when no strategies exist', async () => {
-    vi.mocked(api.strategies.list).mockResolvedValue([]);
+    vi.mocked(api.templates.list).mockResolvedValue([]);
     vi.mocked(api.instruments.list).mockResolvedValue([mockInstrument]);
 
     renderPage();
@@ -73,7 +74,7 @@ describe('StrategyList', () => {
   });
 
   it('shows an error banner when the API call fails', async () => {
-    vi.mocked(api.strategies.list).mockRejectedValue(new Error('Fetch failed'));
+    vi.mocked(api.templates.list).mockRejectedValue(new Error('Fetch failed'));
     vi.mocked(api.instruments.list).mockRejectedValue(new Error('Fetch failed'));
 
     renderPage();
@@ -84,7 +85,7 @@ describe('StrategyList', () => {
   });
 
   it('renders a button to create a new strategy', async () => {
-    vi.mocked(api.strategies.list).mockResolvedValue([]);
+    vi.mocked(api.templates.list).mockResolvedValue([]);
     vi.mocked(api.instruments.list).mockResolvedValue([]);
 
     renderPage();

@@ -8,7 +8,7 @@ import { ThemeProvider } from '../ThemeContext';
 
 vi.mock('../api/client', () => ({
   api: {
-    portfolios:   { get: vi.fn(), valueSeries: vi.fn() },
+    portfolios:   { get: vi.fn(), aggregateSeries: vi.fn() },
     valuation:    { get: vi.fn() },
     transactions: { list: vi.fn() },
     positions:    { list: vi.fn(), recalculate: vi.fn() },
@@ -76,7 +76,7 @@ describe('PortfolioDetail', () => {
     vi.mocked(api.valuation.get).mockResolvedValue(mockValuation);
     vi.mocked(api.transactions.list).mockResolvedValue([]);
     vi.mocked(api.positions.list).mockResolvedValue([]);
-    vi.mocked(api.portfolios.valueSeries).mockResolvedValue([]);
+    vi.mocked(api.portfolios.aggregateSeries).mockResolvedValue([]);
 
     renderPage();
 
@@ -93,7 +93,7 @@ describe('PortfolioDetail', () => {
     vi.mocked(api.valuation.get).mockResolvedValue(mockValuation);
     vi.mocked(api.transactions.list).mockResolvedValue([]);
     vi.mocked(api.positions.list).mockResolvedValue([]);
-    vi.mocked(api.portfolios.valueSeries).mockResolvedValue([]);
+    vi.mocked(api.portfolios.aggregateSeries).mockResolvedValue([]);
 
     renderPage();
 
@@ -121,7 +121,7 @@ describe('PortfolioDetail', () => {
     vi.mocked(api.valuation.get).mockResolvedValue(mockValuation);
     vi.mocked(api.transactions.list).mockResolvedValue([]);
     vi.mocked(api.positions.list).mockResolvedValue([]);
-    vi.mocked(api.portfolios.valueSeries).mockResolvedValue([]);
+    vi.mocked(api.portfolios.aggregateSeries).mockResolvedValue([]);
 
     renderPage();
 

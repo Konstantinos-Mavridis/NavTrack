@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
-import type { Strategy, Instrument } from '../types';
+import type { AllocationTemplate, Instrument, TemplateItem } from '../types';
 import { Spinner, ErrorBanner } from '../components/ui';
 import StrategyFormModal from '../components/StrategyFormModal';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -9,26 +9,26 @@ import { fmtPct } from '../utils/format';
 
 type Modal =
   | { type: 'create' }
-  | { type: 'edit'; strategy: Strategy }
-  | { type: 'delete'; strategy: Strategy };
+  | { type: 'edit'; strategy: AllocationTemplate }
+  | { type: 'delete'; strategy: AllocationTemplate };
 
 export default function StrategyList() {
-  const [strategies, setStrategies] = useState<Strategy[]>([]);
+  const [strategies,  setStrategies]  = useState<AllocationTemplate[]>([]);
   const [instruments, setInstruments] = useState<Record<string, Instrument>>({});
-  const [loading, setLoading]   = useState(true);
-  const [error,   setError]     = useState('');
-  const [modal,   setModal]     = useState<Modal | null>(null);
-  const [deleting, setDeleting] = useState(false);
+  const [loading,     setLoading]     = useState(true);
+  const [error,       setError]       = useState('');
+  const [modal,       setModal]       = useState<Modal | null>(null);
+  const [deleting,    setDeleting]    = useState(false);
 
   async function load() {
     try {
       const [strats, insts] = await Promise.all([
-        api.strategies.list(),
+        api.templates.list(),
         api.instruments.list(),
       ]);
       setStrategies(strats);
       const map: Record<string, Instrument> = {};
-      insts.forEach((i) => { map[i.id] = i; });
+      insts.forEach((i: Instrument) => { map[i.id] = i; });
       setInstruments(map);
     } catch (e: any) {
       setError(e.message);
@@ -43,7 +43,7 @@ export default function StrategyList() {
     if (modal?.type !== 'delete') return;
     setDeleting(true);
     try {
-      await api.strategies.delete(modal.strategy.id);
+      await api.templates.delete(modal.strategy.id);
       setStrategies((prev) => prev.filter((s) => s.id !== modal.strategy.id));
       setModal(null);
     } catch (e: any) {
@@ -53,7 +53,7 @@ export default function StrategyList() {
     }
   }
 
-  function handleSaved(s: Strategy) {
+  function handleSaved(s: AllocationTemplate) {
     setModal(null);
     setStrategies((prev) => {
       const idx = prev.findIndex((x) => x.id === s.id);
@@ -91,7 +91,10 @@ export default function StrategyList() {
       ) : (
         <div className="grid gap-5">
           {strategies.map((strategy) => {
-            const totalWeight = strategy.allocations.reduce((sum, a) => sum + a.weight, 0);
+            const totalWeight = strategy.items.reduce(
+              (sum: number, a: TemplateItem) => sum + a.weight,
+              0,
+            );
             const isBalanced  = Math.abs(totalWeight - 100) < 0.01;
 
             return (
@@ -99,6 +102,7 @@ export default function StrategyList() {
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{strategy.name}</h2>
+                    <p className="text-xs font-mono text-gray-400 dark:text-gray-500 mt-0.5">{strategy.code}</p>
                     {strategy.description && (
                       <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{strategy.description}</p>
                     )}
@@ -117,7 +121,7 @@ export default function StrategyList() {
                   </div>
                 </div>
 
-                {strategy.allocations.length === 0 ? (
+                {strategy.items.length === 0 ? (
                   <p className="text-sm text-gray-400 dark:text-gray-500 italic">No allocations defined.</p>
                 ) : (
                   <div className="overflow-x-auto">
@@ -130,7 +134,7 @@ export default function StrategyList() {
                         </tr>
                       </thead>
                       <tbody>
-                        {strategy.allocations.map((alloc) => {
+                        {strategy.items.map((alloc: TemplateItem) => {
                           const inst = instruments[alloc.instrumentId];
                           return (
                             <tr key={alloc.instrumentId} className="table-row">
@@ -185,7 +189,6 @@ export default function StrategyList() {
           message={`Delete "${modal.strategy.name}"? This cannot be undone.`}
           confirmLabel="Delete"
           danger
-          loading={deleting}
           onConfirm={handleDelete}
           onCancel={() => setModal(null)}
         />

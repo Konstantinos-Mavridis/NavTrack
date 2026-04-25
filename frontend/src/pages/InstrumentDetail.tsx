@@ -45,9 +45,17 @@ export default function InstrumentDetail() {
       setChartLoading(true);
       setChartError('');
       try {
+        // navHistory takes a single id argument; filter by range client-side.
+        const all = await api.instruments.navHistory(id!);
         const days = RANGE_DAYS[selectedRange];
-        const pts  = await api.instruments.navHistory(id!, days, today());
-        setPrices(pts);
+        if (days !== undefined) {
+          const cutoff = new Date(Date.now() - days * 86_400_000)
+            .toISOString()
+            .slice(0, 10);
+          setPrices(all.filter((p) => p.date >= cutoff));
+        } else {
+          setPrices(all);
+        }
       } catch (e: any) {
         setChartError(e.message);
       } finally {
@@ -60,8 +68,9 @@ export default function InstrumentDetail() {
   if (loading) return <Spinner />;
   if (error || !instrument) return <div className="p-6"><ErrorBanner message={error || 'Not found'} /></div>;
 
-  const latestNav   = prices.at(-1)?.nav ?? null;
-  const earliestNav = prices.at(0)?.nav  ?? null;
+  // Use bracket access instead of .at() — not available in the tsconfig lib target.
+  const latestNav   = prices.length ? prices[prices.length - 1].nav : null;
+  const earliestNav = prices.length ? prices[0].nav : null;
   const priceChange = latestNav != null && earliestNav != null && earliestNav !== 0
     ? (latestNav - earliestNav) / earliestNav
     : null;
@@ -80,7 +89,9 @@ export default function InstrumentDetail() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{instrument.name}</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-          {instrument.isin} · {instrument.assetClass}
+          {instrument.isin}
+          {' · '}
+          {instrument.assetClass}
         </p>
       </div>
 

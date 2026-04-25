@@ -9,20 +9,9 @@ const links = [
 ];
 
 export default function Navbar() {
-  const { theme, toggleTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
 
   return (
-    /*
-      Layout:
-        - Full-width outer bar (bg + border span edge-to-edge)
-        - Inside: three zones pinned with justify-between:
-            LEFT  : logo  (fixed, outside the centre block)
-            CENTRE: max-w-5xl, nav links at LEFT edge
-            RIGHT : theme toggle (fixed, outside the centre block)
-
-      This keeps the nav links aligned with the max-w-5xl page containers
-      while the coloured bar still bleeds to the viewport edges.
-    */
     <header className="sticky top-0 z-40 w-full border-b border-gray-200 dark:border-gray-800 bg-white/90 dark:bg-gray-900/90 backdrop-blur">
       <div className="flex items-center justify-between px-4 sm:px-6 lg:px-8 h-14">
 
@@ -52,7 +41,7 @@ export default function Navbar() {
 
         {/* RIGHT — theme toggle, always visible */}
         <button
-          onClick={toggleTheme}
+          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
           className="shrink-0 ml-4 p-2 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           aria-label="Toggle theme"
         >
