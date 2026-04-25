@@ -16,13 +16,6 @@ NavTrack uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Narrowed all page containers from `max-w-6xl` to `max-w-5xl` across `PortfolioList`, `PortfolioDetail`, `StrategyList` (including its embedded Allocation Templates section), `InstrumentDetail`, and `TemplatesPage`.
 - Updated `Navbar` centre block from `max-w-6xl` to `max-w-5xl` to keep nav links aligned with the narrowed page content.
 
-### CI
-- Switched backend Jest test reporting to `--json` summary (no extra dependency).
-- Added job summaries for backend (Jest) and worker (pytest) in the SonarQube workflow.
-- Fixed Snyk worker scan by replacing `snyk/actions/python` with direct CLI run steps to share the pip install environment.
-- Fixed SonarQube frontend scan: excluded `coverage/lcov-report/` to suppress Istanbul-generated false-positive XSS finding.
-- Fixed CodeQL analysis: added config file excluding generated/vendored directories (`coverage`, `dist`, `node_modules`, `__pycache__`).
-
 ---
 
 ## [0.0.13] - 2026-04-23
@@ -67,7 +60,6 @@ NavTrack uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Renamed Templates → Allocation Templates; added Risk column to template fund table
 - layout - max-w-6xl on PortfolioList and StrategyList + logo outside-left of max-w-6xl, nav links at its left edge, toggle outside-right
 - Corrected API route documentation to match backend controllers.
-- Fixed worker schedule times in documentation (16:05, 22:05, 23:05 — not :00).
 - Updated SECURITY.md to reflect that versioned releases now exist.
 - Aligned worker and backend DSN fallback defaults with `.env.example` naming.
 
@@ -78,7 +70,7 @@ NavTrack uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Initial release of NavTrack.
 
 ### Added
-- Documented API endpoints (positions CRUD, sync job detail, template NAV series, on-date NAV lookup).
+- Initial project scaffold: React/TypeScript frontend, NestJS backend, Python worker, PostgreSQL database.
 - NestJS REST API (`backend`) with TypeORM + PostgreSQL.
 - React / Vite frontend (`frontend`) with Recharts dashboards.
 - Python worker service (`worker`) for background processing.
@@ -86,6 +78,26 @@ NavTrack uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - GitHub Actions CI pipeline: SonarQube, CodeQL, CI Gate, Docker builds.
 - Dependabot configuration for automated dependency updates.
 - SemVer versioning strategy with automated `release.yml` workflow.
+- Documented API endpoints (positions CRUD, sync job detail, template NAV series, on-date NAV lookup).  
+- Added SonarQube/SonarCloud CI analysis for frontend, backend, and worker.
+- Added Snyk security scanning for frontend (npm), backend (npm), and worker (pip) in CI.
+- Added `PortfolioList` page with portfolio cards showing valuation data (total value, unrealised P&L, return).  
+- Added `PortfolioAggregateChart` to `PortfolioList` page. 
+- Added `PortfolioFormModal` for creating and editing portfolios.  
+- Added `ConfirmDialog` for delete confirmation.  
+- Added `PortfolioDetail` page with KPI strip (total value, cost, unrealised P&L, return), positions table, and transactions tab.
+- Added `PortfolioValueChart` to `PortfolioDetail` page.
+- Added portfolio import/export (JSON) via `PortfolioImportExport` component.  
+- Added `TransactionsPage` component for per-portfolio transaction history with inline add/edit/delete.
+- Added `TransactionFormModal` for creating and editing BUY/SELL transactions.
+- Added `StrategiesPage` listing all strategies with their allocations.
+- Added `StrategyFormModal` for creating and editing strategies with allocation rows.  
+- Added `TemplatesPage` for managing reusable allocation templates.
+- Added `TemplateFormModal` for creating and editing templates with allocation rows.
+- Added `InstrumentsPage` listing all instruments with search filter.
+- Added `InstrumentDetail` page showing latest price, period return, data point count, chart, and price history table.
+- Added `InstrumentValueChart` to `InstrumentDetail` page.
+- Added performance range selector (1M / 3M / 6M / 1Y / ALL) to all chart components.
 
 [Unreleased]: https://github.com/Konstantinos-Mavridis/NavTrack/compare/v0.0.13...HEAD
 [0.0.13]: https://github.com/Konstantinos-Mavridis/NavTrack/compare/v0.0.12...v0.0.13
