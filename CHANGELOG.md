@@ -9,6 +9,10 @@ NavTrack uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+---
+
+## [0.0.14] - 2026-04-25
+
 ### Added
 - Added `FEE_CONSOLIDATION` transaction type: bank-initiated unit adjustment for portfolio maintenance fees with no cash flow recorded.
 
@@ -17,7 +21,6 @@ NavTrack uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Updated `Navbar` centre block from `max-w-6xl` to `max-w-5xl` to keep nav links aligned with the narrowed page content.
 
 ---
-
 ## [0.0.13] - 2026-04-23
 
 ### Added
@@ -99,5 +102,6 @@ NavTrack uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Added `InstrumentValueChart` to `InstrumentDetail` page.
 - Added performance range selector (1M / 3M / 6M / 1Y / ALL) to all chart components.
 
-[Unreleased]: https://github.com/Konstantinos-Mavridis/NavTrack/compare/v0.0.13...HEAD
+[Unreleased]: https://github.com/Konstantinos-Mavridis/NavTrack/compare/v0.0.14...HEAD
+[0.0.14]: https://github.com/Konstantinos-Mavridis/NavTrack/compare/v0.0.13...v0.0.14
 [0.0.13]: https://github.com/Konstantinos-Mavridis/NavTrack/compare/v0.0.12...v0.0.13
