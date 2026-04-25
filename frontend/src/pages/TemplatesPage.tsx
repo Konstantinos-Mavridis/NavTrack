@@ -78,13 +78,14 @@ export default function TemplatesPage() {
       ) : (
         <div className="grid gap-5">
           {templates.map((tpl) => {
-            const total = tpl.allocations.reduce((s, a) => s + a.weight, 0);
+            const total = tpl.items.reduce((s, a) => s + a.weight, 0);
             const ok    = Math.abs(total - 100) < 0.01;
             return (
               <div key={tpl.id} className="card p-6 hover:shadow-md transition-all group">
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{tpl.name}</h2>
+                    <p className="text-xs font-mono text-gray-400 dark:text-gray-500 mt-0.5">{tpl.code}</p>
                     {tpl.description && <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{tpl.description}</p>}
                   </div>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -92,16 +93,16 @@ export default function TemplatesPage() {
                     <button onClick={() => setModal({ type: 'delete', template: tpl })} className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/40 transition-colors" title="Delete">✕</button>
                   </div>
                 </div>
-                {tpl.allocations.length === 0 ? (
+                {tpl.items.length === 0 ? (
                   <p className="text-sm text-gray-400 dark:text-gray-500 italic">No allocations defined.</p>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="table text-sm">
                       <thead><tr><th className="table-th">Instrument</th><th className="table-th text-right">Weight</th><th className="table-th">Bar</th></tr></thead>
                       <tbody>
-                        {tpl.allocations.map((a) => (
+                        {tpl.items.map((a) => (
                           <tr key={a.instrumentId} className="table-row">
-                            <td className="table-td font-medium">{a.instrumentId}</td>
+                            <td className="table-td font-medium">{a.instrument?.name ?? a.instrumentId}</td>
                             <td className="table-td text-right font-mono">{fmtPct(a.weight)}</td>
                             <td className="table-td w-40"><div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5"><div className="bg-blue-500 h-1.5 rounded-full" style={{ width: `${Math.min(a.weight, 100)}%` }} /></div></td>
                           </tr>

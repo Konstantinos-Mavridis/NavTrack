@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../api/client';
-import type { Instrument, PricePoint, PerformanceRange } from '../types';
+import type { Instrument, NavPrice, PerformanceRange } from '../types';
 import { Spinner, ErrorBanner } from '../components/ui';
 import InstrumentValueChart from '../components/InstrumentValueChart';
 import { fmtEur, fmtPct, today } from '../utils/format';
@@ -18,7 +18,7 @@ export default function InstrumentDetail() {
   const { id } = useParams<{ id: string }>();
 
   const [instrument,    setInstrument]    = useState<Instrument | null>(null);
-  const [prices,        setPrices]        = useState<PricePoint[]>([]);
+  const [prices,        setPrices]        = useState<NavPrice[]>([]);
   const [loading,       setLoading]       = useState(true);
   const [error,         setError]         = useState('');
   const [chartLoading,  setChartLoading]  = useState(false);
@@ -46,7 +46,7 @@ export default function InstrumentDetail() {
       setChartError('');
       try {
         const days = RANGE_DAYS[selectedRange];
-        const pts  = await api.prices.history(id!, days, today());
+        const pts  = await api.instruments.navHistory(id!, days, today());
         setPrices(pts);
       } catch (e: any) {
         setChartError(e.message);
@@ -60,10 +60,10 @@ export default function InstrumentDetail() {
   if (loading) return <Spinner />;
   if (error || !instrument) return <div className="p-6"><ErrorBanner message={error || 'Not found'} /></div>;
 
-  const latestPrice  = prices.at(-1)?.price ?? instrument.latestPrice ?? null;
-  const earliestPrice = prices.at(0)?.price ?? null;
-  const priceChange  = latestPrice != null && earliestPrice != null && earliestPrice !== 0
-    ? (latestPrice - earliestPrice) / earliestPrice
+  const latestNav   = prices.at(-1)?.nav ?? null;
+  const earliestNav = prices.at(0)?.nav  ?? null;
+  const priceChange = latestNav != null && earliestNav != null && earliestNav !== 0
+    ? (latestNav - earliestNav) / earliestNav
     : null;
   const positive = (priceChange ?? 0) >= 0;
 
@@ -71,27 +71,25 @@ export default function InstrumentDetail() {
     <div className="max-w-5xl mx-auto px-4 pt-6 pb-8">
       {/* Breadcrumb */}
       <nav className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-        <Link to="/portfolios" className="hover:text-blue-600 dark:hover:text-blue-400">Portfolios</Link>
+        <Link to="/instruments" className="hover:text-blue-600 dark:hover:text-blue-400">Instruments</Link>
         <span className="mx-1">/</span>
         <span className="text-gray-800 dark:text-gray-200 font-medium">{instrument.name}</span>
       </nav>
 
       {/* Header */}
       <div className="mb-6">
-        <div className="flex items-start gap-3">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{instrument.name}</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{instrument.id} · {instrument.type}</p>
-          </div>
-        </div>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{instrument.name}</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+          {instrument.isin} · {instrument.assetClass}
+        </p>
       </div>
 
       {/* KPI Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
         <div className="card p-4">
-          <p className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">Latest Price</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">Latest NAV</p>
           <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            {latestPrice != null ? `€${fmtEur(latestPrice)}` : '—'}
+            {latestNav != null ? `€${fmtEur(latestNav)}` : '—'}
           </p>
         </div>
         <div className="card p-4">
@@ -119,13 +117,13 @@ export default function InstrumentDetail() {
         />
       </div>
 
-      {/* Price History Table */}
+      {/* NAV History Table */}
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Price History</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">NAV History</h2>
         {prices.length === 0 ? (
           <div className="text-center py-12 text-gray-400 dark:text-gray-500">
             <p className="text-3xl mb-2">📉</p>
-            <p className="text-sm">No price data available for this period.</p>
+            <p className="text-sm">No NAV data available for this period.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -133,19 +131,19 @@ export default function InstrumentDetail() {
               <thead>
                 <tr>
                   <th className="table-th">Date</th>
-                  <th className="table-th text-right">Price</th>
+                  <th className="table-th text-right">NAV</th>
                   <th className="table-th text-right">Change</th>
                 </tr>
               </thead>
               <tbody>
                 {[...prices].reverse().map((pt, idx, arr) => {
                   const prev = arr[idx + 1];
-                  const chg  = prev ? (pt.price - prev.price) / prev.price : null;
+                  const chg  = prev ? (pt.nav - prev.nav) / prev.nav : null;
                   const pos  = (chg ?? 0) >= 0;
                   return (
                     <tr key={pt.date} className="table-row">
                       <td className="table-td text-gray-500 dark:text-gray-400">{pt.date}</td>
-                      <td className="table-td text-right font-mono">€{fmtEur(pt.price)}</td>
+                      <td className="table-td text-right font-mono">€{fmtEur(pt.nav)}</td>
                       <td className={`table-td text-right font-mono ${
                         chg === null ? 'text-gray-400'
                           : pos ? 'text-emerald-600 dark:text-emerald-400'

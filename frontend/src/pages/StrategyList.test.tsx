@@ -8,10 +8,18 @@ import { ThemeProvider } from '../ThemeContext';
 
 vi.mock('../api/client', () => ({
   api: {
+    strategies: {
+      list: vi.fn(),
+    },
     instruments: {
       list: vi.fn(),
     },
   },
+}));
+
+// Stub the modal so Vite doesn't need to resolve its own deps in tests.
+vi.mock('../components/StrategyFormModal', () => ({
+  default: () => null,
 }));
 
 import { api } from '../api/client';
@@ -45,35 +53,27 @@ beforeEach(() => {
 
 describe('StrategyList', () => {
   it('shows a loading spinner while fetching', () => {
+    vi.mocked(api.strategies.list).mockReturnValue(new Promise(() => {}));
     vi.mocked(api.instruments.list).mockReturnValue(new Promise(() => {}));
 
     renderPage();
     expect(screen.getByRole('status')).toBeInTheDocument();
   });
 
-  it('renders instrument rows after successful load', async () => {
+  it('renders empty state when no strategies exist', async () => {
+    vi.mocked(api.strategies.list).mockResolvedValue([]);
     vi.mocked(api.instruments.list).mockResolvedValue([mockInstrument]);
-
-    renderPage();
-
-    await waitFor(() => {
-      expect(screen.getByText('Vanguard Global Equity')).toBeInTheDocument();
-    });
-    expect(screen.getByText('IE00B3RBWM25')).toBeInTheDocument();
-  });
-
-  it('renders empty state when no instruments exist', async () => {
-    vi.mocked(api.instruments.list).mockResolvedValue([]);
 
     renderPage();
 
     await waitFor(() => {
       expect(screen.queryByRole('status')).not.toBeInTheDocument();
     });
-    expect(screen.queryByText('Vanguard Global Equity')).not.toBeInTheDocument();
+    expect(screen.getByText(/no strategies yet/i)).toBeInTheDocument();
   });
 
   it('shows an error banner when the API call fails', async () => {
+    vi.mocked(api.strategies.list).mockRejectedValue(new Error('Fetch failed'));
     vi.mocked(api.instruments.list).mockRejectedValue(new Error('Fetch failed'));
 
     renderPage();
@@ -81,5 +81,17 @@ describe('StrategyList', () => {
     await waitFor(() => {
       expect(screen.getByText(/fetch failed/i)).toBeInTheDocument();
     });
+  });
+
+  it('renders a button to create a new strategy', async () => {
+    vi.mocked(api.strategies.list).mockResolvedValue([]);
+    vi.mocked(api.instruments.list).mockResolvedValue([]);
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: '+ New Strategy' })).toBeInTheDocument();
   });
 });

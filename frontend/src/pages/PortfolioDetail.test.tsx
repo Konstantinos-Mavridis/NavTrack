@@ -15,6 +15,11 @@ vi.mock('../api/client', () => ({
   },
 }));
 
+// Stub the chart component so Vite doesn't need to resolve its own deps in tests.
+vi.mock('../components/PortfolioValueChart', () => ({
+  default: () => <div data-testid="portfolio-value-chart" />,
+}));
+
 import { api } from '../api/client';
 import PortfolioDetail from './PortfolioDetail';
 

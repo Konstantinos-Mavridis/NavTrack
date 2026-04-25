@@ -15,6 +15,11 @@ vi.mock('../api/client', () => ({
   },
 }));
 
+// Stub the chart component so Vite doesn't need to resolve its own deps in tests.
+vi.mock('../components/InstrumentValueChart', () => ({
+  default: () => <div data-testid="instrument-value-chart" />,
+}));
+
 import { api } from '../api/client';
 import InstrumentDetail from './InstrumentDetail';
 
@@ -79,7 +84,7 @@ describe('InstrumentDetail', () => {
     });
   });
 
-  it('shows breadcrumb link back to strategies/instruments list', async () => {
+  it('shows breadcrumb link back to instruments list', async () => {
     vi.mocked(api.instruments.get).mockResolvedValue(mockInstrument);
     vi.mocked(api.instruments.navHistory).mockResolvedValue([]);
 
@@ -88,6 +93,6 @@ describe('InstrumentDetail', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Vanguard Global Equity' })).toBeInTheDocument();
     });
-    expect(screen.getByRole('link', { name: /instruments|funds|strategies/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Instruments' })).toBeInTheDocument();
   });
 });
