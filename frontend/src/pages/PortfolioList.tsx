@@ -143,7 +143,7 @@ export default function PortfolioList() {
   if (error)   return <div className="p-6"><ErrorBanner message={error} /></div>;
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-10">
+    <div className="max-w-5xl mx-auto px-4 py-10">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Portfolios</h1>
@@ -231,56 +231,27 @@ export default function PortfolioList() {
                           <p className="text-xl font-bold text-gray-900 dark:text-gray-100 mt-0.5">€{fmtEur(v.totalValue)}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide">Unrealised P&amp;L</p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide">Unrealised P&L</p>
                           <p className={`text-xl font-bold mt-0.5 ${
                             pnlPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'
-                          }`}>
-                            {pnlPositive ? '+' : ''}€{fmtEur(v.unrealisedPnl)}
-                          </p>
-                          <p className={`text-xs mt-0.5 ${
-                            pnlPositive ? 'text-emerald-500 dark:text-emerald-400' : 'text-red-400 dark:text-red-500'
-                          }`}>{fmtPct(v.unrealisedPnlPct)}</p>
-                        </div>
-                        <div className="col-span-2 mt-1">
-                          <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">
-                            {v.positions.length} position{v.positions.length !== 1 ? 's' : ''}
-                          </p>
-                          <div className="h-1.5 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden flex">
-                            {v.positions
-                              .filter((p) => p.weightPct && p.weightPct > 0)
-                              .sort((a, b) => (b.weightPct ?? 0) - (a.weightPct ?? 0))
-                              .map((p) => (
-                                <div
-                                  key={p.positionId}
-                                  style={{ width: `${p.weightPct}%`, backgroundColor: acColor(p.assetClass) }}
-                                  title={`${p.instrumentName}: ${p.weightPct}%`}
-                                />
-                              ))}
-                          </div>
+                          }`}>{pnlPositive ? '+' : ''}{fmtPct(v.unrealisedPnlPct)}</p>
                         </div>
                       </div>
-                    ) : (
-                      <p className="text-xs text-gray-400 dark:text-gray-500">No positions yet — add transactions to get started.</p>
-                    )}
+                    ) : null}
                   </Link>
 
-                  {/* ROW 2 RIGHT: INCLUDE toggle */}
-                  <div className="flex flex-col items-center justify-start gap-1">
-                    <span className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide leading-none">Include</span>
+                  {/* ROW 2 RIGHT: chart toggle */}
+                  <div className="flex items-end justify-end">
                     <button
-                      onClick={() => toggleExcluded(row.id)}
-                      title={isIncluded ? 'Exclude from Total Portfolio' : 'Include in Total Portfolio'}
-                      aria-label={isIncluded ? 'Exclude from Total Portfolio' : 'Include in Total Portfolio'}
-                      aria-pressed={isIncluded}
-                      className="mt-0.5"
+                      onClick={(e) => { e.preventDefault(); toggleExcluded(row.id); }}
+                      className={`p-1.5 rounded-lg text-xs transition-colors ${
+                        isIncluded
+                          ? 'text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/40'
+                          : 'text-gray-400 dark:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800'
+                      }`}
+                      title={isIncluded ? 'Hide from chart' : 'Show in chart'}
                     >
-                      <span className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 ${
-                        isIncluded ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
-                      }`}>
-                        <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-200 ${
-                          isIncluded ? 'translate-x-4' : 'translate-x-0.5'
-                        }`} />
-                      </span>
+                      {isIncluded ? '📈' : '📉'}
                     </button>
                   </div>
 
@@ -292,35 +263,22 @@ export default function PortfolioList() {
       )}
 
       {modal?.type === 'create' && (
-        <PortfolioFormModal onSaved={handleSaved} onClose={() => setModal(null)} />
+        <PortfolioFormModal onClose={() => setModal(null)} onSaved={handleSaved} />
       )}
       {modal?.type === 'edit' && (
-        <PortfolioFormModal portfolio={modal.portfolio} onSaved={handleSaved} onClose={() => setModal(null)} />
+        <PortfolioFormModal portfolio={modal.portfolio} onClose={() => setModal(null)} onSaved={handleSaved} />
       )}
       {modal?.type === 'delete' && (
         <ConfirmDialog
           title="Delete Portfolio"
-          message={`Are you sure you want to delete "${modal.portfolio.name}"? This will also delete all positions and transactions.`}
-          confirmLabel={deleting ? 'Deleting…' : 'Delete Portfolio'}
+          message={`Delete "${modal.portfolio.name}"? This will permanently remove all positions and transactions.`}
+          confirmLabel="Delete"
+          danger
+          loading={deleting}
           onConfirm={handleDelete}
           onCancel={() => setModal(null)}
         />
       )}
     </div>
   );
-}
-
-/**
- * Bar segment colour per asset class — must stay in sync with
- * ASSET_CLASS_COLORS in utils/format.ts and the DB enum in init.sql.
- */
-function acColor(ac: string): string {
-  const m: Record<string, string> = {
-    EQUITY:          '#3b82f6',
-    BOND:            '#10b981',
-    HIGH_YIELD:      '#ef4444',
-    FUND_OF_FUNDS:   '#8b5cf6',
-    ABSOLUTE_RETURN: '#ec4899',
-  };
-  return m[ac] ?? '#cbd5e1';
 }

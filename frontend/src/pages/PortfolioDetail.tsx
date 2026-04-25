@@ -1,48 +1,30 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
-import type { ApplyTemplateBuyResult, Portfolio, ValuationResult, Transaction } from '../types';
-import {
-  Spinner, ErrorBanner, StatCard, PnlCell, AssetClassChip, EmptyState, txBadgeColor,
-} from '../components/ui';
-import AllocationChart from '../components/AllocationChart';
-import TransactionFormModal from '../components/TransactionFormModal';
-import TemplateBuyModal from '../components/TemplateBuyModal';
+import type {
+  Portfolio, Position, ValuationResult, Transaction, PerformanceRange,
+} from '../types';
+import { Spinner, ErrorBanner } from '../components/ui';
 import PortfolioFormModal from '../components/PortfolioFormModal';
 import ConfirmDialog from '../components/ConfirmDialog';
-import { fmtEur, fmtUnits, today } from '../utils/format';
+import TransactionFormModal from '../components/TransactionFormModal';
+import PortfolioValueChart from '../components/PortfolioValueChart';
+import { fmtEur, fmtPct, today } from '../utils/format';
 
 type Tab = 'positions' | 'transactions';
-type ModalState =
-  | { type: 'addTxn' }
-  | { type: 'buyTemplate' }
-  | { type: 'editTxn'; transaction: Transaction }
-  | { type: 'deleteTxn'; transaction: Transaction }
-  | { type: 'deleteAllTxn' }
-  | { type: 'editPortfolio' }
-  | { type: 'deletePortfolio' };
 
-const TX_TABLE_LABEL: Record<string, string> = {
-  FEE_CONSOLIDATION: 'FEE',
+type TransactionModal =
+  | { type: 'create' }
+  | { type: 'edit'; transaction: Transaction }
+  | { type: 'delete'; transaction: Transaction };
+
+const RANGE_DAYS: Record<PerformanceRange, number | undefined> = {
+  '1M':  30,
+  '3M':  90,
+  '6M':  180,
+  '1Y':  365,
+  'ALL': undefined,
 };
-
-function txTableLabel(type: string): string {
-  return TX_TABLE_LABEL[type] ?? type.replace(/_/g, ' ');
-}
-
-function fmtTxUnits(units: number | string, type: string): string {
-  const n = Number(units);
-  if (type === 'FEE_CONSOLIDATION') {
-    return (n >= 0 ? '+' : '-') + fmtUnits(Math.abs(n));
-  }
-  return fmtUnits(n);
-}
-
-function feeUnitsCls(units: number | string): string {
-  return Number(units) >= 0
-    ? 'text-emerald-600 dark:text-emerald-400 font-medium'
-    : 'text-red-500 dark:text-red-400 font-medium';
-}
 
 export default function PortfolioDetail() {
   const { id } = useParams<{ id: string }>();
@@ -50,404 +32,381 @@ export default function PortfolioDetail() {
 
   const [portfolio,    setPortfolio]    = useState<Portfolio | null>(null);
   const [valuation,    setValuation]    = useState<ValuationResult | null>(null);
+  const [positions,    setPositions]    = useState<Position[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [date,         setDate]         = useState('');
-  const [tab,          setTab]          = useState<Tab>('positions');
   const [loading,      setLoading]      = useState(true);
-  const [refreshing,   setRefreshing]   = useState(false);
   const [error,        setError]        = useState('');
-  const [modal,        setModal]        = useState<ModalState | null>(null);
+  const [activeTab,    setActiveTab]    = useState<Tab>('positions');
+  const [editModal,    setEditModal]    = useState(false);
+  const [deleteModal,  setDeleteModal]  = useState(false);
+  const [deleting,     setDeleting]     = useState(false);
+  const [txModal,      setTxModal]      = useState<TransactionModal | null>(null);
+  const [txDeleting,   setTxDeleting]   = useState(false);
+  const [chartSeries,  setChartSeries]  = useState<{ date: string; value: number }[]>([]);
+  const [chartLoading, setChartLoading] = useState(true);
+  const [chartError,   setChartError]   = useState('');
+  const [selectedRange, setSelectedRange] = useState<PerformanceRange>('1M');
+  const prevRangeRef = useRef<PerformanceRange>('1M');
 
-  const valuationDateRef = useRef<string>('');
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  async function reload(targetDate?: string) {
-    if (!id) return;
-    const [p, v, t] = await Promise.all([
-      api.portfolios.get(id),
-      api.valuation.get(id, targetDate),
-      api.transactions.list(id),
-    ]);
-    setPortfolio(p);
-    setValuation(v);
-    setDate((prev) => prev || v.date);
-    setTransactions(t);
-  }
+  const loadChartSeries = useCallback(async (range: PerformanceRange) => {
+    setChartLoading(true);
+    setChartError('');
+    try {
+      const series = await api.portfolios.valueSeries(id!, RANGE_DAYS[range], today());
+      setChartSeries(series);
+    } catch (e: any) {
+      setChartError(e.message);
+    } finally {
+      setChartLoading(false);
+    }
+  }, [id]);
 
   useEffect(() => {
-    if (!id) return;
-    reload().catch((e) => setError(e.message)).finally(() => setLoading(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
-
-  const fetchValuation = useCallback(async (targetDate: string) => {
-    if (!id || !targetDate) return;
-    valuationDateRef.current = targetDate;
-    const token = targetDate;
-    setRefreshing(true);
-    try {
-      const v = await api.valuation.get(id, targetDate);
-      if (valuationDateRef.current === token) setValuation(v);
-    } catch (e: any) {
-      if (valuationDateRef.current === token) setError(e.message);
-    } finally {
-      if (valuationDateRef.current === token) setRefreshing(false);
-    }
-  }, [id]);
-
-  function handleDateChange(newDate: string) {
-    setDate(newDate);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => fetchValuation(newDate), 300);
-  }
-
-  async function autoRecalculate(portfolioId: string, valuationDate: string) {
-    try {
-      await api.positions.recalculate(portfolioId);
-      const v = await api.valuation.get(portfolioId, valuationDate);
-      if (valuationDateRef.current === valuationDate || valuationDateRef.current === '') {
+    async function load() {
+      try {
+        const [p, v, pos, txs] = await Promise.all([
+          api.portfolios.get(id!),
+          api.valuation.get(id!, today()),
+          api.positions.list(id!),
+          api.transactions.list(id!),
+        ]);
+        setPortfolio(p);
         setValuation(v);
+        setPositions(pos);
+        setTransactions(txs);
+      } catch (e: any) {
+        setError(e.message);
+      } finally {
+        setLoading(false);
       }
-    } catch {}
-  }
-
-  function handleTxnSaved(t: Transaction) {
-    setModal(null);
-    if (modal?.type === 'editTxn') {
-      setTransactions((prev) => prev.map((x) => x.id === t.id ? t : x));
-    } else {
-      setTransactions((prev) => [t, ...prev]);
     }
-    if (id) autoRecalculate(id, date);
-  }
+    load();
+  }, [id]);
 
-  function handleTemplateBuySaved(result: ApplyTemplateBuyResult) {
-    setModal(null);
-    setTransactions((prev) => [...result.transactions, ...prev]);
-    if (id) autoRecalculate(id, date);
-  }
+  useEffect(() => {
+    if (!loading) void loadChartSeries(selectedRange);
+  }, [loading, loadChartSeries]);
 
-  async function handleDeleteTxn() {
-    if (modal?.type !== 'deleteTxn' || !id) return;
-    await api.transactions.delete(id, modal.transaction.id);
-    setTransactions((prev) => prev.filter((x) => x.id !== modal.transaction.id));
-    setModal(null);
-    autoRecalculate(id, date);
-  }
-
-  async function handleClearAllTxn() {
-    if (!id) return;
-    await api.transactions.clearAll(id);
-    setTransactions([]);
-    setModal(null);
-    autoRecalculate(id, date);
-  }
-
-  function handlePortfolioSaved(p: Portfolio) {
-    setPortfolio(p);
-    setModal(null);
-  }
+  useEffect(() => {
+    if (loading) return;
+    if (prevRangeRef.current === selectedRange) return;
+    prevRangeRef.current = selectedRange;
+    void loadChartSeries(selectedRange);
+  }, [selectedRange, loading, loadChartSeries]);
 
   async function handleDeletePortfolio() {
-    if (!id) return;
-    await api.portfolios.delete(id);
-    navigate('/');
+    setDeleting(true);
+    try {
+      await api.portfolios.delete(id!);
+      navigate('/portfolios');
+    } catch (e: any) {
+      setError(e.message);
+      setDeleting(false);
+      setDeleteModal(false);
+    }
   }
 
-  if (loading)  return <Spinner />;
-  if (error)    return <div className="p-6"><ErrorBanner message={error} /></div>;
-  if (!valuation || !portfolio) return null;
+  async function handleDeleteTransaction() {
+    if (txModal?.type !== 'delete') return;
+    setTxDeleting(true);
+    try {
+      await api.transactions.delete(id!, txModal.transaction.id);
+      setTransactions((prev) => prev.filter((t) => t.id !== txModal.transaction.id));
+      const [v, pos] = await Promise.all([api.valuation.get(id!, today()), api.positions.list(id!)]);
+      setValuation(v);
+      setPositions(pos);
+      setTxModal(null);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setTxDeleting(false);
+    }
+  }
 
-  const pnlAccent    = valuation.unrealisedPnl >= 0 ? 'positive' : 'negative';
-  const hasPositions = valuation.positions.length > 0;
-  const hasData      = hasPositions || transactions.length > 0;
-  const maxDate      = valuation.latestNavDate ?? today();
+  async function handleTxSaved() {
+    setTxModal(null);
+    const [v, pos, txs] = await Promise.all([
+      api.valuation.get(id!, today()),
+      api.positions.list(id!),
+      api.transactions.list(id!),
+    ]);
+    setValuation(v);
+    setPositions(pos);
+    setTransactions(txs);
+    void loadChartSeries(selectedRange);
+  }
+
+  if (loading) return <Spinner />;
+  if (error || !portfolio) return <div className="p-6"><ErrorBanner message={error || 'Not found'} /></div>;
+
+  const pnlPositive = (valuation?.unrealisedPnl ?? 0) >= 0;
 
   return (
-    <div className="max-w-6xl mx-auto px-4 pt-6 pb-8">
-
+    <div className="max-w-5xl mx-auto px-4 pt-6 pb-8">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500 mb-2">
-        <Link to="/" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Portfolios</Link>
-        <span>/</span>
-        <span className="text-gray-700 dark:text-gray-300 font-medium">{portfolio.name}</span>
+      <nav className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+        <Link to="/portfolios" className="hover:text-blue-600 dark:hover:text-blue-400">Portfolios</Link>
+        <span className="mx-1">/</span>
+        <span className="text-gray-800 dark:text-gray-200 font-medium">{portfolio.name}</span>
+      </nav>
+
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{portfolio.name}</h1>
+          {portfolio.description && (
+            <p className="text-gray-500 dark:text-gray-400 mt-1 max-w-2xl">{portfolio.description}</p>
+          )}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => setEditModal(true)}
+            className="btn-secondary text-sm"
+          >
+            Edit
+          </button>
+          <button
+            onClick={() => setDeleteModal(true)}
+            className="btn-danger text-sm"
+          >
+            Delete
+          </button>
+        </div>
       </div>
 
-      <div className="space-y-8">
+      {/* KPI Strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        <div className="card p-4">
+          <p className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">Total Value</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">€{fmtEur(valuation?.totalValue ?? 0)}</p>
+        </div>
+        <div className="card p-4">
+          <p className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">Total Cost</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">€{fmtEur(valuation?.totalCost ?? 0)}</p>
+        </div>
+        <div className="card p-4">
+          <p className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">Unrealised P&L</p>
+          <p className={`text-2xl font-bold ${
+            pnlPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'
+          }`}>€{fmtEur(valuation?.unrealisedPnl ?? 0)}</p>
+        </div>
+        <div className="card p-4">
+          <p className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">Return</p>
+          <p className={`text-2xl font-bold ${
+            pnlPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'
+          }`}>{pnlPositive ? '+' : ''}{fmtPct(valuation?.unrealisedPnlPct ?? 0)}</p>
+        </div>
+      </div>
 
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{portfolio.name}</h1>
-            {portfolio.description && (
-              <p className="text-gray-500 dark:text-gray-400 mt-1 max-w-2xl">{portfolio.description}</p>
-            )}
-          </div>
-          <div className="flex items-center gap-2 flex-wrap shrink-0">
-            <button onClick={() => setModal({ type: 'editPortfolio' })} className="btn-secondary flex items-center gap-1.5">
-              ✎ Edit
-            </button>
+      {/* Chart */}
+      <div className="mb-6">
+        <PortfolioValueChart
+          data={chartSeries}
+          loading={chartLoading}
+          error={chartError}
+          selectedRange={selectedRange}
+          onRangeChange={setSelectedRange}
+        />
+      </div>
+
+      {/* Tabs */}
+      <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
+        <nav className="flex gap-6">
+          {(['positions', 'transactions'] as Tab[]).map((tab) => (
             <button
-              onClick={() => setModal({ type: 'deletePortfolio' })}
-              className="px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`pb-3 text-sm font-medium capitalize border-b-2 transition-colors ${
+                activeTab === tab
+                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+              }`}
             >
-              Delete
+              {tab}
             </button>
-          </div>
-        </div>
-
-        {/* Date selector */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <label className="text-sm text-gray-500 dark:text-gray-400 font-medium">Valuation as of</label>
-          <input type="date" value={date} max={maxDate} onChange={(e) => handleDateChange(e.target.value)} className="input w-40" />
-          {refreshing && <span className="text-xs text-gray-400 dark:text-gray-500 animate-pulse">Updating…</span>}
-        </div>
-
-        {/* Summary cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <StatCard label="Total Value"    value={`€${fmtEur(valuation.totalValue)}`} sub={`as of ${valuation.date}`} />
-          <StatCard label="Total Cost"     value={`€${fmtEur(valuation.totalCost)}`} />
-          <StatCard
-            label="Unrealised P&L"
-            value={`${valuation.unrealisedPnl >= 0 ? '+' : ''}€${fmtEur(valuation.unrealisedPnl)}`}
-            accent={pnlAccent}
-          />
-          <StatCard
-            label="Return"
-            value={`${valuation.unrealisedPnlPct >= 0 ? '+' : ''}${valuation.unrealisedPnlPct.toFixed(2)}%`}
-            accent={pnlAccent}
-          />
-        </div>
-
-        {/* Onboarding card */}
-        {!hasData && (
-          <div className="card p-8 text-center border-dashed dark:border-gray-700">
-            <p className="text-4xl mb-3">📋</p>
-            <p className="font-semibold text-gray-700 dark:text-gray-300 mb-1">No positions yet</p>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">
-              Add transactions below and positions will be calculated automatically.
-            </p>
-            <div className="flex justify-center gap-2 flex-wrap">
-              <button onClick={() => setModal({ type: 'addTxn' })}     className="btn-primary">+ Add First Transaction</button>
-              <button onClick={() => setModal({ type: 'buyTemplate' })} className="btn-secondary">+ Template Buy</button>
-            </div>
-          </div>
-        )}
-
-        {/* Allocation charts */}
-        {hasPositions && (
-          <div className="grid md:grid-cols-2 gap-5">
-            <AllocationChart data={valuation.allocationByAssetClass} title="By Asset Class" />
-            <AllocationChart
-              data={Object.fromEntries(
-                valuation.positions.filter((p) => p.weightPct != null).map((p) => [p.instrumentName, p.weightPct!]),
-              )}
-              labelMap={Object.fromEntries(valuation.positions.map((p) => [p.instrumentName, p.instrumentName]))}
-              colorMap={Object.fromEntries(valuation.positions.map((p, i) => [p.instrumentName, PALETTE[i % PALETTE.length]]))}
-              title="By Instrument"
-            />
-          </div>
-        )}
-
-        {/* Positions / Transactions tab card */}
-        {hasData && (
-          <div className="card overflow-hidden">
-            <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 px-2">
-              <div className="flex">
-                {(['positions', 'transactions'] as Tab[]).map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => setTab(t)}
-                    className={`px-5 py-3.5 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${
-                      tab === t
-                        ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                        : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                    }`}
-                  >
-                    {t}
-                    <span className="ml-2 px-1.5 py-0.5 rounded text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
-                      {t === 'positions' ? valuation.positions.length : transactions.length}
-                    </span>
-                  </button>
-                ))}
-              </div>
-              {tab === 'transactions' && (
-                <div className="flex items-center gap-2 pr-2">
-                  <button onClick={() => setModal({ type: 'buyTemplate' })} className="btn-secondary text-sm py-1.5">+ Template Buy</button>
-                  <button onClick={() => setModal({ type: 'addTxn' })}      className="btn-primary   text-sm py-1.5">+ Add Transaction</button>
-                </div>
-              )}
-            </div>
-
-            {/* ── Positions tab ── */}
-            {tab === 'positions' && (
-              valuation.positions.length === 0
-                ? <EmptyState message="No positions yet. Add transactions and they will appear here automatically." />
-                : (
-                  <div className="overflow-x-hidden">
-                    <table className="w-full text-sm">
-                      <thead className="bg-gray-50 dark:bg-gray-800/60">
-                        <tr>
-                          {['Fund', 'ISIN', 'Asset Class', 'Units', 'NAV (EUR)', 'Value (EUR)', 'Cost (EUR)', 'P&L (EUR)', 'Weight'].map((h) => (
-                            <th key={h} className="table-th whitespace-nowrap">{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                        {[...valuation.positions].sort((a, b) => (b.value ?? 0) - (a.value ?? 0)).map((pos) => (
-                          <tr key={pos.positionId} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                            <td className="table-td font-medium max-w-xs">
-                              <Link
-                                to={`/instruments/${pos.instrumentId}`}
-                                className="truncate block text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                                title={pos.instrumentName}
-                              >
-                                {pos.instrumentName}
-                              </Link>
-                            </td>
-                            <td className="table-td font-mono text-xs text-gray-400 dark:text-gray-500">{pos.isin}</td>
-                            <td className="table-td"><AssetClassChip ac={pos.assetClass} /></td>
-                            <td className="table-td tabular-nums">{fmtUnits(pos.units)}</td>
-                            <td className="table-td tabular-nums">{pos.nav != null ? fmtEur(pos.nav, 4) : '—'}</td>
-                            <td className="table-td tabular-nums font-semibold">{pos.value != null ? `€${fmtEur(pos.value)}` : '—'}</td>
-                            <td className="table-td tabular-nums text-gray-500 dark:text-gray-400">{pos.cost != null ? `€${fmtEur(pos.cost)}` : '—'}</td>
-                            <td className="table-td"><PnlCell value={pos.pnl} /></td>
-                            <td className="table-td text-gray-600 dark:text-gray-400 font-medium">{pos.weightPct != null ? `${pos.weightPct.toFixed(1)}%` : '—'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot className="bg-gray-50 dark:bg-gray-800/60 border-t border-gray-100 dark:border-gray-800 font-semibold">
-                        <tr>
-                          <td colSpan={5} className="table-td text-gray-700 dark:text-gray-300">Total</td>
-                          <td className="table-td">€{fmtEur(valuation.totalValue)}</td>
-                          <td className="table-td text-gray-500 dark:text-gray-400">€{fmtEur(valuation.totalCost)}</td>
-                          <td className="table-td"><PnlCell value={valuation.unrealisedPnl} /></td>
-                          <td className="table-td text-gray-600 dark:text-gray-400">100%</td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                )
-            )}
-
-            {/* ── Transactions tab ── */}
-            {tab === 'transactions' && (
-              transactions.length === 0
-                ? <EmptyState message="No transactions yet. Use the buttons above to add your first transaction." />
-                : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="bg-gray-50 dark:bg-gray-800/60">
-                        <tr>
-                          {['Date', 'Fund', 'Type', 'Units', 'Price (EUR)', 'Fees (EUR)', 'Total (EUR)', ''].map((h) => (
-                            <th key={h} className="table-th whitespace-nowrap">{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                        {transactions.map((tx) => {
-                          const txType   = tx.type as string;
-                          const isFee    = txType === 'FEE_CONSOLIDATION';
-                          const total    = Number(tx.units) * Number(tx.pricePerUnit) + Number(tx.fees);
-                          const unitsCls = isFee ? feeUnitsCls(tx.units) : '';
-                          return (
-                            <tr key={tx.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
-                              <td className="table-td font-mono text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{tx.tradeDate}</td>
-                              <td className="table-td font-medium text-gray-800 dark:text-gray-200 max-w-[14rem]">
-                                <div className="truncate" title={tx.instrument?.name}>{tx.instrument?.name ?? '—'}</div>
-                              </td>
-                              <td className="table-td">
-                                <span className={`badge ${txBadgeColor(tx.type)}`}>{txTableLabel(txType)}</span>
-                              </td>
-                              <td className={`table-td tabular-nums ${unitsCls}`}>
-                                {fmtTxUnits(tx.units, txType)}
-                              </td>
-                              <td className="table-td tabular-nums">{fmtEur(tx.pricePerUnit, 6)}</td>
-                              <td className="table-td tabular-nums text-gray-500 dark:text-gray-400">{fmtEur(tx.fees)}</td>
-                              <td className="table-td tabular-nums font-medium">€{fmtEur(total)}</td>
-                              <td className="table-td">
-                                <div className="flex gap-1 justify-end">
-                                  <button
-                                    onClick={() => setModal({ type: 'editTxn', transaction: tx })}
-                                    className="p-1 rounded text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40 transition-colors text-xs"
-                                    title="Edit"
-                                  >✎</button>
-                                  <button
-                                    onClick={() => setModal({ type: 'deleteTxn', transaction: tx })}
-                                    className="p-1 rounded text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/40 transition-colors text-xs"
-                                    title="Delete"
-                                  >✕</button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )
-            )}
-
-            {tab === 'transactions' && transactions.length > 0 && (
-              <div className="flex items-center justify-end px-4 py-2.5 border-t border-gray-100 dark:border-gray-800">
-                <button
-                  onClick={() => setModal({ type: 'deleteAllTxn' })}
-                  className="px-3 py-1.5 text-xs font-medium text-red-500 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
-                >
-                  Clear All
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
+          ))}
+        </nav>
       </div>
 
-      {/* ── Modals ── */}
-      {modal?.type === 'addTxn' && id && (
-        <TransactionFormModal portfolioId={id} onSaved={handleTxnSaved} onClose={() => setModal(null)} />
+      {/* Positions Tab */}
+      {activeTab === 'positions' && (
+        <div>
+          {positions.length === 0 ? (
+            <div className="text-center py-16 text-gray-400 dark:text-gray-500">
+              <p className="text-4xl mb-3">📊</p>
+              <p className="font-medium text-gray-600 dark:text-gray-400 mb-1">No positions yet</p>
+              <p className="text-sm">Add transactions to build your positions.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th className="table-th">Instrument</th>
+                    <th className="table-th text-right">Units</th>
+                    <th className="table-th text-right">Price</th>
+                    <th className="table-th text-right">Value</th>
+                    <th className="table-th text-right">Cost</th>
+                    <th className="table-th text-right">P&L</th>
+                    <th className="table-th text-right">Return</th>
+                    <th className="table-th text-right">Weight</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {positions.map((pos) => {
+                    const posPos = (pos.unrealisedPnl ?? 0) >= 0;
+                    return (
+                      <tr key={pos.instrumentId} className="table-row">
+                        <td className="table-td font-medium max-w-xs">
+                          <Link
+                            to={`/instruments/${pos.instrumentId}`}
+                            className="text-blue-600 dark:text-blue-400 hover:underline truncate block"
+                          >
+                            {pos.instrumentId}
+                          </Link>
+                        </td>
+                        <td className="table-td text-right">{pos.units}</td>
+                        <td className="table-td text-right">€{fmtEur(pos.price ?? 0)}</td>
+                        <td className="table-td text-right">€{fmtEur(pos.value ?? 0)}</td>
+                        <td className="table-td text-right">€{fmtEur(pos.cost)}</td>
+                        <td className={`table-td text-right font-medium ${
+                          posPos ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'
+                        }`}>{posPos ? '+' : ''}€{fmtEur(pos.unrealisedPnl ?? 0)}</td>
+                        <td className={`table-td text-right font-medium ${
+                          posPos ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'
+                        }`}>{posPos ? '+' : ''}{fmtPct(pos.unrealisedPnlPct ?? 0)}</td>
+                        <td className="table-td text-right">{fmtPct(pos.weight ?? 0)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       )}
-      {modal?.type === 'buyTemplate' && id && (
-        <TemplateBuyModal portfolioId={id} valuationDate={date} onSaved={handleTemplateBuySaved} onClose={() => setModal(null)} />
+
+      {/* Transactions Tab */}
+      {activeTab === 'transactions' && (
+        <div>
+          <div className="flex justify-end mb-4">
+            <button onClick={() => setTxModal({ type: 'create' })} className="btn-primary text-sm">
+              + Add Transaction
+            </button>
+          </div>
+          {transactions.length === 0 ? (
+            <div className="text-center py-16 text-gray-400 dark:text-gray-500">
+              <p className="text-4xl mb-3">📋</p>
+              <p className="font-medium text-gray-600 dark:text-gray-400 mb-1">No transactions yet</p>
+              <p className="text-sm">Record your first buy or sell to start tracking.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th className="table-th">Date</th>
+                    <th className="table-th">Type</th>
+                    <th className="table-th">Instrument</th>
+                    <th className="table-th text-right">Units</th>
+                    <th className="table-th text-right">Price</th>
+                    <th className="table-th text-right">Fees</th>
+                    <th className="table-th text-right">Total</th>
+                    <th className="table-th"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactions.map((tx) => {
+                    const isBuy  = tx.type === 'BUY';
+                    const isSell = tx.type === 'SELL';
+                    const isFee  = tx.type === 'FEE_CONSOLIDATION';
+                    return (
+                      <tr key={tx.id} className="table-row">
+                        <td className="table-td text-gray-500 dark:text-gray-400">{tx.date}</td>
+                        <td className="table-td">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                            isBuy  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400'
+                            : isSell ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'
+                            : isFee  ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400'
+                            : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                          }`}>
+                            {tx.type}
+                          </span>
+                        </td>
+                        <td className="table-td font-medium text-gray-800 dark:text-gray-200 max-w-[14rem]">
+                          <Link
+                            to={`/instruments/${tx.instrumentId}`}
+                            className="text-blue-600 dark:text-blue-400 hover:underline truncate block"
+                          >
+                            {tx.instrumentId}
+                          </Link>
+                        </td>
+                        <td className="table-td text-right">{isFee ? '–' : tx.units}</td>
+                        <td className="table-td text-right">{isFee ? '–' : `€${fmtEur(tx.price)}`}</td>
+                        <td className="table-td text-right">{tx.fee != null ? `€${fmtEur(tx.fee)}` : '–'}</td>
+                        <td className="table-td text-right">{isFee ? '–' : `€${fmtEur(tx.units * tx.price + (tx.fee ?? 0))}`}</td>
+                        <td className="table-td">
+                          <div className="flex items-center gap-1 justify-end">
+                            {!isFee && (
+                              <button
+                                onClick={() => setTxModal({ type: 'edit', transaction: tx })}
+                                className="p-1 rounded text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40 transition-colors"
+                                title="Edit"
+                              >✎</button>
+                            )}
+                            <button
+                              onClick={() => setTxModal({ type: 'delete', transaction: tx })}
+                              className="p-1 rounded text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/40 transition-colors"
+                              title="Delete"
+                            >✕</button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       )}
-      {modal?.type === 'editTxn' && id && (
-        <TransactionFormModal portfolioId={id} transaction={modal.transaction} onSaved={handleTxnSaved} onClose={() => setModal(null)} />
-      )}
-      {modal?.type === 'deleteTxn' && (
-        <ConfirmDialog
-          title="Delete Transaction"
-          message={`Delete the ${modal.transaction.type} of ${fmtUnits(modal.transaction.units)} units on ${modal.transaction.tradeDate}?`}
-          confirmLabel="Delete"
-          onConfirm={handleDeleteTxn}
-          onCancel={() => setModal(null)}
+
+      {/* Modals */}
+      {editModal && (
+        <PortfolioFormModal
+          portfolio={portfolio}
+          onClose={() => setEditModal(false)}
+          onSaved={(p) => { setPortfolio(p); setEditModal(false); }}
         />
       )}
-      {modal?.type === 'deleteAllTxn' && (
-        <ConfirmDialog
-          title="Clear All Transactions"
-          message="This will permanently delete all transactions for this portfolio."
-          confirmLabel="Clear All Transactions"
-          onConfirm={handleClearAllTxn}
-          onCancel={() => setModal(null)}
-        />
-      )}
-      {modal?.type === 'editPortfolio' && (
-        <PortfolioFormModal portfolio={portfolio} onSaved={handlePortfolioSaved} onClose={() => setModal(null)} />
-      )}
-      {modal?.type === 'deletePortfolio' && (
+      {deleteModal && (
         <ConfirmDialog
           title="Delete Portfolio"
-          message={`Permanently delete \u201c${portfolio.name}\u201d and all its positions and transactions?`}
-          confirmLabel="Delete Portfolio"
+          message={`Delete "${portfolio.name}"? All positions and transactions will be permanently removed.`}
+          confirmLabel="Delete"
+          danger
+          loading={deleting}
           onConfirm={handleDeletePortfolio}
-          onCancel={() => setModal(null)}
+          onCancel={() => setDeleteModal(false)}
+        />
+      )}
+      {txModal?.type === 'create' && (
+        <TransactionFormModal portfolioId={id!} onClose={() => setTxModal(null)} onSaved={handleTxSaved} />
+      )}
+      {txModal?.type === 'edit' && (
+        <TransactionFormModal portfolioId={id!} transaction={txModal.transaction} onClose={() => setTxModal(null)} onSaved={handleTxSaved} />
+      )}
+      {txModal?.type === 'delete' && (
+        <ConfirmDialog
+          title="Delete Transaction"
+          message="Delete this transaction? Positions and valuations will be recalculated."
+          confirmLabel="Delete"
+          danger
+          loading={txDeleting}
+          onConfirm={handleDeleteTransaction}
+          onCancel={() => setTxModal(null)}
         />
       )}
     </div>
   );
 }
-
-const PALETTE = [
-  '#3b82f6','#6366f1','#10b981','#f59e0b','#ef4444',
-  '#8b5cf6','#ec4899','#06b6d4','#84cc16','#f97316',
-];
