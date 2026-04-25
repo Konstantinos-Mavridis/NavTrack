@@ -188,6 +188,7 @@ export interface AllocationTemplate {
 }
 
 export interface CreateAllocationTemplatePayload {
+  name: string;
   code: string;
   description?: string;
   items: TemplateItemPayload[];
