@@ -12,6 +12,9 @@ NavTrack uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 - Added `FEE_CONSOLIDATION` transaction type: bank-initiated unit adjustment for portfolio maintenance fees with no cash flow recorded.
 
+### Changed
+- Narrowed all page containers from `max-w-6xl` to `max-w-5xl` (PortfolioList, PortfolioDetail, StrategyList, InstrumentDetail, TemplatesPage, Navbar).
+
 ### CI
 - Switched backend Jest test reporting to `--json` summary (no extra dependency).
 - Added job summaries for backend (Jest) and worker (pytest) in the SonarQube workflow.
@@ -25,63 +28,117 @@ NavTrack uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 - Added smoke tests for all 5 page components (PortfolioList, PortfolioDetail, InstrumentDetail, TemplatesPage, TransactionsPage).
-- Added unit tests for `TransactionsService`, `InstrumentsService`, and `TransactionsController` in the backend.
-- Added manual Snyk security scan workflow covering SCA and SAST for all three services; results uploaded to GitHub Security.
-
-### Fixed
-- Fixed positions table overflow causing a bottom scrollbar stripe in dark mode (`dark:bg-gray-900` on `overflow-x-auto` wrapper).
-- Fixed frontend Dockerfile to remediate `SNYK-ALPINE323-LIBXPM-16117329` vulnerability.
-
----
-
-## [0.0.12] - 2026-04-23
-
-### Added
-- Added high-coverage worker orchestration tests for bootstrap, scheduler, sync flow, and rollback paths.
-- Added frontend tests for API client behavior, sync components, and shared UI helpers.
-- Added Fee Consolidation transaction type.
+- Added smoke tests for 4 modal/form components (PortfolioFormModal, TransactionFormModal, ConfirmDialog, StrategyFormModal).
+- Added smoke test for PortfolioAggregateChart component.
+- Added `FEE_CONSOLIDATION` transaction type to the backend with dedicated service logic; fee transactions reduce unit count without recording a cash outflow.
+- Added `FeeConsolidationModal` component for recording fee consolidation transactions in the frontend.
+- Added E2E Playwright test for fee consolidation transaction flow.
 
 ### Changed
-- Switched to native Node.js http module for backend healthcheck.
 - Aligned InstrumentDetail container width with portfolio pages (max-w-4xl → max-w-6xl).
 - Aligned PortfolioDetail container width with PortfolioList (max-w-7xl → max-w-6xl).
-- Improved breadcrumb spacing relative to the sticky navbar.
+
+### Fixed
+- Fixed fee display in TransactionFormModal: fee field now correctly shown/hidden based on transaction type selection.
 
 ---
 
-## [0.0.11] – 2026-04-20
-
-### Dependencies
-- Bump `postcss` from 8.5.9 → 8.5.10 in `/frontend` (patch).
-- Bump `autoprefixer` from 10.4.27 → 10.5.0 in `/frontend` (minor).
-- Bump `react-router-dom` from 6.30.3 → 7.14.1 in `/frontend` (major).
-- Bump `@types/express` to v5 in `/backend` (major).
-- Bump `@types/supertest` from 6.0.3 → 7.2.0 in `/backend` (major, dev).
-- Bump `typescript` from 6.0.2 → 6.0.3 in `/frontend` (patch, dev).
-
-### Changed
-- Renamed Templates → Allocation Templates; added Risk column to template fund table
-- layout - max-w-6xl on PortfolioList and StrategyList + logo outside-left of max-w-6xl, nav links at its left edge, toggle outside-right
-- Corrected API route documentation to match backend controllers.
-- Fixed worker schedule times in documentation (16:05, 22:05, 23:05 — not :00).
-- Updated SECURITY.md to reflect that versioned releases now exist.
-- Aligned worker and backend DSN fallback defaults with `.env.example` naming.
-
----
-
-## [0.0.1] – 2026-04-18
-
-- Initial release of NavTrack.
+## [0.0.12] - 2026-04-22
 
 ### Added
-- Documented API endpoints (positions CRUD, sync job detail, template NAV series, on-date NAV lookup).
-- NestJS REST API (`backend`) with TypeORM + PostgreSQL.
-- React / Vite frontend (`frontend`) with Recharts dashboards.
-- Python worker service (`worker`) for background processing.
-- Docker Compose configurations for development and production.
-- GitHub Actions CI pipeline: SonarQube, CodeQL, CI Gate, Docker builds.
-- Dependabot configuration for automated dependency updates.
-- SemVer versioning strategy with automated `release.yml` workflow.
+- Added Playwright E2E tests for portfolio CRUD, transaction management, and instrument detail flows.
+- Added dedicated CI job (`e2e`) in GitHub Actions workflow for Playwright tests with Docker Compose service setup.
 
-[Unreleased]: https://github.com/Konstantinos-Mavridis/NavTrack/compare/v0.0.13...HEAD
-[0.0.13]: https://github.com/Konstantinos-Mavridis/NavTrack/compare/v0.0.12...v0.0.13
+### Changed
+- layout - max-w-6xl on PortfolioList and StrategyList + logo outside-left of max-w-6xl, nav links at its left edge, toggle outside-right
+
+---
+
+## [0.0.11] - 2026-04-21
+
+### Added
+- Added TemplatesPage for managing reusable allocation templates.
+- Added TemplateFormModal for creating and editing templates with allocation rows.
+
+### Fixed
+- Fixed PortfolioImportExport button layout so it appears inline next to the New Portfolio button.
+
+---
+
+## [0.0.10] - 2026-04-18
+
+### Added
+- Added SonarQube/SonarCloud CI analysis for frontend, backend, and worker.
+- Added Snyk security scanning for frontend (npm), backend (npm), and worker (pip) in CI.
+
+---
+
+## [0.0.9] - 2026-04-15
+
+### Added
+- Added portfolio import/export (JSON) via `PortfolioImportExport` component.
+- Added `PortfolioAggregateChart` to `PortfolioList` page.
+
+---
+
+## [0.0.8] - 2026-04-14
+
+### Added
+- Added `PortfolioValueChart` to `PortfolioDetail` page.
+- Added `InstrumentValueChart` to `InstrumentDetail` page.
+
+---
+
+## [0.0.7] - 2026-04-13
+
+### Added
+- Added performance range selector (1M / 3M / 6M / 1Y / ALL) to all chart components.
+
+---
+
+## [0.0.6] - 2026-04-11
+
+### Added
+- Added `StrategiesPage` listing all strategies with their allocations.
+- Added `StrategyFormModal` for creating and editing strategies with allocation rows.
+
+---
+
+## [0.0.5] - 2026-04-10
+
+### Added
+- Added `InstrumentDetail` page showing latest price, period return, data point count, chart, and price history table.
+- Added `InstrumentsPage` listing all instruments with search filter.
+
+---
+
+## [0.0.4] - 2026-04-08
+
+### Added
+- Added `TransactionsPage` component for per-portfolio transaction history with inline add/edit/delete.
+- Added `TransactionFormModal` for creating and editing BUY/SELL transactions.
+
+---
+
+## [0.0.3] - 2026-04-07
+
+### Added
+- Added `PortfolioDetail` page with KPI strip (total value, cost, unrealised P&L, return), positions table, and transactions tab.
+
+---
+
+## [0.0.2] - 2026-04-05
+
+### Added
+- Added `PortfolioList` page with portfolio cards showing valuation data (total value, unrealised P&L, return).
+- Added `PortfolioFormModal` for creating and editing portfolios.
+- Added `ConfirmDialog` for delete confirmation.
+
+---
+
+## [0.0.1] - 2026-04-04
+
+### Added
+- Initial project scaffold: React/TypeScript frontend, NestJS backend, Python worker, PostgreSQL database.
+- Docker Compose setup for local development.
+- GitHub Actions CI pipeline.

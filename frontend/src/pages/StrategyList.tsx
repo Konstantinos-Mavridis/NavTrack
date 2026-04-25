@@ -1,326 +1,191 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
-import type { Instrument, AllocationTemplate } from '../types';
-import { Spinner, ErrorBanner, RiskBadge, AssetClassChip, EmptyState } from '../components/ui';
-import SyncAllButton from '../components/SyncAllButton';
-import TemplateFormModal from '../components/TemplateFormModal';
+import type { Strategy, Instrument } from '../types';
+import { Spinner, ErrorBanner } from '../components/ui';
+import StrategyFormModal from '../components/StrategyFormModal';
 import ConfirmDialog from '../components/ConfirmDialog';
-import ImportExportModal from '../components/ImportExportModal';
-import TemplatePerformanceChart from '../components/TemplatePerformanceChart';
+import { fmtPct } from '../utils/format';
 
-type ModalState =
+type Modal =
   | { type: 'create' }
-  | { type: 'edit'; template: AllocationTemplate }
-  | { type: 'delete'; template: AllocationTemplate }
-  | null;
+  | { type: 'edit'; strategy: Strategy }
+  | { type: 'delete'; strategy: Strategy };
 
 export default function StrategyList() {
-  const [instruments, setInstruments] = useState<Instrument[]>([]);
-  const [instLoading, setInstLoading] = useState(true);
-  const [instError,   setInstError]   = useState('');
-  const [search,      setSearch]      = useState('');
+  const [strategies, setStrategies] = useState<Strategy[]>([]);
+  const [instruments, setInstruments] = useState<Record<string, Instrument>>({});
+  const [loading, setLoading]   = useState(true);
+  const [error,   setError]     = useState('');
+  const [modal,   setModal]     = useState<Modal | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
-  async function loadInstruments() {
+  async function load() {
     try {
-      setInstruments(await api.instruments.list());
-      setInstError('');
+      const [strats, insts] = await Promise.all([
+        api.strategies.list(),
+        api.instruments.list(),
+      ]);
+      setStrategies(strats);
+      const map: Record<string, Instrument> = {};
+      insts.forEach((i) => { map[i.id] = i; });
+      setInstruments(map);
     } catch (e: any) {
-      setInstError(e.message);
+      setError(e.message);
     } finally {
-      setInstLoading(false);
+      setLoading(false);
     }
   }
 
-  useEffect(() => { loadInstruments(); }, []);
-
-  const filtered = instruments.filter((i) => {
-    const q = search.toLowerCase();
-    return (
-      i.name.toLowerCase().includes(q) ||
-      i.isin.toLowerCase().includes(q) ||
-      i.assetClass.toLowerCase().includes(q)
-    );
-  });
-
-  const [templates,   setTemplates]   = useState<AllocationTemplate[]>([]);
-  const [tmplLoading, setTmplLoading] = useState(true);
-  const [tmplError,   setTmplError]   = useState('');
-  const [modal,       setModal]       = useState<ModalState>(null);
-
-  async function loadTemplates() {
-    try {
-      setTemplates(await api.templates.list());
-      setTmplError('');
-    } catch (e: any) {
-      setTmplError(e.message);
-    } finally {
-      setTmplLoading(false);
-    }
-  }
-
-  useEffect(() => { loadTemplates(); }, []);
-
-  function handleSaved(saved: AllocationTemplate) {
-    setModal(null);
-    setTemplates((prev) => {
-      const exists = prev.some((t) => t.id === saved.id);
-      const next = exists
-        ? prev.map((t) => (t.id === saved.id ? saved : t))
-        : [...prev, saved];
-      return next.sort((a, b) => a.code.localeCompare(b.code));
-    });
-  }
+  useEffect(() => { load(); }, []);
 
   async function handleDelete() {
     if (modal?.type !== 'delete') return;
-    await api.templates.delete(modal.template.id);
-    setTemplates((prev) => prev.filter((t) => t.id !== modal.template.id));
-    setModal(null);
+    setDeleting(true);
+    try {
+      await api.strategies.delete(modal.strategy.id);
+      setStrategies((prev) => prev.filter((s) => s.id !== modal.strategy.id));
+      setModal(null);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setDeleting(false);
+    }
   }
 
-  if (instLoading || tmplLoading) return <Spinner />;
+  function handleSaved(s: Strategy) {
+    setModal(null);
+    setStrategies((prev) => {
+      const idx = prev.findIndex((x) => x.id === s.id);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = s;
+        return next;
+      }
+      return [...prev, s];
+    });
+  }
 
-  const instrumentImportExportConfig = {
-    label: 'Instruments',
-    onExportJson: () => api.instruments.exportJson(),
-    onExportCsv:  () => api.instruments.exportCsv(),
-    onImportJson: async (data: any[]) => {
-      const r = await api.instruments.importJson(data);
-      return `Imported ${r.imported} instrument${r.imported !== 1 ? 's' : ''}${
-        r.skipped ? `, skipped ${r.skipped} (ISIN already exists)` : ''
-      }.`;
-    },
-    onImportCsv: async (csv: string) => {
-      const r = await api.instruments.importCsv(csv);
-      return `Imported ${r.imported} instrument${r.imported !== 1 ? 's' : ''}${
-        r.skipped ? `, skipped ${r.skipped} (ISIN already exists)` : ''
-      }.`;
-    },
-    exportJsonFilename: 'instruments-export.json',
-    exportCsvFilename:  'instruments-export.csv',
-    csvHint: 'Columns: name, isin, currency, assetClass, riskLevel, dataSources, externalIds',
-  };
-
-  const templateImportExportConfig = {
-    label: 'Templates',
-    onExportJson: () => api.templates.exportJson(),
-    onExportCsv:  () => api.templates.exportCsv(),
-    onImportJson: async (data: any[]) => {
-      const r = await api.templates.importJson(data);
-      return `Imported ${r.imported} template${r.imported !== 1 ? 's' : ''}${
-        r.skipped ? `, skipped ${r.skipped} (code already exists)` : ''
-      }${r.missingIsins?.length ? `. Unknown ISINs: ${r.missingIsins.join(', ')}` : ''}.`;
-    },
-    onImportCsv: async (csv: string) => {
-      const r = await api.templates.importCsv(csv);
-      return `Imported ${r.imported} template${r.imported !== 1 ? 's' : ''}${
-        r.skipped ? `, skipped ${r.skipped} (code already exists)` : ''
-      }${r.missingIsins?.length ? `. Unknown ISINs: ${r.missingIsins.join(', ')}` : ''}.`;
-    },
-    exportJsonFilename: 'templates-export.json',
-    exportCsvFilename:  'templates-export.csv',
-    csvHint: 'Columns: code, description, isin, weight (one row per fund per template)',
-  };
+  if (loading) return <Spinner />;
+  if (error)   return <div className="p-6"><ErrorBanner message={error} /></div>;
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-10">
-
-      {/* ── Page header ── */}
+    <div className="max-w-5xl mx-auto px-4 py-10">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Strategies</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Allocation templates and tracked instruments</p>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">Manage allocation strategies for your portfolios</p>
         </div>
+        <button onClick={() => setModal({ type: 'create' })} className="btn-primary">
+          + New Strategy
+        </button>
       </div>
 
-      {/* ── Allocation Templates section ── */}
-      <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Allocation Templates</h2>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Reusable fund allocations for bulk BUY transactions</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <ImportExportModal config={templateImportExportConfig} onImported={loadTemplates} />
-          <button onClick={() => setModal({ type: 'create' })} className="btn-primary">
-            + New Template
-          </button>
-        </div>
-      </div>
-
-      {tmplError && <div className="mb-6"><ErrorBanner message={tmplError} /></div>}
-
-      {templates.length === 0 ? (
-        <div className="text-center py-20 text-gray-400 dark:text-gray-500 card mb-10">
-          <p className="text-lg font-medium mb-2 text-gray-600 dark:text-gray-400">No templates yet</p>
-          <p className="text-sm mb-6">Create a template to buy predefined allocations in one step.</p>
-          <button onClick={() => setModal({ type: 'create' })} className="btn-primary">
-            Create Template
-          </button>
+      {strategies.length === 0 ? (
+        <div className="text-center py-20 text-gray-400 dark:text-gray-500">
+          <p className="text-5xl mb-4">🎯</p>
+          <p className="text-lg font-medium mb-2 text-gray-600 dark:text-gray-400">No strategies yet</p>
+          <p className="text-sm mb-6">Create your first strategy to define target allocations.</p>
+          <button onClick={() => setModal({ type: 'create' })} className="btn-primary">Create Strategy</button>
         </div>
       ) : (
-        <div className="grid gap-4 mb-10">
-          {templates.map((template) => {
-            const totalWeight = template.items.reduce((acc, i) => acc + Number(i.weight), 0);
-            const isEditing = modal?.type === 'edit' && modal.template.id === template.id;
+        <div className="grid gap-5">
+          {strategies.map((strategy) => {
+            const totalWeight = strategy.allocations.reduce((sum, a) => sum + a.weight, 0);
+            const isBalanced  = Math.abs(totalWeight - 100) < 0.01;
+
             return (
-              <div key={template.id} className="card p-5">
-                <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
+              <div key={strategy.id} className="card p-6 hover:shadow-md transition-all group">
+                <div className="flex items-start justify-between mb-4">
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{template.code}</h3>
-                    {template.description && (
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{template.description}</p>
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{strategy.name}</h2>
+                    {strategy.description && (
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{strategy.description}</p>
                     )}
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                      {template.items.length} fund{template.items.length !== 1 ? 's' : ''} · total {totalWeight.toFixed(4)}%
-                    </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
-                      onClick={() => setModal({ type: 'edit', template })}
-                      className="btn-secondary text-sm py-1.5"
-                    >
-                      Edit
-                    </button>
+                      onClick={() => setModal({ type: 'edit', strategy })}
+                      className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40 transition-colors"
+                      title="Edit strategy"
+                    >✎</button>
                     <button
-                      onClick={() => setModal({ type: 'delete', template })}
-                      className="px-3 py-1.5 text-sm font-medium rounded-lg border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
-                    >
-                      Delete
-                    </button>
+                      onClick={() => setModal({ type: 'delete', strategy })}
+                      className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/40 transition-colors"
+                      title="Delete strategy"
+                    >✕</button>
                   </div>
                 </div>
 
-                <TemplatePerformanceChart templateId={template.id} paused={isEditing} />
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50 dark:bg-gray-800/60">
-                      <tr>
-                        <th className="table-th">Fund</th>
-                        <th className="table-th">ISIN</th>
-                        <th className="table-th">Class</th>
-                        <th className="table-th">Risk</th>
-                        <th className="table-th">Weight</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
-                      {template.items
-                        .slice()
-                        .sort((a, b) => Number(b.weight) - Number(a.weight))
-                        .map((item) => (
-                          <tr key={item.id ?? item.instrumentId} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                            <td className="table-td text-left font-medium">
-                              {item.instrument ? (
+                {strategy.allocations.length === 0 ? (
+                  <p className="text-sm text-gray-400 dark:text-gray-500 italic">No allocations defined.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="table text-sm">
+                      <thead>
+                        <tr>
+                          <th className="table-th">Instrument</th>
+                          <th className="table-th text-right">Target Weight</th>
+                          <th className="table-th">Bar</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {strategy.allocations.map((alloc) => {
+                          const inst = instruments[alloc.instrumentId];
+                          return (
+                            <tr key={alloc.instrumentId} className="table-row">
+                              <td className="table-td font-medium max-w-xs">
                                 <Link
-                                  to={`/instruments/${item.instrument.id}`}
-                                  className="text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                                  to={`/instruments/${alloc.instrumentId}`}
+                                  className="text-blue-600 dark:text-blue-400 hover:underline truncate block"
                                 >
-                                  {item.instrument.name}
+                                  {inst ? inst.name : alloc.instrumentId}
                                 </Link>
-                              ) : (
-                                <span className="text-gray-800 dark:text-gray-200">{item.instrumentId}</span>
-                              )}
-                            </td>
-                            <td className="table-td font-mono text-xs text-gray-500 dark:text-gray-400">
-                              {item.instrument?.isin.trim() ?? '—'}
-                            </td>
-                            <td className="table-td">
-                              {item.instrument ? <AssetClassChip ac={item.instrument.assetClass} /> : '—'}
-                            </td>
-                            <td className="table-td">
-                              {item.instrument ? <RiskBadge level={item.instrument.riskLevel ?? 0} /> : '—'}
-                            </td>
-                            <td className="table-td font-semibold">{Number(item.weight).toFixed(4)}%</td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
-                </div>
+                              </td>
+                              <td className="table-td text-right font-mono">{fmtPct(alloc.weight)}</td>
+                              <td className="table-td w-40">
+                                <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
+                                  <div
+                                    className="bg-blue-500 h-1.5 rounded-full"
+                                    style={{ width: `${Math.min(alloc.weight, 100)}%` }}
+                                  />
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot>
+                        <tr>
+                          <td className="table-td text-xs text-gray-400 dark:text-gray-500">Total</td>
+                          <td className={`table-td text-right font-mono font-semibold text-xs ${
+                            isBalanced ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
+                          }`}>{fmtPct(totalWeight)}</td>
+                          <td className="table-td" />
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
       )}
 
-      {/* ── Instruments section ── */}
-      <div className="flex items-start justify-between mt-16 mb-8 flex-wrap gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Instruments</h2>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">{instruments.length} funds tracked</p>
-        </div>
-        <div className="flex items-center gap-3 flex-wrap">
-          <ImportExportModal config={instrumentImportExportConfig} onImported={loadInstruments} />
-          <input
-            type="search"
-            placeholder="Search by name, ISIN or class…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="input w-64"
-          />
-        </div>
-      </div>
-
-      {instError && <div className="mb-6"><ErrorBanner message={instError} /></div>}
-
-      <div className="card overflow-hidden mb-2">
-        <div className="overflow-x-auto">
-          {filtered.length === 0 ? (
-            <EmptyState message="No instruments match your search" />
-          ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 dark:bg-gray-800/60">
-                <tr>
-                  {['Fund Name', 'ISIN', 'Asset Class', 'Risk', 'Currency'].map((h) => (
-                    <th key={h} className="table-th">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
-                {filtered.map((inst) => (
-                  <tr key={inst.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                    <td className="table-td font-medium max-w-xs">
-                      <Link
-                        to={`/instruments/${inst.id}`}
-                        className="truncate block text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                        title={inst.name}
-                      >
-                        {inst.name}
-                      </Link>
-                    </td>
-                    <td className="table-td font-mono text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                      {inst.isin}
-                    </td>
-                    <td className="table-td"><AssetClassChip ac={inst.assetClass} /></td>
-                    <td className="table-td"><RiskBadge level={inst.riskLevel ?? 0} /></td>
-                    <td className="table-td text-gray-500 dark:text-gray-400">{inst.currency}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
-
-      <div className="flex justify-end mb-4">
-        <SyncAllButton onComplete={() => api.instruments.list().then(setInstruments).catch(() => {})} />
-      </div>
-
       {modal?.type === 'create' && (
-        <TemplateFormModal onSaved={handleSaved} onClose={() => setModal(null)} />
+        <StrategyFormModal onClose={() => setModal(null)} onSaved={handleSaved} />
       )}
       {modal?.type === 'edit' && (
-        <TemplateFormModal
-          template={modal.template}
-          onSaved={handleSaved}
-          onClose={() => setModal(null)}
-        />
+        <StrategyFormModal strategy={modal.strategy} onClose={() => setModal(null)} onSaved={handleSaved} />
       )}
       {modal?.type === 'delete' && (
         <ConfirmDialog
-          title="Delete Template"
-          message={`Delete template "${modal.template.code}"?`}
-          confirmLabel="Delete Template"
+          title="Delete Strategy"
+          message={`Delete "${modal.strategy.name}"? This cannot be undone.`}
+          confirmLabel="Delete"
+          danger
+          loading={deleting}
           onConfirm={handleDelete}
           onCancel={() => setModal(null)}
         />
