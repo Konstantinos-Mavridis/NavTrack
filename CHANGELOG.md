@@ -12,6 +12,10 @@ NavTrack uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 - Added `FEE_CONSOLIDATION` transaction type: bank-initiated unit adjustment for portfolio maintenance fees with no cash flow recorded.
 
+### Changed
+- Narrowed all page containers from `max-w-6xl` to `max-w-5xl` across `PortfolioList`, `PortfolioDetail`, `StrategyList` (including its embedded Allocation Templates section), `InstrumentDetail`, and `TemplatesPage`.
+- Updated `Navbar` centre block from `max-w-6xl` to `max-w-5xl` to keep nav links aligned with the narrowed page content.
+
 ### CI
 - Switched backend Jest test reporting to `--json` summary (no extra dependency).
 - Added job summaries for backend (Jest) and worker (pytest) in the SonarQube workflow.

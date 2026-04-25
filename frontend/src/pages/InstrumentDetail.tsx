@@ -154,7 +154,7 @@ export default function InstrumentDetail() {
   const dataLinks = instrument.dataSources?.filter(Boolean) ?? [];
 
   return (
-    <div className="max-w-6xl mx-auto px-4 pt-6 pb-8">
+    <div className="max-w-5xl mx-auto px-4 pt-6 pb-8">
 
       {/* Breadcrumb — sits close to the navbar (pt-6) and tight above the page title (mb-2) */}
       <div className="flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500 mb-2">
