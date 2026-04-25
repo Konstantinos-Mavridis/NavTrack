@@ -70,7 +70,9 @@ describe('InstrumentDetail', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Vanguard Global Equity' })).toBeInTheDocument();
     });
-    expect(screen.getByText('IE00B3RBWM25')).toBeInTheDocument();
+    // The subtitle renders as "IE00B3RBWM25 · EQUITY" in one element;
+    // use a regex so we don't need an exact full-string match.
+    expect(screen.getByText(/IE00B3RBWM25/)).toBeInTheDocument();
   });
 
   it('shows an error banner when the API call fails', async () => {

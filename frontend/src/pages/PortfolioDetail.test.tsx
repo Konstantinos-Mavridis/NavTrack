@@ -8,10 +8,10 @@ import { ThemeProvider } from '../ThemeContext';
 
 vi.mock('../api/client', () => ({
   api: {
-    portfolios: { get: vi.fn() },
-    valuation:  { get: vi.fn() },
+    portfolios:   { get: vi.fn(), valueSeries: vi.fn() },
+    valuation:    { get: vi.fn() },
     transactions: { list: vi.fn() },
-    positions: { recalculate: vi.fn() },
+    positions:    { list: vi.fn(), recalculate: vi.fn() },
   },
 }));
 
@@ -65,6 +65,7 @@ describe('PortfolioDetail', () => {
     vi.mocked(api.portfolios.get).mockReturnValue(new Promise(() => {}));
     vi.mocked(api.valuation.get).mockReturnValue(new Promise(() => {}));
     vi.mocked(api.transactions.list).mockReturnValue(new Promise(() => {}));
+    vi.mocked(api.positions.list).mockReturnValue(new Promise(() => {}));
 
     renderPage();
     expect(screen.getByRole('status')).toBeInTheDocument();
@@ -74,6 +75,8 @@ describe('PortfolioDetail', () => {
     vi.mocked(api.portfolios.get).mockResolvedValue(mockPortfolio);
     vi.mocked(api.valuation.get).mockResolvedValue(mockValuation);
     vi.mocked(api.transactions.list).mockResolvedValue([]);
+    vi.mocked(api.positions.list).mockResolvedValue([]);
+    vi.mocked(api.portfolios.valueSeries).mockResolvedValue([]);
 
     renderPage();
 
@@ -89,6 +92,8 @@ describe('PortfolioDetail', () => {
     vi.mocked(api.portfolios.get).mockResolvedValue(mockPortfolio);
     vi.mocked(api.valuation.get).mockResolvedValue(mockValuation);
     vi.mocked(api.transactions.list).mockResolvedValue([]);
+    vi.mocked(api.positions.list).mockResolvedValue([]);
+    vi.mocked(api.portfolios.valueSeries).mockResolvedValue([]);
 
     renderPage();
 
@@ -102,6 +107,7 @@ describe('PortfolioDetail', () => {
     vi.mocked(api.portfolios.get).mockRejectedValue(new Error('Server error'));
     vi.mocked(api.valuation.get).mockRejectedValue(new Error('Server error'));
     vi.mocked(api.transactions.list).mockRejectedValue(new Error('Server error'));
+    vi.mocked(api.positions.list).mockRejectedValue(new Error('Server error'));
 
     renderPage();
 
@@ -114,6 +120,8 @@ describe('PortfolioDetail', () => {
     vi.mocked(api.portfolios.get).mockResolvedValue(mockPortfolio);
     vi.mocked(api.valuation.get).mockResolvedValue(mockValuation);
     vi.mocked(api.transactions.list).mockResolvedValue([]);
+    vi.mocked(api.positions.list).mockResolvedValue([]);
+    vi.mocked(api.portfolios.valueSeries).mockResolvedValue([]);
 
     renderPage();
 
