@@ -335,11 +335,11 @@ export default function PortfolioDetail() {
                 ? <EmptyState message="No transactions yet. Use the buttons above to add your first transaction." />
                 : (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
+                    <table className="w-full">
                       <thead className="bg-gray-50 dark:bg-gray-800/60">
                         <tr>
                           {['Date', 'Fund', 'Type', 'Units', 'Price (EUR)', 'Fees (EUR)', 'Total (EUR)', ''].map((h) => (
-                            <th key={h} className="table-th whitespace-nowrap">{h}</th>
+                            <th key={h} className="table-th-pos">{h}</th>
                           ))}
                         </tr>
                       </thead>
@@ -351,20 +351,26 @@ export default function PortfolioDetail() {
                           const unitsCls = isFee ? feeUnitsCls(tx.units) : '';
                           return (
                             <tr key={tx.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
-                              <td className="table-td font-mono text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{tx.tradeDate}</td>
-                              <td className="table-td font-medium text-gray-800 dark:text-gray-200 max-w-[14rem]">
-                                <div className="truncate" title={tx.instrument?.name}>{tx.instrument?.name ?? '—'}</div>
+                              <td className="table-td-pos font-mono text-gray-500 dark:text-gray-400 whitespace-nowrap">{tx.tradeDate}</td>
+                              <td className="table-td-pos font-medium max-w-[14rem]">
+                                <Link
+                                  to={`/instruments/${tx.instrumentId}`}
+                                  className="truncate block text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                                  title={tx.instrument ? `${tx.instrument.name} - ${tx.instrument.isin}` : undefined}
+                                >
+                                  {tx.instrument?.name ?? '—'}
+                                </Link>
                               </td>
-                              <td className="table-td">
+                              <td className="table-td-pos">
                                 <span className={`badge ${txBadgeColor(tx.type)}`}>{txTableLabel(txType)}</span>
                               </td>
-                              <td className={`table-td tabular-nums ${unitsCls}`}>
+                              <td className={`table-td-pos tabular-nums ${unitsCls}`}>
                                 {fmtTxUnits(tx.units, txType)}
                               </td>
-                              <td className="table-td tabular-nums">{fmtEur(tx.pricePerUnit, 6)}</td>
-                              <td className="table-td tabular-nums text-gray-500 dark:text-gray-400">{fmtEur(tx.fees)}</td>
-                              <td className="table-td tabular-nums font-medium">€{fmtEur(total)}</td>
-                              <td className="table-td">
+                              <td className="table-td-pos tabular-nums">{fmtEur(tx.pricePerUnit, 6)}</td>
+                              <td className="table-td-pos tabular-nums text-gray-500 dark:text-gray-400">{fmtEur(tx.fees)}</td>
+                              <td className="table-td-pos tabular-nums font-medium">€{fmtEur(total)}</td>
+                              <td className="table-td-pos">
                                 <div className="flex gap-1 justify-end">
                                   <button
                                     onClick={() => setModal({ type: 'editTxn', transaction: tx })}
