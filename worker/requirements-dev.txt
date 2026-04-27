@@ -6,8 +6,8 @@
 
 # Test framework
 pytest>=8.3
-pytest-cov>=6.0
+pytest-cov>=7.1.0
 
 # Mocking helpers
-responses>=0.25          # HTTP mocking for requests-based calls
-pytest-mock>=3.14        # provides the `mocker` fixture
+responses>=0.26.0          # HTTP mocking for requests-based calls
+pytest-mock>=3.15.1        # provides the `mocker` fixture
