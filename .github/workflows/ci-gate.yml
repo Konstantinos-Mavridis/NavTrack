@@ -41,7 +41,7 @@ jobs:
           fetch-depth: 2
 
       - name: Check both gates and dispatch
-        uses: actions/github-script@v7.0.1
+        uses: actions/github-script@v9.0.0
         with:
           script: |
             const headSha = context.payload.workflow_run.head_sha;

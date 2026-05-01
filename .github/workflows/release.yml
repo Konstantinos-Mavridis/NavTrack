@@ -226,7 +226,7 @@ jobs:
       # 10. Create GitHub Release
       # ------------------------------------------------------------------ #
       - name: Create GitHub Release
-        uses: actions/github-script@v7.0.1
+        uses: actions/github-script@v9.0.0
         with:
           script: |
             const version  = '${{ env.VERSION }}';
@@ -254,7 +254,7 @@ jobs:
       # 11. Dispatch Docker builds (they read the tag via docker/metadata-action)
       # ------------------------------------------------------------------ #
       - name: Dispatch Docker builds
-        uses: actions/github-script@v7.0.1
+        uses: actions/github-script@v9.0.0
         with:
           script: |
             const workflows = [
