@@ -57,7 +57,7 @@ def get_conn():
     return psycopg2.connect(dsn())
 
 
-def wait_for_db(retries: int = 30, delay: float = 3.0) -> None:
+def wait_for_db(retries: int | None = None, delay: float = 3.0) -> None:
     """
     Wait until Postgres is up AND the schema has been applied.
 
@@ -66,6 +66,8 @@ def wait_for_db(retries: int = 30, delay: float = 3.0) -> None:
     scripts finish running.  We therefore poll for the 'portfolios' table
     specifically, not just for a successful connection.
     """
+    retries = retries or int(os.getenv("DB_SCHEMA_READY_RETRIES", "120"))
+
     for attempt in range(1, retries + 1):
         conn = None
         try:

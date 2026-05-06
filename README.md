@@ -588,9 +588,9 @@ JSON and CSV parsing currently live in the backend services/controllers. Follow 
 
 ## Troubleshooting
 
-### Worker says `Database/schema not ready after 30 attempts`
+### Worker says `Database/schema not ready after ... attempts`
 
-The database container can accept TCP connections before `db/init.sql` has finished applying the schema. The Compose healthcheck now verifies that the `portfolios` table exists before starting backend or worker containers. If you still see this message after a failed first boot, inspect the `db` container logs for the SQL error and recreate the failed volume after backing up anything important:
+The database container can accept TCP connections before `db/init.sql` has finished applying the schema. The worker therefore polls for the application schema after Postgres is reachable, and the backend waits for the `asset_class` type before applying lightweight enum upgrades. If you still see this message after a failed first boot, inspect the `db` container logs for the SQL error and recreate the failed volume after backing up anything important:
 
 ```bash
 docker compose down
