@@ -258,6 +258,29 @@ The app stores one `yahoo_ticker` per instrument and syncs via [`yfinance`](http
 
 The sync is **idempotent** — rerunning it does not create duplicate NAV rows because the DB enforces `UNIQUE (instrument_id, date)` and the backend / worker both use upsert semantics.
 
+### Crypto and Yahoo ticker instruments
+
+Crypto assets and other non-ISIN Yahoo Finance instruments can be tracked by creating an instrument with:
+
+- `assetClass: "CRYPTO"`
+- a 12-character internal tracking code in the existing `isin` field, such as `CRYPTOBTCUSD` or `CRYPTOETHUSD`
+- `externalIds.yahoo_ticker` set to the exact Yahoo Finance symbol, such as `BTC-USD`, `ETH-USD`, or another supported ticker
+
+Example import row:
+
+```csv
+name,isin,currency,assetClass,riskLevel,dataSources,externalIds
+Bitcoin,CRYPTOBTCUSD,USD,CRYPTO,7,,"{""yahoo_ticker"":""BTC-USD""}"
+```
+
+Existing databases are auto-upgraded by the backend at startup with:
+
+```sql
+ALTER TYPE asset_class ADD VALUE IF NOT EXISTS 'CRYPTO';
+```
+
+If you manage the database manually or the backend has not started yet, run the SQL above before importing crypto instruments.
+
 ### Why multiple schedules?
 
 Greek mutual-fund NAVs often appear late and Yahoo's batch ingest can lag even further. The worker therefore runs:
@@ -421,6 +444,7 @@ Created by `db/init.sql` on first boot.
 - `transactions.type`: constrained to the four supported transaction types
 - `positions.units`: non-negative numeric
 - `risk_level`: 1–7
+- `asset_class`: includes funds plus `CRYPTO` for ticker-backed assets such as `BTC-USD`
 
 ---
 
@@ -561,6 +585,18 @@ Add new scheduled jobs in `worker/worker.py` using APScheduler's `scheduler.add_
 JSON and CSV parsing currently live in the backend services/controllers. Follow the existing serializer pattern used by instruments/templates/portfolios imports.
 
 ---
+
+## Troubleshooting
+
+### Worker says `Database/schema not ready after 30 attempts`
+
+The database container can accept TCP connections before `db/init.sql` has finished applying the schema. The Compose healthcheck now verifies that the `portfolios` table exists before starting backend or worker containers. If you still see this message after a failed first boot, inspect the `db` container logs for the SQL error and recreate the failed volume after backing up anything important:
+
+```bash
+docker compose down
+docker volume rm ${POSTGRES_DB}_data
+docker compose up -d
+```
 
 ## Production Notes
 

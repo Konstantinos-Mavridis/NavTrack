@@ -100,7 +100,7 @@ export class SyncService {
       }
 
       if (!ticker) {
-        return await this.failJob(job, 'Could not resolve Yahoo Finance ticker for this ISIN', {
+        return await this.failJob(job, 'Could not resolve Yahoo Finance ticker; set externalIds.yahoo_ticker for non-ISIN instruments', {
           instrumentId,
           isin: instrument.isin,
           yahooTicker: null,

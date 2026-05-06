@@ -14,7 +14,8 @@ CREATE TYPE asset_class AS ENUM (
   'BOND',
   'HIGH_YIELD',
   'FUND_OF_FUNDS',
-  'ABSOLUTE_RETURN'
+  'ABSOLUTE_RETURN',
+  'CRYPTO'
 );
 
 -- ─────────────────────────────────────────────
