@@ -160,11 +160,10 @@ CREATE TRIGGER trg_positions_updated_at
 -- SEED: INSTRUMENTS
 -- ─────────────────────────────────────────────
 
-INSERT INTO instruments (name, isin, ticker, asset_class, risk_level, data_sources) VALUES
+INSERT INTO instruments (name, isin, asset_class, risk_level, data_sources) VALUES
   (
     'Eurobank (LF) Equity – Greek Equities Fund',
     'LU0273962166',
-    NULL,
     'EQUITY',
     4,
     ARRAY[
@@ -178,7 +177,6 @@ INSERT INTO instruments (name, isin, ticker, asset_class, risk_level, data_sourc
   (
     'Eurobank (LF) Greek Corporate Bond Fund',
     'LU0939092168',
-    NULL,
     'BOND',
     3,
     ARRAY[
@@ -192,7 +190,6 @@ INSERT INTO instruments (name, isin, ticker, asset_class, risk_level, data_sourc
   (
     'Eurobank (LF) Greek Government Bond Fund',
     'LU0420076928',
-    NULL,
     'BOND',
     3,
     ARRAY[
@@ -206,7 +203,6 @@ INSERT INTO instruments (name, isin, ticker, asset_class, risk_level, data_sourc
   (
     'Eurobank (LF) Reserve Fund',
     'LU0670223279',
-    NULL,
     'BOND',
     2,
     ARRAY[
@@ -220,7 +216,6 @@ INSERT INTO instruments (name, isin, ticker, asset_class, risk_level, data_sourc
   (
     '(LF) High Yield A List Fund Eurobank Cap',
     'LU2047494005',
-    NULL,
     'BOND',
     2,
     ARRAY[
@@ -232,77 +227,85 @@ INSERT INTO instruments (name, isin, ticker, asset_class, risk_level, data_sourc
     ]
   ),
   (
-    'Eurobank (LF) Absolute Return Fund',
-    'LU0285432364',
-    NULL,
+    'Eurobank (LF) Absolute Return Fund EUR',
+    'LU0273968015',
     'ABSOLUTE_RETURN',
-    3,
+    2,
     ARRAY[
-	  'https://www.eurobank.gr/el/retail/proionta-upiresies/proionta/ependuseis/amoibaia-kefalaia/amoibaia-kefalaia-lf-kai-lf-fof/eurobank-fund-management-company-luxembourg/absolute-return-fund',
-	  'https://www.eurobankam.gr/en/pillarfunds/searchfund/lf-absolute-return-fund',
-	  'https://www.eurobank.gr/-/media/eurobank/retail/proionta-kai-upiresies/proionta/ependuseis/amoibaia-kefalaia/pdf/eksoterikou/facts-sheets/560-lf-absolutereturn-fs-gr.pdf',
-	  'https://global.morningstar.com/en-eu/investments/funds/0P0000MPVB',
-      'https://markets.ft.com/data/funds/tearsheet/summary?s=LU0285432364:EUR'
+	  'https://www.eurobank.gr/el/retail/proionta-upiresies/proionta/ependuseis/amoibaia-kefalaia/amoibaia-kefalaia-lf-kai-lf-fof/eurobank-fund-management-company-luxembourg/absolute-return',
+	  'https://www.eurobankam.gr/en/pillarfunds/searchfund/lf-absolute-return',
+	  'https://www.eurobank.gr/-/media/eurobank/retail/proionta-kai-upiresies/proionta/ependuseis/amoibaia-kefalaia/pdf/eksoterikou/facts-sheets/250-lf-absolutereturn-fs-gr.pdf',
+	  'https://global.morningstar.com/en-eu/investments/funds/0P000094DO',
+      'https://markets.ft.com/data/funds/tearsheet/summary?s=LU0273968015:EUR'
     ]
   ),
   (
-    'Eurobank (LF) Fund of Funds – Balanced Blend Fund',
-    'LU0352743748',
-    NULL,
-    'FUND_OF_FUNDS',
-    3,
+    'Eurobank (LF) Equity – Global Equities Fund',
+    'LU0273960111',
+    'EQUITY',
+    4,
     ARRAY[
-	  'https://www.eurobank.gr/el/retail/proionta-upiresies/proionta/ependuseis/amoibaia-kefalaia/amoibaia-kefalaia-lf-kai-lf-fof/eurobank-fund-management-company-luxembourg/fund-of-funds-balanced-blend-fund',
-	  'https://www.eurobankam.gr/en/pillarfunds/searchfund/lf-fund-of-funds-balanced-blend-fund',
-	  'https://www.eurobank.gr/-/media/eurobank/retail/proionta-kai-upiresies/proionta/ependuseis/amoibaia-kefalaia/pdf/eksoterikou/facts-sheets/760-lf-fof-balancedblend-fs-gr.pdf',
-	  'https://global.morningstar.com/en-eu/investments/funds/0P0000S8TS',
-      'https://markets.ft.com/data/funds/tearsheet/summary?s=LU0352743748:EUR'
+	  'https://www.eurobank.gr/el/retail/proionta-upiresies/proionta/ependuseis/amoibaia-kefalaia/amoibaia-kefalaia-lf-kai-lf-fof/eurobank-fund-management-company-luxembourg/equity-global-equities',
+	  'https://www.eurobankam.gr/en/pillarfunds/searchfund/lf-equity-global-equities',
+	  'https://www.eurobank.gr/-/media/eurobank/retail/proionta-kai-upiresies/proionta/ependuseis/amoibaia-kefalaia/pdf/eksoterikou/facts-sheets/170-lf-equity-globalequities-fs-gr.pdf',
+	  'https://global.morningstar.com/en-eu/investments/funds/0P000094EC',
+      'https://markets.ft.com/data/funds/tearsheet/summary?s=LU0273960111:EUR'
     ]
   ),
   (
-    'Eurobank (LF) Fund of Funds – Growth Blend Fund',
-    'LU0352744472',
-    NULL,
+    'Eurobank (LF) Fund of Funds – Equity Blend',
+    'LU0272937516',
     'FUND_OF_FUNDS',
     4,
     ARRAY[
-	  'https://www.eurobank.gr/el/retail/proionta-upiresies/proionta/ependuseis/amoibaia-kefalaia/amoibaia-kefalaia-lf-kai-lf-fof/eurobank-fund-management-company-luxembourg/fund-of-funds-growth-blend-fund',
-	  'https://www.eurobankam.gr/en/pillarfunds/searchfund/lf-fund-of-funds-growth-blend-fund',
-	  'https://www.eurobank.gr/-/media/eurobank/retail/proionta-kai-upiresies/proionta/ependuseis/amoibaia-kefalaia/pdf/eksoterikou/facts-sheets/770-lf-fof-growthblend-fs-gr.pdf',
-	  'https://global.morningstar.com/en-eu/investments/funds/0P0000S8TT',
-      'https://markets.ft.com/data/funds/tearsheet/summary?s=LU0352744472:EUR'
+	  'https://www.eurobank.gr/el/retail/proionta-upiresies/proionta/ependuseis/amoibaia-kefalaia/amoibaia-kefalaia-lf-kai-lf-fof/eurobank-fund-management-company-luxembourg/fund-of-funds-equity-blend',
+	  'https://www.eurobankam.gr/en/pillarfunds/searchfund/lf-fof-equity-blend',
+	  'https://www.eurobank.gr/-/media/eurobank/retail/proionta-kai-upiresies/proionta/ependuseis/amoibaia-kefalaia/pdf/eksoterikou/facts-sheets/720-lf-fof-equityblend-fs-gr.pdf',
+	  'https://global.morningstar.com/en-eu/investments/funds/0P000099QF',
+      'https://markets.ft.com/data/funds/tearsheet/summary?s=LU0272937516:EUR'
     ]
   ),
   (
-    'Eurobank (LF) Fund of Funds – Income Blend Fund',
-    'LU0352743318',
-    NULL,
+    'Eurobank (LF) Fund of Funds – Global Emerging Markets',
+    'LU0316846335',
     'FUND_OF_FUNDS',
-    2,
+    4,
     ARRAY[
-	  'https://www.eurobank.gr/el/retail/proionta-upiresies/proionta/ependuseis/amoibaia-kefalaia/amoibaia-kefalaia-lf-kai-lf-fof/eurobank-fund-management-company-luxembourg/fund-of-funds-income-blend-fund',
-	  'https://www.eurobankam.gr/en/pillarfunds/searchfund/lf-fund-of-funds-income-blend-fund',
-	  'https://www.eurobank.gr/-/media/eurobank/retail/proionta-kai-upiresies/proionta/ependuseis/amoibaia-kefalaia/pdf/eksoterikou/facts-sheets/750-lf-fof-incomeblend-fs-gr.pdf',
-	  'https://global.morningstar.com/en-eu/investments/funds/0P0000S8TR',
-      'https://markets.ft.com/data/funds/tearsheet/summary?s=LU0352743318:EUR'
+	  'https://www.eurobank.gr/el/retail/proionta-upiresies/proionta/ependuseis/amoibaia-kefalaia/amoibaia-kefalaia-lf-kai-lf-fof/eurobank-fund-management-company-luxembourg/fund-of-funds-global-emerging-markets',
+	  'https://www.eurobankam.gr/en/pillarfunds/searchfund/lf-fof-global-emerging-markets',
+	  'https://www.eurobank.gr/-/media/eurobank/retail/proionta-kai-upiresies/proionta/ependuseis/amoibaia-kefalaia/pdf/eksoterikou/facts-sheets/730-lf-fof-globalemergingmarkets-fs-gr.pdf',
+	  'https://global.morningstar.com/en-eu/investments/funds/0P00009XUS',
+      'https://markets.ft.com/data/funds/tearsheet/summary?s=LU0316846335:EUR'
     ]
   ),
   (
-    'Eurobank (LF) Special Purpose – Better Yield Fund',
-    'LU0567884454',
-    NULL,
-    'HIGH_YIELD',
+    'Eurobank (LF) Fund of Funds – Next Gen Focus',
+    'LU0517847660',
+    'FUND_OF_FUNDS',
+    3,
+    ARRAY[
+	  'https://www.eurobank.gr/en/retail/products-services/products/ependuseis/amoibaia-kefalaia/amoibaia-kefalaia-lf-kai-lf-fof/eurobank-fund-management-company-luxembourg/fund-of-funds-next-gen-focus',
+	  'https://www.eurobankam.gr/en/pillarfunds/searchfund/lf-fof-next-gen-focus',
+	  'https://www.eurobank.gr/-/media/eurobank/retail/proionta-kai-upiresies/proionta/ependuseis/amoibaia-kefalaia/pdf/eksoterikou/facts-sheets/750-lf-fof-next-gen-focus-fs-gr.pdf',
+	  'https://global.morningstar.com/en-eu/investments/funds/0P0000P76M',
+      'https://markets.ft.com/data/funds/tearsheet/summary?s=LU0517847660:EUR'
+    ]
+  ),
+  (
+    'Eurobank (LF) Global Bond',
+    'LU0730413092',
+    'BOND',
     2,
     ARRAY[
-	  'https://www.eurobank.gr/el/retail/proionta-upiresies/proionta/ependuseis/amoibaia-kefalaia/amoibaia-kefalaia-lf-kai-lf-fof/eurobank-fund-management-company-luxembourg/better-yield-fund',
-	  'https://www.eurobankam.gr/en/pillarfunds/searchfund/lf-special-purpose-better-yield-fund',
-	  'https://www.eurobank.gr/-/media/eurobank/retail/proionta-kai-upiresies/proionta/ependuseis/amoibaia-kefalaia/pdf/eksoterikou/facts-sheets/660-lf-betteryield-fs-gr.pdf',
-	  'https://global.morningstar.com/en-eu/investments/funds/0P0000YZHL',
-      'https://markets.ft.com/data/funds/tearsheet/summary?s=LU0567884454:EUR'
+	  'https://www.eurobank.gr/el/retail/proionta-upiresies/proionta/ependuseis/amoibaia-kefalaia/amoibaia-kefalaia-lf-kai-lf-fof/eurobank-fund-management-company-luxembourg/global-bond-fund',
+	  'https://www.eurobankam.gr/en/pillarfunds/searchfund/lf-global-bond-fund',
+	  'https://www.eurobank.gr/-/media/eurobank/retail/proionta-kai-upiresies/proionta/ependuseis/amoibaia-kefalaia/pdf/eksoterikou/facts-sheets/620-lf-globalbond-fs-gr.pdf',
+	  'https://global.morningstar.com/en-eu/investments/funds/0P0000WUE8',
+      'https://markets.ft.com/data/funds/tearsheet/summary?s=LU0730413092:EUR'
     ]
   );
 
--- Crypto seed: Bitcoin
+-- Crypto seed: Bitcoin as a worked example of a ticker-only instrument
 INSERT INTO instruments (name, isin, ticker, currency, asset_class, risk_level, data_sources) VALUES
   (
     'Bitcoin',
@@ -318,54 +321,55 @@ INSERT INTO instruments (name, isin, ticker, currency, asset_class, risk_level, 
 -- SEED: PORTFOLIOS
 -- ─────────────────────────────────────────────
 
-INSERT INTO portfolios (name, description) VALUES
-  ('Main Portfolio', 'Primary investment portfolio'),
-  ('Retirement Portfolio', 'Long-term retirement savings');
+INSERT INTO portfolios (id, name, description) VALUES
+  (
+    gen_random_uuid(),
+    'Flexible Greek',
+    'A flexible portfolio focused on Greek equity and bond markets, with a liquidity sleeve via the Reserve Fund.'
+  ),
+  (
+    gen_random_uuid(),
+    'Moderate',
+    'A diversified moderate-risk portfolio blending Greek and global equities, bonds, high yield, absolute return, and fund-of-funds strategies.'
+  );
 
 -- ─────────────────────────────────────────────
--- SEED: ALLOCATION TEMPLATES
+-- SEED: POSITIONS (via DO block so we can use ISINs)
 -- ─────────────────────────────────────────────
 
-INSERT INTO allocation_templates (code, description) VALUES
-  ('CONSERVATIVE', 'Low-risk, income-focused allocation'),
-  ('BALANCED',     'Moderate risk, balanced growth and income'),
-  ('GROWTH',       'Higher risk, long-term capital appreciation'),
-  ('AGGRESSIVE',   'Maximum risk, maximum growth potential');
+DO $$
+DECLARE
+  pid_fg UUID;
+  pid_md UUID;
+BEGIN
+  SELECT id INTO pid_fg FROM portfolios WHERE name = 'Flexible Greek';
+  SELECT id INTO pid_md FROM portfolios WHERE name = 'Moderate';
 
--- ─────────────────────────────────────────────
--- SEED: ALLOCATION TEMPLATE ITEMS
--- ─────────────────────────────────────────────
+  -- Flexible Greek positions
+  INSERT INTO portfolio_positions (portfolio_id, instrument_id, units, cost_basis_per_unit)
+  SELECT pid_fg, id, units, cost
+  FROM (VALUES
+    ('LU0273962166', 1250.00,  8.20),
+    ('LU0939092168',  800.00, 10.50),
+    ('LU0420076928',  600.00, 11.00),
+    ('LU0670223279', 2000.00,  5.05)
+  ) AS t(isin, units, cost)
+  JOIN instruments i ON i.isin = t.isin;
 
-INSERT INTO allocation_template_items (template_id, instrument_id, weight)
-SELECT
-  t.id,
-  i.id,
-  v.weight
-FROM (
-  VALUES
-    ('CONSERVATIVE', 'LU0670223279', 40.0000),
-    ('CONSERVATIVE', 'LU0939092168', 25.0000),
-    ('CONSERVATIVE', 'LU0420076928', 20.0000),
-    ('CONSERVATIVE', 'LU2047494005', 10.0000),
-    ('CONSERVATIVE', 'LU0285432364',  5.0000),
-
-    ('BALANCED',     'LU0352743748', 35.0000),
-    ('BALANCED',     'LU0939092168', 20.0000),
-    ('BALANCED',     'LU0420076928', 15.0000),
-    ('BALANCED',     'LU0273962166', 15.0000),
-    ('BALANCED',     'LU0285432364', 10.0000),
-    ('BALANCED',     'LU2047494005',  5.0000),
-
-    ('GROWTH',       'LU0352744472', 40.0000),
-    ('GROWTH',       'LU0273962166', 25.0000),
-    ('GROWTH',       'LU0939092168', 15.0000),
-    ('GROWTH',       'LU0285432364', 10.0000),
-    ('GROWTH',       'LU2047494005', 10.0000),
-
-    ('AGGRESSIVE',   'LU0273962166', 50.0000),
-    ('AGGRESSIVE',   'LU0352744472', 25.0000),
-    ('AGGRESSIVE',   'LU0567884454', 15.0000),
-    ('AGGRESSIVE',   'LU0285432364', 10.0000)
-) AS v(code, isin, weight)
-JOIN allocation_templates t ON t.code = v.code
-JOIN instruments          i ON i.isin = v.isin;
+  -- Moderate positions
+  INSERT INTO portfolio_positions (portfolio_id, instrument_id, units, cost_basis_per_unit)
+  SELECT pid_md, id, units, cost
+  FROM (VALUES
+    ('LU2047494005',  500.00,  9.80),
+    ('LU0273968015',  750.00, 12.30),
+    ('LU0273960111',  400.00, 15.60),
+    ('LU0273962166',  300.00,  8.20),
+    ('LU0272937516',  600.00,  7.90),
+    ('LU0316846335',  450.00,  6.50),
+    ('LU0517847660',  350.00,  8.10),
+    ('LU0730413092', 1000.00, 10.20),
+    ('LU0670223279',  800.00,  5.05)
+  ) AS t(isin, units, cost)
+  JOIN instruments i ON i.isin = t.isin;
+END;
+$$;
