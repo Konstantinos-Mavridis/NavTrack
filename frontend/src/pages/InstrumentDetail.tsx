@@ -10,6 +10,37 @@ import SyncButton from '../components/SyncButton';
 import SyncJobHistory from '../components/SyncJobHistory';
 import { ASSET_CLASS_LABELS, today } from '../utils/format';
 
+/** Maps an ISO-4217 currency code to its commonly used symbol. */
+function currencySymbol(code: string | undefined | null): string {
+  if (!code) return '';
+  const map: Record<string, string> = {
+    EUR: '€',
+    USD: '$',
+    GBP: '£',
+    JPY: '¥',
+    CHF: 'Fr',
+    SEK: 'kr',
+    NOK: 'kr',
+    DKK: 'kr',
+    CAD: 'CA$',
+    AUD: 'A$',
+    NZD: 'NZ$',
+    HKD: 'HK$',
+    SGD: 'S$',
+    CNY: '¥',
+    KRW: '₩',
+    INR: '₹',
+    BRL: 'R$',
+    PLN: 'zł',
+    CZK: 'Kč',
+    HUF: 'Ft',
+    TRY: '₺',
+    MXN: 'MX$',
+    ZAR: 'R',
+  };
+  return map[code.toUpperCase()] ?? code;
+}
+
 function sourceLabelFromUrl(raw: string): { host: string; path: string } {
   try {
     const u = new URL(raw);
@@ -120,6 +151,7 @@ export default function InstrumentDetail() {
   }, [id]);
 
   const latestNav = navHistory[navHistory.length - 1];
+  const sym = currencySymbol(instrument?.currency);
 
   async function handleAddNav(e: React.FormEvent) {
     e.preventDefault();
@@ -131,7 +163,7 @@ export default function InstrumentDetail() {
       await api.instruments.addNav(id, [{ date: navDate, nav: parseFloat(navValue) }]);
       const fresh = await api.instruments.navHistory(id);
       setNavHistory(fresh);
-      setSaveMsg(`NAV €${navValue} saved for ${navDate}`);
+      setSaveMsg(`NAV ${sym}${navValue} saved for ${navDate}`);
       setNavValue('');
     } catch (e: any) {
       setSaveErr(e.message);
@@ -184,7 +216,7 @@ export default function InstrumentDetail() {
             { label: 'Currency',    value: instrument.currency },
             { label: 'Asset Class', value: ASSET_CLASS_LABELS[instrument.assetClass] ?? instrument.assetClass },
             { label: 'Risk Level',  value: instrument.riskLevel != null ? `SRI ${instrument.riskLevel} / 7` : '—' },
-            { label: 'Latest NAV',  value: latestNav ? `€${Number(latestNav.nav).toFixed(4)}` : '—', sub: latestNav?.date },
+            { label: 'Latest NAV',  value: latestNav ? `${sym}${Number(latestNav.nav).toFixed(4)}` : '—', sub: latestNav?.date },
           ].map((c) => (
             <div key={c.label} className="card p-4">
               <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{c.label}</p>
@@ -229,7 +261,7 @@ export default function InstrumentDetail() {
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs text-gray-500 dark:text-gray-400 font-medium">NAV (EUR)</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 font-medium">NAV ({instrument.currency})</label>
               <input
                 type="number"
                 step="0.0001"
@@ -290,7 +322,7 @@ export default function InstrumentDetail() {
               <thead className="bg-gray-50 dark:bg-gray-800/60">
                 <tr>
                   <th className="table-th">Date</th>
-                  <th className="table-th">NAV (€)</th>
+                  <th className="table-th">NAV ({sym})</th>
                   <th className="table-th">Change</th>
                   <th className="table-th">Source</th>
                 </tr>
