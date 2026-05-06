@@ -246,21 +246,48 @@ def _resolve_ticker_with_retry(isin: str) -> str | None:
     raise last_exc
 
 
-def _resolve_ticker(isin: str, instrument_id: str, conn) -> str | None:
-    """Return cached Yahoo ticker or resolve + cache it."""
+def _resolve_ticker(isin: str | None, instrument_id: str, conn) -> str | None:
+    """Return a Yahoo Finance ticker for this instrument.
+
+    Resolution order:
+    1. ``ticker`` column (set directly for crypto/pre-configured instruments).
+       No ISIN search is performed in this case.
+    2. ``external_ids.yahoo_ticker`` cache (avoids repeated Yahoo searches).
+    3. Live yf.Search by ISIN (ISIN-based instruments only).
+    """
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
-                "SELECT external_ids FROM instruments WHERE id = %s",
+                "SELECT external_ids, ticker FROM instruments WHERE id = %s",
                 (instrument_id,),
             )
             row = cur.fetchone()
 
-        external_ids  = (row["external_ids"] or {}) if row else {}
+        if not row:
+            return None
+
+        # 1. Explicit ticker column — crypto and pre-configured instruments
+        if row["ticker"]:
+            log.info(
+                "  Using explicit ticker %s (no ISIN resolution needed)",
+                row["ticker"],
+            )
+            return row["ticker"]
+
+        # 2. Cached Yahoo ticker from a previous resolution run
+        external_ids  = row["external_ids"] or {}
         cached_ticker = external_ids.get("yahoo_ticker")
         if cached_ticker:
             log.info("  Using cached ticker %s for ISIN %s", cached_ticker, isin)
             return cached_ticker
+
+        # 3. Live resolution via yf.Search (ISIN required)
+        if not isin:
+            log.warning(
+                "  Instrument %s has no ISIN and no ticker column set – skipping",
+                instrument_id,
+            )
+            return None
 
         log.info("  Resolving Yahoo ticker for ISIN %s …", isin)
         try:
@@ -288,7 +315,7 @@ def _resolve_ticker(isin: str, instrument_id: str, conn) -> str | None:
         return ticker
     except Exception as exc:
         conn.rollback()
-        log.error("  Database error caching ticker for %s: %s", isin, exc)
+        log.error("  Database error resolving ticker for instrument %s: %s", instrument_id, exc)
         raise
 
 
@@ -330,7 +357,7 @@ def _fetch_and_upsert(ticker: str, instrument_id: str, from_date: str, conn) -> 
         # row objects to avoid any read-only or KeyError issues.
         hist = ticker_obj.history(start=from_date, end=end_date, interval="1d", auto_adjust=False)
 
-        if hist.empty:
+        if hist is None or hist.empty:
             log.warning(
                 "  No data returned from Yahoo Finance for %s (1d %s → %s);"
                 " NAV may not be published yet for this period",
@@ -404,17 +431,19 @@ def run_nav_sync(triggered_by: str = "SCHEDULER", from_date: str | None = None) 
     conn = get_conn()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute("SELECT id, isin, name FROM instruments ORDER BY name")
+            cur.execute("SELECT id, isin, ticker, name FROM instruments ORDER BY name")
             instruments = cur.fetchall()
 
         total_fetched = total_upserted = errors = 0
 
         for idx, inst in enumerate(instruments):
-            isin          = inst["isin"].strip()
+            raw_isin      = inst["isin"]
+            isin          = raw_isin.strip() if raw_isin else None
             instrument_id = str(inst["id"])
             name          = inst["name"]
+            display_id    = isin or inst.get("ticker") or instrument_id
 
-            log.info("[%d/%d] %s (%s)", idx + 1, len(instruments), name, isin)
+            log.info("[%d/%d] %s (%s)", idx + 1, len(instruments), name, display_id)
 
             job_status = "SUCCESS"
             fetched = upserted = 0

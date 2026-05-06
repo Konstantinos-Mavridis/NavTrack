@@ -153,6 +153,12 @@ function NavTooltip({ variant = 'idle', children }: NavTooltipProps) {
   );
 }
 
+/** Returns the secondary identifier to show next to an instrument name in the dropdown. */
+function instrumentLabel(i: Instrument): string {
+  const id = i.isin?.trim() || i.ticker?.trim();
+  return id ? ` (${id})` : '';
+}
+
 export default function TransactionFormModal({ portfolioId, transaction, onSaved, onClose }: Props) {
   const isEdit = !!transaction;
 
@@ -358,7 +364,7 @@ export default function TransactionFormModal({ portfolioId, transaction, onSaved
           >
             <option value="">— Select a fund —</option>
             {selectableInstruments.map((i) => (
-              <option key={i.id} value={i.id}>{i.name} ({i.isin.trim()})</option>
+              <option key={i.id} value={i.id}>{i.name}{instrumentLabel(i)}</option>
             ))}
           </select>
         </div>
