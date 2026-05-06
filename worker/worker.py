@@ -247,44 +247,44 @@ def _resolve_ticker_with_retry(isin: str) -> str | None:
 
 
 def _resolve_ticker(isin: str | None, instrument_id: str, conn) -> str | None:
-    """
-    Return the Yahoo Finance ticker to use for price fetching.
+    """Return a Yahoo Finance ticker for this instrument.
 
     Resolution order:
-      1. `ticker` column on the instruments row  – used directly, no lookup needed.
-         This is the primary path for crypto instruments (e.g. "BTC-USD").
-      2. `external_ids.yahoo_ticker` cache        – avoids repeated yf.Search calls.
-      3. ISIN-based yf.Search                     – traditional mutual-fund path;
-         result is cached back into external_ids for future runs.
+    1. ``ticker`` column (set directly for crypto/pre-configured instruments).
+       No ISIN search is performed in this case.
+    2. ``external_ids.yahoo_ticker`` cache (avoids repeated Yahoo searches).
+    3. Live yf.Search by ISIN (ISIN-based instruments only).
     """
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
-                "SELECT isin, ticker, external_ids FROM instruments WHERE id = %s",
+                "SELECT external_ids, ticker FROM instruments WHERE id = %s",
                 (instrument_id,),
             )
             row = cur.fetchone()
 
         if not row:
-            log.warning("  Instrument %s not found in DB", instrument_id)
             return None
 
-        # ── 1. Explicit ticker column (crypto & pre-configured instruments) ──
+        # 1. Explicit ticker column — crypto and pre-configured instruments
         if row["ticker"]:
-            log.info("  Using explicit ticker %s", row["ticker"])
+            log.info(
+                "  Using explicit ticker %s (no ISIN resolution needed)",
+                row["ticker"],
+            )
             return row["ticker"]
 
-        # ── 2. Cached yahoo_ticker from a previous ISIN resolution ──
+        # 2. Cached Yahoo ticker from a previous resolution run
         external_ids  = row["external_ids"] or {}
         cached_ticker = external_ids.get("yahoo_ticker")
         if cached_ticker:
             log.info("  Using cached ticker %s for ISIN %s", cached_ticker, isin)
             return cached_ticker
 
-        # ── 3. Resolve via ISIN search (mutual funds / ETFs) ──
+        # 3. Live resolution via yf.Search (ISIN required)
         if not isin:
             log.warning(
-                "  Instrument %s has no ticker and no ISIN – cannot resolve",
+                "  Instrument %s has no ISIN and no ticker column set – skipping",
                 instrument_id,
             )
             return None
@@ -301,7 +301,6 @@ def _resolve_ticker(isin: str | None, instrument_id: str, conn) -> str | None:
 
         log.info("  Resolved %s → %s", isin, ticker)
 
-        # Cache the resolved ticker so we skip yf.Search on future runs.
         with conn.cursor() as cur:
             cur.execute(
                 """
@@ -316,7 +315,7 @@ def _resolve_ticker(isin: str | None, instrument_id: str, conn) -> str | None:
         return ticker
     except Exception as exc:
         conn.rollback()
-        log.error("  Database error caching ticker for %s: %s", instrument_id, exc)
+        log.error("  Database error resolving ticker for instrument %s: %s", instrument_id, exc)
         raise
 
 
@@ -339,29 +338,19 @@ def _smart_from_date(instrument_id: str, conn) -> str:
 
 def _fetch_and_upsert(ticker: str, instrument_id: str, from_date: str, conn) -> tuple[int, int]:
     today_str = date.today().isoformat()
-    if from_date > today_str:
-        log.info("  Already up-to-date")
-        return 0, 0
-
-    # yfinance .history(end=X) is EXCLUSIVE — the candle for date X is NOT
-    # included. Passing end=today would mean today's NAV is never fetched.
-    # We use tomorrow's date as the exclusive upper bound so today's candle
-    # always falls within the requested window.
-    end_date = (date.today() + timedelta(days=1)).isoformat()
-
     try:
-        ticker_obj = yf.Ticker(ticker)
-        # auto_adjust=False: return raw unadjusted close prices.
-        # We store the official published NAV, not split/dividend-adjusted prices.
-        # In yfinance 1.2.0 the returned DataFrame is consolidated (read-only
-        # copy); we access columns directly by name rather than via .get() on
-        # row objects to avoid any read-only or KeyError issues.
-        hist = ticker_obj.history(start=from_date, end=end_date, interval="1d", auto_adjust=False)
+        hist = yf.Ticker(ticker).history(
+            start=from_date,
+            end=today_str,
+            interval="1d",
+            auto_adjust=True,
+            actions=False,
+        )
 
-        if hist.empty:
+        if hist is None or hist.empty:
             log.warning(
-                "  No data returned from Yahoo Finance for %s (1d %s → %s);"
-                " NAV may not be published yet for this period",
+                "  No data returned from Yahoo Finance for %s (%s → %s) – "
+                "possibly delisted or no trading on these dates",
                 ticker, from_date, today_str,
             )
             return 0, 0
@@ -438,11 +427,11 @@ def run_nav_sync(triggered_by: str = "SCHEDULER", from_date: str | None = None) 
         total_fetched = total_upserted = errors = 0
 
         for idx, inst in enumerate(instruments):
-            isin          = inst["isin"].strip() if inst["isin"] else None
+            raw_isin      = inst["isin"]
+            isin          = raw_isin.strip() if raw_isin else None
             instrument_id = str(inst["id"])
             name          = inst["name"]
-            # Display the most informative identifier in log output
-            display_id    = isin or inst["ticker"] or instrument_id
+            display_id    = isin or inst.get("ticker") or instrument_id
 
             log.info("[%d/%d] %s (%s)", idx + 1, len(instruments), name, display_id)
 
