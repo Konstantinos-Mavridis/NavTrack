@@ -51,6 +51,25 @@ export class UpdateInstrumentDto {
   @IsString()
   name?: string;
 
+  /**
+   * Update the ISIN. Pass null to clear it (only valid when a ticker is
+   * also present on the instrument so the identifier constraint is satisfied).
+   */
+  @IsOptional()
+  @ValidateIf((o) => o.isin !== null && o.isin !== undefined)
+  @IsString()
+  @Length(12, 12, { message: 'ISIN must be exactly 12 characters' })
+  isin?: string | null;
+
+  /**
+   * Update the direct Yahoo Finance ticker (e.g. "BTC-USD").
+   * Pass null to clear it (only valid when an ISIN is also present).
+   */
+  @IsOptional()
+  @ValidateIf((o) => o.ticker !== null && o.ticker !== undefined)
+  @IsString()
+  ticker?: string | null;
+
   @IsOptional()
   @IsEnum(AssetClass)
   assetClass?: AssetClass;
