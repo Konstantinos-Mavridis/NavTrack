@@ -34,6 +34,7 @@ export const ASSET_CLASS_LABELS: Record<string, string> = {
   HIGH_YIELD:      'High Yield',
   FUND_OF_FUNDS:   'Fund of Funds',
   ABSOLUTE_RETURN: 'Absolute Return',
+  CRYPTO:          'Crypto',
 };
 
 /** Deterministic colour per asset class */
@@ -43,6 +44,7 @@ export const ASSET_CLASS_COLORS: Record<string, string> = {
   HIGH_YIELD:      '#ef4444',
   FUND_OF_FUNDS:   '#8b5cf6',
   ABSOLUTE_RETURN: '#ec4899',
+  CRYPTO:          '#f59e0b',
 };
 
 /**

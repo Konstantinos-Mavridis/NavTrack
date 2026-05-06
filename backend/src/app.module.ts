@@ -8,6 +8,7 @@ import { TransactionsModule } from './transactions/transactions.module';
 import { ValuationModule } from './valuation/valuation.module';
 import { SyncModule } from './sync/sync.module';
 import { TemplatesModule } from './templates/templates.module';
+import { DatabaseSchemaService } from './database-schema.service';
 
 @Module({
   imports: [
@@ -36,5 +37,6 @@ import { TemplatesModule } from './templates/templates.module';
     SyncModule,
     TemplatesModule,
   ],
+  providers: [DatabaseSchemaService],
 })
 export class AppModule {}

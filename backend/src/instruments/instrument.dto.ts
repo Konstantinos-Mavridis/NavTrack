@@ -1,4 +1,4 @@
-import { IsString, IsEnum, IsInt, Min, Max, IsArray, IsOptional, Length } from 'class-validator';
+import { IsString, IsEnum, IsInt, Min, Max, IsArray, IsOptional, Length, IsObject } from 'class-validator';
 import { AssetClass } from './instrument.entity';
 
 export class CreateInstrumentDto {
@@ -26,6 +26,10 @@ export class CreateInstrumentDto {
   @IsArray()
   @IsString({ each: true })
   dataSources?: string[];
+
+  @IsOptional()
+  @IsObject()
+  externalIds?: Record<string, string>;
 }
 
 export class UpdateInstrumentDto {
@@ -47,4 +51,8 @@ export class UpdateInstrumentDto {
   @IsArray()
   @IsString({ each: true })
   dataSources?: string[];
+
+  @IsOptional()
+  @IsObject()
+  externalIds?: Record<string, string>;
 }

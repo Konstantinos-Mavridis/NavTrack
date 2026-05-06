@@ -12,6 +12,7 @@ export enum AssetClass {
   HIGH_YIELD      = 'HIGH_YIELD',
   FUND_OF_FUNDS   = 'FUND_OF_FUNDS',
   ABSOLUTE_RETURN = 'ABSOLUTE_RETURN',
+  CRYPTO          = 'CRYPTO',
 }
 
 @Entity('instruments')

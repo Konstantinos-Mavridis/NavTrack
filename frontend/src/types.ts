@@ -12,6 +12,7 @@ export interface Instrument {
   description?: string | null;
   riskLevel?: number | null;
   dataSources?: string[] | null;
+  externalIds?: Record<string, string> | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -36,6 +37,8 @@ export interface CreateInstrumentPayload {
   replicationMethod?: string;
   description?: string;
   riskLevel?: number;
+  dataSources?: string[];
+  externalIds?: Record<string, string>;
 }
 
 export interface NavEntryPayload {

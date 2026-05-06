@@ -5,7 +5,8 @@ export type AssetClass =
   | 'BOND'
   | 'HIGH_YIELD'
   | 'FUND_OF_FUNDS'
-  | 'ABSOLUTE_RETURN';
+  | 'ABSOLUTE_RETURN'
+  | 'CRYPTO';
 
 export type TransactionType =
   | 'BUY'
