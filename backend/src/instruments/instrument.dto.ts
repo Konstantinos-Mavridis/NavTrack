@@ -1,59 +1,30 @@
 import {
   IsString, IsEnum, IsInt, Min, Max,
-  IsArray, IsOptional, Length,
-  ValidateIf, registerDecorator, ValidationOptions,
-  ValidationArguments,
+  IsArray, IsOptional, Length, ValidateIf,
 } from 'class-validator';
 import { AssetClass } from './instrument.entity';
-
-/**
- * Custom validator: at least one of `isin` or `ticker` must be provided.
- * Used on both fields so the error message is attached to whichever field
- * the consumer looks at.
- */
-function RequiresIsinOrTicker(validationOptions?: ValidationOptions) {
-  return function (object: object, propertyName: string) {
-    registerDecorator({
-      name: 'requiresIsinOrTicker',
-      target: (object as any).constructor,
-      propertyName,
-      options: {
-        message: 'At least one of isin or ticker must be provided',
-        ...validationOptions,
-      },
-      validator: {
-        validate(_value: unknown, args: ValidationArguments) {
-          const obj = args.object as CreateInstrumentDto;
-          return !!(obj.isin || obj.ticker);
-        },
-      },
-    });
-  };
-}
 
 export class CreateInstrumentDto {
   @IsString()
   name: string;
 
   /**
-   * Standard 12-character ISIN (e.g. "LU0273962166").
-   * Required for mutual funds / ETFs. Omit for crypto instruments.
+   * ISIN (required for non-crypto instruments).
+   * Must be exactly 12 characters when provided.
+   * Either isin or ticker must be present.
    */
-  @IsOptional()
+  @ValidateIf((o) => !o.ticker)
   @IsString()
   @Length(12, 12, { message: 'ISIN must be exactly 12 characters' })
-  @RequiresIsinOrTicker()
   isin?: string;
 
   /**
    * Direct Yahoo Finance ticker symbol (e.g. "BTC-USD", "ETH-USD").
-   * Required when isin is omitted. May also be set alongside an ISIN
-   * to skip Yahoo ticker-resolution in the worker.
+   * Required for CRYPTO instruments instead of an ISIN.
+   * Either isin or ticker must be present.
    */
-  @IsOptional()
+  @ValidateIf((o) => !o.isin)
   @IsString()
-  @ValidateIf((o) => !o.isin)   // ticker is mandatory when isin is absent
-  @RequiresIsinOrTicker()
   ticker?: string;
 
   @IsOptional()
@@ -79,15 +50,6 @@ export class UpdateInstrumentDto {
   @IsOptional()
   @IsString()
   name?: string;
-
-  @IsOptional()
-  @IsString()
-  @Length(12, 12, { message: 'ISIN must be exactly 12 characters' })
-  isin?: string;
-
-  @IsOptional()
-  @IsString()
-  ticker?: string;
 
   @IsOptional()
   @IsEnum(AssetClass)
