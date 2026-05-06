@@ -12,6 +12,7 @@ export enum AssetClass {
   HIGH_YIELD      = 'HIGH_YIELD',
   FUND_OF_FUNDS   = 'FUND_OF_FUNDS',
   ABSOLUTE_RETURN = 'ABSOLUTE_RETURN',
+  CRYPTO          = 'CRYPTO',
 }
 
 @Entity('instruments')
@@ -22,8 +23,21 @@ export class Instrument {
   @Column({ type: 'text' })
   name: string;
 
-  @Column({ type: 'char', length: 12, unique: true })
-  isin: string;
+  /**
+   * 12-character ISIN code. Null for crypto instruments, which are identified
+   * by `ticker` instead (e.g. "BTC-USD").
+   */
+  @Column({ type: 'char', length: 12, unique: true, nullable: true })
+  isin: string | null;
+
+  /**
+   * Direct Yahoo Finance ticker symbol. Required when `isin` is null (crypto).
+   * Can also be set on ISIN-based instruments to skip the Yahoo ticker-resolution
+   * step in the worker.
+   * Examples: "BTC-USD", "ETH-USD", "SOL-USD"
+   */
+  @Column({ type: 'text', unique: true, nullable: true })
+  ticker: string | null;
 
   @Column({ type: 'char', length: 3, default: 'EUR' })
   currency: string;

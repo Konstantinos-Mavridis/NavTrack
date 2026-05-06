@@ -14,7 +14,8 @@ CREATE TYPE asset_class AS ENUM (
   'BOND',
   'HIGH_YIELD',
   'FUND_OF_FUNDS',
-  'ABSOLUTE_RETURN'
+  'ABSOLUTE_RETURN',
+  'CRYPTO'
 );
 
 -- ─────────────────────────────────────────────
@@ -24,7 +25,11 @@ CREATE TYPE asset_class AS ENUM (
 CREATE TABLE instruments (
   id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   name           TEXT        NOT NULL,
-  isin           CHAR(12)    NOT NULL,
+  -- isin is nullable: crypto instruments are identified by ticker instead.
+  isin           CHAR(12),
+  -- ticker is used for direct Yahoo Finance lookup (e.g. "BTC-USD", "ETH-USD").
+  -- Also used as a shortcut to skip ISIN-based resolution for any instrument.
+  ticker         TEXT,
   currency       CHAR(3)     NOT NULL DEFAULT 'EUR',
   asset_class    asset_class NOT NULL,
   risk_level     SMALLINT    NOT NULL CHECK (risk_level BETWEEN 1 AND 7),
@@ -32,7 +37,11 @@ CREATE TABLE instruments (
   external_ids   JSONB       NOT NULL DEFAULT '{}',
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT instruments_isin_unique UNIQUE (isin)
+  CONSTRAINT instruments_isin_unique   UNIQUE (isin),
+  CONSTRAINT instruments_ticker_unique UNIQUE (ticker),
+  -- At least one identifier must be present.
+  CONSTRAINT instruments_isin_or_ticker_required
+    CHECK (isin IS NOT NULL OR ticker IS NOT NULL)
 );
 
 CREATE TABLE portfolios (
@@ -114,7 +123,8 @@ CREATE TABLE sync_jobs (
 -- INDEXES
 -- ─────────────────────────────────────────────
 
-CREATE INDEX idx_instruments_isin          ON instruments(isin);
+CREATE INDEX idx_instruments_isin          ON instruments(isin) WHERE isin IS NOT NULL;
+CREATE INDEX idx_instruments_ticker        ON instruments(ticker) WHERE ticker IS NOT NULL;
 CREATE INDEX idx_allocation_templates_code ON allocation_templates(code);
 CREATE INDEX idx_template_items_template   ON allocation_template_items(template_id);
 CREATE INDEX idx_template_items_instrument ON allocation_template_items(instrument_id);
