@@ -114,6 +114,25 @@ describe('InstrumentsService', () => {
       await service.create({ name: 'X', isin: 'IE0000000001', assetClass: 'EQUITY' as any, riskLevel: 1 } as any);
       expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ currency: 'EUR' }));
     });
+
+    it('persists explicit Yahoo tickers for crypto-like instruments', async () => {
+      repo.findOneBy.mockResolvedValue(null);
+      repo.save.mockImplementation(async (inst: any) => inst);
+
+      await service.create({
+        name: 'Bitcoin',
+        isin: 'CRYPTOBTCUSD',
+        currency: 'USD',
+        assetClass: 'CRYPTO' as any,
+        riskLevel: 7,
+        externalIds: { yahoo_ticker: 'BTC-USD' },
+      } as any);
+
+      expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({
+        assetClass: 'CRYPTO',
+        externalIds: { yahoo_ticker: 'BTC-USD' },
+      }));
+    });
   });
 
   // ── update ──────────────────────────────────────────────────────────────────
@@ -257,6 +276,25 @@ describe('InstrumentsService', () => {
 
       const result = await service.importCsv(csv);
       expect(result.imported).toBe(1);
+    });
+
+    it('imports crypto instruments with cached Yahoo ticker metadata from CSV', async () => {
+      repo.findOneBy.mockResolvedValue(null);
+      repo.save.mockImplementation(async (inst: any) => inst);
+
+      const csv = [
+        'name,isin,currency,assetClass,riskLevel,dataSources,externalIds',
+        'Bitcoin,CRYPTOBTCUSD,USD,CRYPTO,7,,"{""yahoo_ticker"":""BTC-USD""}"',
+      ].join('\n');
+
+      const result = await service.importCsv(csv);
+
+      expect(result.imported).toBe(1);
+      expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({
+        isin: 'CRYPTOBTCUSD',
+        assetClass: 'CRYPTO',
+        externalIds: { yahoo_ticker: 'BTC-USD' },
+      }));
     });
   });
 });

@@ -47,6 +47,7 @@ export class InstrumentsService {
       assetClass: dto.assetClass,
       riskLevel: dto.riskLevel,
       dataSources: dto.dataSources ?? [],
+      externalIds: dto.externalIds ?? {},
     });
     return this.repo.save(inst);
   }
