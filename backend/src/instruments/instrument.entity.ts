@@ -29,7 +29,7 @@ export class Instrument {
   @Column({ type: 'char', length: 3, default: 'EUR' })
   currency: string;
 
-  @Column({ type: 'enum', enum: AssetClass, name: 'asset_class' })
+  @Column({ type: 'enum', enum: AssetClass, enumName: 'asset_class', name: 'asset_class' })
   assetClass: AssetClass;
 
   @Column({ type: 'smallint', name: 'risk_level' })

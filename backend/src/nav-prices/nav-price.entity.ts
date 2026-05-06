@@ -31,7 +31,7 @@ export class NavPrice {
   @Column({ type: 'numeric', precision: 18, scale: 6 })
   nav: number;
 
-  @Column({ type: 'enum', enum: NavSource, default: NavSource.MANUAL })
+  @Column({ type: 'enum', enum: NavSource, enumName: 'nav_source', default: NavSource.MANUAL })
   source: NavSource;
 
   @CreateDateColumn({ name: 'created_at' })

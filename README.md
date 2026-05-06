@@ -590,7 +590,7 @@ JSON and CSV parsing currently live in the backend services/controllers. Follow 
 
 ### Worker says `Database/schema not ready after ... attempts`
 
-The database container can accept TCP connections before `db/init.sql` has finished applying the schema. The worker therefore polls for the application schema after Postgres is reachable, and the backend waits for the `asset_class` type before applying lightweight enum upgrades. If you still see this message after a failed first boot, inspect the `db` container logs for the SQL error and recreate the failed volume after backing up anything important:
+The database container can accept TCP connections before `db/init.sql` has finished applying the schema. The worker therefore polls for the application schema after Postgres is reachable, and the backend briefly waits for the `asset_class` type before applying lightweight enum upgrades. If the schema never appears because a volume was created without running `db/init.sql`, the backend creates an empty schema from TypeORM metadata so the app can start; seed portfolios/instruments are not inserted in that fallback path. To restore the seeded demo data, inspect the `db` container logs for the SQL error and recreate the failed volume after backing up anything important:
 
 ```bash
 docker compose down

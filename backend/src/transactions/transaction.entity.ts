@@ -32,7 +32,7 @@ export class Transaction {
   @Column({ name: 'instrument_id' })
   instrumentId: string;
 
-  @Column({ type: 'enum', enum: TransactionType })
+  @Column({ type: 'enum', enum: TransactionType, enumName: 'transaction_type' })
   type: TransactionType;
 
   @Column({ type: 'date', name: 'trade_date' })

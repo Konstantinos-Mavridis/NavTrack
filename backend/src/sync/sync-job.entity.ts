@@ -24,7 +24,7 @@ export class SyncJob {
   @Column({ name: 'instrument_id', nullable: true })
   instrumentId: string | null;
 
-  @Column({ type: 'enum', enum: SyncStatus, default: SyncStatus.PENDING })
+  @Column({ type: 'enum', enum: SyncStatus, enumName: 'sync_status', default: SyncStatus.PENDING })
   status: SyncStatus;
 
   @Column({ type: 'text', default: 'YAHOO' })
