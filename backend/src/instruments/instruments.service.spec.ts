@@ -57,7 +57,7 @@ describe('InstrumentsService', () => {
     service = module.get(InstrumentsService);
   });
 
-  // ── findAll ─────────────────────────────────────────────────────────────────
+  // ── findAll ───────────────────────────────────────────────────────────────────────────
 
   describe('findAll', () => {
     it('returns all instruments ordered by name', async () => {
@@ -68,7 +68,7 @@ describe('InstrumentsService', () => {
     });
   });
 
-  // ── findOne ─────────────────────────────────────────────────────────────────
+  // ── findOne ──────────────────────────────────────────────────────────────────────────
 
   describe('findOne', () => {
     it('returns the instrument when found', async () => {
@@ -83,7 +83,7 @@ describe('InstrumentsService', () => {
     });
   });
 
-  // ── create ──────────────────────────────────────────────────────────────────
+  // ── create ───────────────────────────────────────────────────────────────────────────
 
   describe('create', () => {
     const isinDto = {
@@ -139,10 +139,11 @@ describe('InstrumentsService', () => {
     });
 
     it('throws ConflictException when ticker already exists', async () => {
-      // First findOneBy (isin check) → null; second (ticker check) → existing
-      repo.findOneBy
-        .mockResolvedValueOnce(null)      // isin check: no conflict
-        .mockResolvedValueOnce(makeInstrument({ isin: null, ticker: 'BTC-USD' }));
+      // dto has no isin → the isin findOneBy block is skipped entirely.
+      // Only one findOneBy fires: the ticker check → returns existing instrument.
+      repo.findOneBy.mockResolvedValueOnce(
+        makeInstrument({ isin: null, ticker: 'BTC-USD' }),
+      );
 
       await expect(
         service.create({
@@ -185,7 +186,7 @@ describe('InstrumentsService', () => {
     });
   });
 
-  // ── update ──────────────────────────────────────────────────────────────────
+  // ── update ───────────────────────────────────────────────────────────────────────────
 
   describe('update', () => {
     it('applies changes and saves', async () => {
@@ -203,7 +204,7 @@ describe('InstrumentsService', () => {
     });
   });
 
-  // ── remove ──────────────────────────────────────────────────────────────────
+  // ── remove ───────────────────────────────────────────────────────────────────────────
 
   describe('remove', () => {
     it('removes the instrument', async () => {
@@ -220,7 +221,7 @@ describe('InstrumentsService', () => {
     });
   });
 
-  // ── exportJson ──────────────────────────────────────────────────────────────
+  // ── exportJson ────────────────────────────────────────────────────────────────────────
 
   describe('exportJson', () => {
     it('maps ISIN instruments to export rows', async () => {
@@ -248,7 +249,7 @@ describe('InstrumentsService', () => {
     });
   });
 
-  // ── exportCsv ───────────────────────────────────────────────────────────────
+  // ── exportCsv ──────────────────────────────────────────────────────────────────────────
 
   describe('exportCsv', () => {
     it('produces a CSV string with the correct header including ticker', async () => {
@@ -290,7 +291,7 @@ describe('InstrumentsService', () => {
     });
   });
 
-  // ── importJson ──────────────────────────────────────────────────────────────
+  // ── importJson ─────────────────────────────────────────────────────────────────────────
 
   describe('importJson', () => {
     it('imports new ISIN instruments and returns the correct summary', async () => {
@@ -326,7 +327,7 @@ describe('InstrumentsService', () => {
       expect(result.skipped).toBe(0);
     });
 
-    // ── crypto-specific import paths ─────────────────────────────────────────
+    // ── crypto-specific import paths ─────────────────────────────────────────────
 
     it('imports a ticker-only (crypto) instrument', async () => {
       repo.findOneBy.mockResolvedValue(null);
@@ -369,7 +370,7 @@ describe('InstrumentsService', () => {
     });
   });
 
-  // ── importCsv ───────────────────────────────────────────────────────────────
+  // ── importCsv ──────────────────────────────────────────────────────────────────────────
 
   describe('importCsv', () => {
     it('returns empty result for an empty string', async () => {
