@@ -1,15 +1,15 @@
 {
   "name": "navtrack-backend",
   "version": "0.0.14",
-  "description": "NavTrack – NestJS REST API",
+  "description": "NavTrack \u2013 NestJS REST API",
   "scripts": {
     "build": "nest build",
     "start": "node dist/main",
     "start:dev": "nest start --watch",
     "lint": "eslint src --ext .ts",
-    "test": "jest",
+    "test": "jest --no-cache",
     "test:watch": "jest --watch",
-    "test:cov": "jest --coverage"
+    "test:cov": "jest --coverage --no-cache"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.19",
@@ -56,11 +56,6 @@
           "tsconfig": "tsconfig.test.json"
         }
       ]
-    },
-    "globals": {
-      "ts-jest": {
-        "tsconfig": "tsconfig.test.json"
-      }
     },
     "collectCoverageFrom": [
       "**/*.(t|j)s",
