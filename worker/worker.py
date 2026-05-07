@@ -360,7 +360,8 @@ def _fetch_and_upsert(ticker: str, instrument_id: str, from_date: str, conn) -> 
         if hist is None or hist.empty:
             log.warning(
                 "  No data returned from Yahoo Finance for %s (%s → %s) – "
-                "possibly delisted or no trading on these dates",
+                "possibly delisted, no trading on these dates, "
+                "or NAV may not be published yet for this period",
                 ticker, from_date, today_str,
             )
             return 0, 0
