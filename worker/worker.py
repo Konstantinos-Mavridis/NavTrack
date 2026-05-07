@@ -339,11 +339,21 @@ def _smart_from_date(instrument_id: str, conn) -> str:
 def _fetch_and_upsert(ticker: str, instrument_id: str, from_date: str, conn) -> tuple[int, int]:
     today_str = date.today().isoformat()
     try:
+        # yfinance .history(end=X) is EXCLUSIVE — the candle for date X is NOT
+        # included.  Passing end=today would silently drop today's price.
+        # We use tomorrow as the exclusive upper bound so today's candle always
+        # falls within the requested window.
+        end_date = (date.today() + timedelta(days=1)).isoformat()
+
         hist = yf.Ticker(ticker).history(
             start=from_date,
-            end=today_str,
+            end=end_date,
             interval="1d",
-            auto_adjust=True,
+            # auto_adjust=False: return raw unadjusted close prices.
+            # We store the official published NAV/price, not split- or
+            # dividend-adjusted values, which would distort historical
+            # cost-basis calculations.
+            auto_adjust=False,
             actions=False,
         )
 
