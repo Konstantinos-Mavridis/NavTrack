@@ -1,7 +1,7 @@
 """
 Unit tests for sync helper functions in worker.py:
   - _record_sync_job
-  - _resolve_ticker  (cache hit / cache miss paths)
+  - _resolve_ticker  (direct-ticker / cache hit / cache miss paths)
   - wait_for_db      (success, schema-not-ready, connection-error paths)
 
 All external calls (psycopg2, yfinance) are patched so the suite runs
@@ -142,18 +142,25 @@ class TestRecordSyncJob:
 
 
 # ---------------------------------------------------------------------------
-# Tests: _resolve_ticker  (cache layer)
+# Tests: _resolve_ticker
 # ---------------------------------------------------------------------------
 
 class TestResolveTicker:
     """
-    _resolve_ticker reads from instruments.external_ids.
-    Cache hit  → returns cached value without calling _resolve_ticker_with_retry.
-    Cache miss → calls _resolve_ticker_with_retry and persists the result.
+    _resolve_ticker resolution priority (post-crypto PR):
+      1. ticker column set directly     → return immediately (crypto fast-path)
+      2. external_ids.yahoo_ticker      → cache hit, return without yf search
+      3. isin present, no cache         → call _resolve_ticker_with_retry
+      4. neither ticker nor isin        → return None
+
+    The DB row returned by fetchone now has the shape:
+      {"ticker": <str|None>, "external_ids": <dict>}
+    All mocks in this class must reflect that shape.
     """
 
-    def _conn_with_external_ids(self, external_ids: dict):
-        row = {"external_ids": external_ids}
+    def _conn_with_row(self, ticker=None, external_ids=None):
+        """Build a mock connection whose cursor returns a row with both fields."""
+        row = {"ticker": ticker, "external_ids": external_ids or {}}
         cur = MagicMock()
         cur.__enter__ = lambda s: s
         cur.__exit__ = MagicMock(return_value=False)
@@ -163,8 +170,37 @@ class TestResolveTicker:
         conn.commit = MagicMock()
         return conn, cur
 
+    # ── direct-ticker fast-path (crypto instruments) ──────────────────────────
+
+    def test_direct_ticker_returned_without_calling_yfinance(self, monkeypatch):
+        """When the ticker column is populated, return it immediately."""
+        conn, _ = self._conn_with_row(ticker="BTC-USD", external_ids={})
+
+        def _should_not_be_called(isin):
+            raise AssertionError("_resolve_ticker_with_retry must not be called for a crypto instrument")
+
+        monkeypatch.setattr(worker, "_resolve_ticker_with_retry", _should_not_be_called)
+
+        result = worker._resolve_ticker(None, "inst-crypto", conn)
+        assert result == "BTC-USD"
+
+    def test_direct_ticker_takes_precedence_over_external_ids_cache(self, monkeypatch):
+        """ticker column wins even when external_ids also has a yahoo_ticker."""
+        conn, _ = self._conn_with_row(
+            ticker="ETH-USD",
+            external_ids={"yahoo_ticker": "CACHED.L"},
+        )
+
+        monkeypatch.setattr(worker, "_resolve_ticker_with_retry", lambda isin: "SHOULD_NOT_REACH")
+
+        result = worker._resolve_ticker(None, "inst-crypto", conn)
+        assert result == "ETH-USD"
+
+    # ── external_ids cache hit (ISIN-based instruments) ───────────────────────
+
     def test_returns_cached_ticker_without_calling_yfinance(self, monkeypatch):
-        conn, _ = self._conn_with_external_ids({"yahoo_ticker": "CACHED.L"})
+        """No ticker column, but cache populated → return cached value."""
+        conn, _ = self._conn_with_row(ticker=None, external_ids={"yahoo_ticker": "CACHED.L"})
 
         def _should_not_be_called(isin):
             raise AssertionError("_resolve_ticker_with_retry should not be called on a cache hit")
@@ -174,14 +210,16 @@ class TestResolveTicker:
         result = worker._resolve_ticker("IE000", "inst-1", conn)
         assert result == "CACHED.L"
 
+    # ── live ISIN lookup (cache miss) ─────────────────────────────────────────
+
     def test_calls_retry_when_no_cache(self, monkeypatch):
-        conn, _ = self._conn_with_external_ids({})
+        conn, _ = self._conn_with_row(ticker=None, external_ids={})
         monkeypatch.setattr(worker, "_resolve_ticker_with_retry", lambda isin: "RESOLVED.L")
 
         assert worker._resolve_ticker("IE000", "inst-1", conn) == "RESOLVED.L"
 
     def test_persists_resolved_ticker(self, monkeypatch):
-        conn, cur = self._conn_with_external_ids({})
+        conn, cur = self._conn_with_row(ticker=None, external_ids={})
         monkeypatch.setattr(worker, "_resolve_ticker_with_retry", lambda isin: "NEW.L")
 
         worker._resolve_ticker("IE000", "inst-1", conn)
@@ -192,13 +230,13 @@ class TestResolveTicker:
         conn.commit.assert_called()
 
     def test_returns_none_when_retry_returns_none(self, monkeypatch):
-        conn, _ = self._conn_with_external_ids({})
+        conn, _ = self._conn_with_row(ticker=None, external_ids={})
         monkeypatch.setattr(worker, "_resolve_ticker_with_retry", lambda isin: None)
 
         assert worker._resolve_ticker("IE000", "inst-1", conn) is None
 
     def test_returns_none_when_retry_raises(self, monkeypatch):
-        conn, _ = self._conn_with_external_ids({})
+        conn, _ = self._conn_with_row(ticker=None, external_ids={})
 
         def _raises(isin):
             raise Exception("network error")
@@ -206,6 +244,24 @@ class TestResolveTicker:
         monkeypatch.setattr(worker, "_resolve_ticker_with_retry", _raises)
 
         assert worker._resolve_ticker("IE000", "inst-1", conn) is None
+
+    # ── no identifier at all ──────────────────────────────────────────────────
+
+    def test_returns_none_when_isin_is_none_and_no_ticker(self, monkeypatch):
+        """Instrument with neither isin nor ticker → graceful None return."""
+        conn, _ = self._conn_with_row(ticker=None, external_ids={})
+        monkeypatch.setattr(worker, "_resolve_ticker_with_retry", lambda isin: "SHOULD_NOT_REACH")
+
+        result = worker._resolve_ticker(None, "inst-empty", conn)
+        assert result is None
+
+    def test_returns_none_when_ticker_is_empty_string_and_isin_is_none(self, monkeypatch):
+        """Empty-string ticker is falsy — treated the same as None."""
+        conn, _ = self._conn_with_row(ticker="", external_ids={})
+        monkeypatch.setattr(worker, "_resolve_ticker_with_retry", lambda isin: "SHOULD_NOT_REACH")
+
+        result = worker._resolve_ticker(None, "inst-empty", conn)
+        assert result is None
 
 
 # ---------------------------------------------------------------------------
