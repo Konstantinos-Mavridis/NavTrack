@@ -19,6 +19,7 @@ function instrument(id: string, name: string, isin: string): Instrument {
     id,
     name,
     isin,
+    ticker: null,
     assetClass: 'EQUITY',
     currency: 'EUR',
     createdAt: '2026-04-22T00:00:00.000Z',
@@ -60,7 +61,7 @@ describe('SyncAllButton', () => {
 
   it('runs incremental sync and updates per-instrument rows', async () => {
     const alpha = instrument('inst-1', 'Alpha Fund', 'ISIN-1');
-    const beta = instrument('inst-2', 'Beta Fund', 'ISIN-2');
+    const beta  = instrument('inst-2', 'Beta Fund',  'ISIN-2');
     const onComplete = vi.fn();
 
     fetchMock.mockImplementation((url: string) => {

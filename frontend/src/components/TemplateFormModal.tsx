@@ -135,7 +135,9 @@ export default function TemplateFormModal({ template, onSaved, onClose }: Props)
                   >
                     <option value="">Select fund...</option>
                     {instruments.map((i) => (
-                      <option key={i.id} value={i.id}>{i.name} ({i.isin.trim()})</option>
+                      <option key={i.id} value={i.id}>
+                        {i.name} ({i.isin?.trim() ?? i.ticker ?? '—'})
+                      </option>
                     ))}
                   </select>
                 </div>
