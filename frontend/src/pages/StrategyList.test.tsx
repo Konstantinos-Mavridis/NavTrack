@@ -21,6 +21,7 @@ const mockInstrument = {
   id: 'i1',
   name: 'Vanguard Global Equity',
   isin: 'IE00B3RBWM25',
+  ticker: null,
   assetClass: 'EQUITY',
   riskLevel: 4,
   currency: 'EUR',

@@ -14,7 +14,8 @@ CREATE TYPE asset_class AS ENUM (
   'BOND',
   'HIGH_YIELD',
   'FUND_OF_FUNDS',
-  'ABSOLUTE_RETURN'
+  'ABSOLUTE_RETURN',
+  'CRYPTO'
 );
 
 -- ─────────────────────────────────────────────
@@ -24,7 +25,8 @@ CREATE TYPE asset_class AS ENUM (
 CREATE TABLE instruments (
   id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   name           TEXT        NOT NULL,
-  isin           CHAR(12)    NOT NULL,
+  isin           CHAR(12),
+  ticker         TEXT,
   currency       CHAR(3)     NOT NULL DEFAULT 'EUR',
   asset_class    asset_class NOT NULL,
   risk_level     SMALLINT    NOT NULL CHECK (risk_level BETWEEN 1 AND 7),
@@ -32,7 +34,10 @@ CREATE TABLE instruments (
   external_ids   JSONB       NOT NULL DEFAULT '{}',
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT instruments_isin_unique UNIQUE (isin)
+  CONSTRAINT instruments_isin_unique UNIQUE (isin),
+  CONSTRAINT instruments_ticker_unique UNIQUE (ticker),
+  CONSTRAINT instruments_isin_or_ticker_required
+    CHECK (isin IS NOT NULL OR ticker IS NOT NULL)
 );
 
 CREATE TABLE portfolios (
@@ -115,6 +120,7 @@ CREATE TABLE sync_jobs (
 -- ─────────────────────────────────────────────
 
 CREATE INDEX idx_instruments_isin          ON instruments(isin);
+CREATE INDEX idx_instruments_ticker        ON instruments(ticker);
 CREATE INDEX idx_allocation_templates_code ON allocation_templates(code);
 CREATE INDEX idx_template_items_template   ON allocation_template_items(template_id);
 CREATE INDEX idx_template_items_instrument ON allocation_template_items(instrument_id);
@@ -297,6 +303,18 @@ INSERT INTO instruments (name, isin, asset_class, risk_level, data_sources) VALU
 	  'https://global.morningstar.com/en-eu/investments/funds/0P0000WUE8',
       'https://markets.ft.com/data/funds/tearsheet/summary?s=LU0730413092:EUR'
     ]
+  );
+
+-- Crypto seed: Bitcoin as a worked example of a ticker-only instrument
+INSERT INTO instruments (name, isin, ticker, currency, asset_class, risk_level, data_sources) VALUES
+  (
+    'Bitcoin',
+    NULL,
+    'BTC-USD',
+    'USD',
+    'CRYPTO',
+    7,
+    ARRAY['https://finance.yahoo.com/quote/BTC-USD']
   );
 
 -- ─────────────────────────────────────────────

@@ -12,6 +12,7 @@ export enum AssetClass {
   HIGH_YIELD      = 'HIGH_YIELD',
   FUND_OF_FUNDS   = 'FUND_OF_FUNDS',
   ABSOLUTE_RETURN = 'ABSOLUTE_RETURN',
+  CRYPTO          = 'CRYPTO',
 }
 
 @Entity('instruments')
@@ -22,8 +23,11 @@ export class Instrument {
   @Column({ type: 'text' })
   name: string;
 
-  @Column({ type: 'char', length: 12, unique: true })
-  isin: string;
+  @Column({ type: 'char', length: 12, unique: true, nullable: true })
+  isin: string | null;
+
+  @Column({ type: 'text', unique: true, nullable: true })
+  ticker: string | null;
 
   @Column({ type: 'char', length: 3, default: 'EUR' })
   currency: string;

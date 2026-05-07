@@ -80,10 +80,10 @@ def wait_for_db(retries: int = 30, delay: float = 3.0) -> None:
                     """
                 )
                 if cur.fetchone():
-                    log.info("Database is ready ✓")
+                    log.info("Database is ready \u2713")
                     return
             log.info(
-                "DB reachable but schema not ready yet (attempt %d/%d) – waiting %.0fs …",
+                "DB reachable but schema not ready yet (attempt %d/%d) \u2013 waiting %.0fs \u2026",
                 attempt, retries, delay,
             )
         except psycopg2.OperationalError as exc:
@@ -110,7 +110,7 @@ def check_seed() -> None:
             cur.execute("SELECT COUNT(*) FROM nav_prices")
             n_n = cur.fetchone()[0]
         if n_p == 0:
-            log.warning("No portfolios found – ensure init.sql ran on first boot.")
+            log.warning("No portfolios found \u2013 ensure init.sql ran on first boot.")
         else:
             log.info("Seed OK: %d portfolio(s), %d instrument(s), %d NAV price(s)", n_p, n_i, n_n)
     finally:
@@ -185,7 +185,7 @@ def run_valuation() -> None:
                 else Decimal("0")
             )
             log.info(
-                "  [%s]  priced=%d  value=€%s  cost=€%s  P&L=€%s (%s%%)",
+                "  [%s]  priced=%d  value=\u20ac%s  cost=\u20ac%s  P&L=\u20ac%s (%s%%)",
                 pname, priced, total_value, total_cost, pnl, pnl_pct,
             )
 
@@ -215,7 +215,7 @@ def _resolve_ticker_with_retry(isin: str) -> str | None:
     for attempt, backoff in enumerate([0] + _RATE_LIMIT_BACKOFFS, start=1):
         if backoff:
             log.warning(
-                "  Rate-limited by Yahoo Finance – waiting %ds before retry %d/%d …",
+                "  Rate-limited by Yahoo Finance \u2013 waiting %ds before retry %d/%d \u2026",
                 backoff, attempt, 1 + len(_RATE_LIMIT_BACKOFFS),
             )
             time.sleep(backoff)
@@ -246,23 +246,50 @@ def _resolve_ticker_with_retry(isin: str) -> str | None:
     raise last_exc
 
 
-def _resolve_ticker(isin: str, instrument_id: str, conn) -> str | None:
-    """Return cached Yahoo ticker or resolve + cache it."""
+def _resolve_ticker(isin: str | None, instrument_id: str, conn) -> str | None:
+    """Return a Yahoo Finance ticker for this instrument.
+
+    Resolution order:
+    1. ``ticker`` column (set directly for crypto/pre-configured instruments).
+       No ISIN search is performed in this case.
+    2. ``external_ids.yahoo_ticker`` cache (avoids repeated Yahoo searches).
+    3. Live yf.Search by ISIN (ISIN-based instruments only).
+    """
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
-                "SELECT external_ids FROM instruments WHERE id = %s",
+                "SELECT external_ids, ticker FROM instruments WHERE id = %s",
                 (instrument_id,),
             )
             row = cur.fetchone()
 
-        external_ids  = (row["external_ids"] or {}) if row else {}
+        if not row:
+            return None
+
+        # 1. Explicit ticker column — crypto and pre-configured instruments
+        if row["ticker"]:
+            log.info(
+                "  Using explicit ticker %s (no ISIN resolution needed)",
+                row["ticker"],
+            )
+            return row["ticker"]
+
+        # 2. Cached Yahoo ticker from a previous resolution run
+        external_ids  = row["external_ids"] or {}
         cached_ticker = external_ids.get("yahoo_ticker")
         if cached_ticker:
             log.info("  Using cached ticker %s for ISIN %s", cached_ticker, isin)
             return cached_ticker
 
-        log.info("  Resolving Yahoo ticker for ISIN %s …", isin)
+        # 3. Live resolution via yf.Search (ISIN required)
+        if not isin:
+            log.warning(
+                "  Instrument %s has no ISIN and no ticker column set \u2013 skipping",
+                instrument_id,
+            )
+            return None
+
+        log.info("  Resolving Yahoo ticker for ISIN %s \u2026", isin)
         try:
             ticker = _resolve_ticker_with_retry(isin)
         except Exception as exc:
@@ -272,7 +299,7 @@ def _resolve_ticker(isin: str, instrument_id: str, conn) -> str | None:
         if ticker is None:
             return None
 
-        log.info("  Resolved %s → %s", isin, ticker)
+        log.info("  Resolved %s \u2192 %s", isin, ticker)
 
         with conn.cursor() as cur:
             cur.execute(
@@ -288,7 +315,7 @@ def _resolve_ticker(isin: str, instrument_id: str, conn) -> str | None:
         return ticker
     except Exception as exc:
         conn.rollback()
-        log.error("  Database error caching ticker for %s: %s", isin, exc)
+        log.error("  Database error resolving ticker for instrument %s: %s", instrument_id, exc)
         raise
 
 
@@ -315,25 +342,30 @@ def _fetch_and_upsert(ticker: str, instrument_id: str, from_date: str, conn) -> 
         log.info("  Already up-to-date")
         return 0, 0
 
-    # yfinance .history(end=X) is EXCLUSIVE — the candle for date X is NOT
-    # included. Passing end=today would mean today's NAV is never fetched.
-    # We use tomorrow's date as the exclusive upper bound so today's candle
-    # always falls within the requested window.
-    end_date = (date.today() + timedelta(days=1)).isoformat()
-
     try:
-        ticker_obj = yf.Ticker(ticker)
-        # auto_adjust=False: return raw unadjusted close prices.
-        # We store the official published NAV, not split/dividend-adjusted prices.
-        # In yfinance 1.2.0 the returned DataFrame is consolidated (read-only
-        # copy); we access columns directly by name rather than via .get() on
-        # row objects to avoid any read-only or KeyError issues.
-        hist = ticker_obj.history(start=from_date, end=end_date, interval="1d", auto_adjust=False)
+        # yfinance .history(end=X) is EXCLUSIVE — the candle for date X is NOT
+        # included.  Passing end=today would silently drop today's price.
+        # We use tomorrow as the exclusive upper bound so today's candle always
+        # falls within the requested window.
+        end_date = (date.today() + timedelta(days=1)).isoformat()
 
-        if hist.empty:
+        hist = yf.Ticker(ticker).history(
+            start=from_date,
+            end=end_date,
+            interval="1d",
+            # auto_adjust=False: return raw unadjusted close prices.
+            # We store the official published NAV/price, not split- or
+            # dividend-adjusted values, which would distort historical
+            # cost-basis calculations.
+            auto_adjust=False,
+            actions=False,
+        )
+
+        if hist is None or hist.empty:
             log.warning(
-                "  No data returned from Yahoo Finance for %s (1d %s → %s);"
-                " NAV may not be published yet for this period",
+                "  No data returned from Yahoo Finance for %s (%s \u2192 %s) \u2013 "
+                "possibly delisted, no trading on these dates, "
+                "or NAV may not be published yet for this period",
                 ticker, from_date, today_str,
             )
             return 0, 0
@@ -404,17 +436,19 @@ def run_nav_sync(triggered_by: str = "SCHEDULER", from_date: str | None = None) 
     conn = get_conn()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute("SELECT id, isin, name FROM instruments ORDER BY name")
+            cur.execute("SELECT id, isin, ticker, name FROM instruments ORDER BY name")
             instruments = cur.fetchall()
 
         total_fetched = total_upserted = errors = 0
 
         for idx, inst in enumerate(instruments):
-            isin          = inst["isin"].strip()
+            raw_isin      = inst["isin"]
+            isin          = raw_isin.strip() if raw_isin else None
             instrument_id = str(inst["id"])
             name          = inst["name"]
+            display_id    = isin or inst.get("ticker") or instrument_id
 
-            log.info("[%d/%d] %s (%s)", idx + 1, len(instruments), name, isin)
+            log.info("[%d/%d] %s (%s)", idx + 1, len(instruments), display_id, name)
 
             job_status = "SUCCESS"
             fetched = upserted = 0
@@ -426,7 +460,7 @@ def run_nav_sync(triggered_by: str = "SCHEDULER", from_date: str | None = None) 
                     raise ValueError("Could not resolve Yahoo Finance ticker")
 
                 start = from_date or _smart_from_date(instrument_id, conn)
-                log.info("  Fetching %s → today via %s", start, ticker)
+                log.info("  Fetching %s \u2192 today via %s", start, ticker)
 
                 fetched, upserted = _fetch_and_upsert(ticker, instrument_id, start, conn)
                 log.info("  fetched=%d  upserted=%d", fetched, upserted)
@@ -467,21 +501,19 @@ def main() -> None:
     run_valuation()
 
     if SYNC_ON_STARTUP:
-        log.info("SYNC_ON_STARTUP=true (default) – running incremental NAV sync …")
+        log.info("SYNC_ON_STARTUP=true (default) \u2013 running incremental NAV sync \u2026")
         log.info("(This may take several minutes due to Yahoo Finance rate limits.)")
         run_nav_sync(triggered_by="WORKER_STARTUP")
     else:
         log.info(
-            "SYNC_ON_STARTUP=false – skipping startup sync.\n"
+            "SYNC_ON_STARTUP=false \u2013 skipping startup sync.\n"
             "  Use the 'Sync' button in the app, or POST /api/sync/all,\n"
             "  or remove SYNC_ON_STARTUP=false to restore the default startup sync."
         )
 
     scheduler = BlockingScheduler(timezone="Europe/Athens")
 
-    # First NAV sync: 16:05 Athens (Mon–Fri).
-    # Greek mutual fund NAVs are typically published by fund administrators
-    # around 13:00–15:00 Athens. This run catches funds that publish early.
+    # First NAV sync: 16:05 Athens (Mon\u2013Fri).
     scheduler.add_job(
         lambda: run_nav_sync(triggered_by="SCHEDULER_AFTERNOON"),
         trigger="cron",
@@ -492,12 +524,7 @@ def main() -> None:
         coalesce=True,
     )
 
-    # Second NAV sync: 22:05 Athens (Mon–Fri).
-    # Yahoo Finance ingests Greek mutual fund NAVs via a delayed batch process
-    # that typically completes around end-of-day UTC (22:00–00:00 Athens).
-    # The 16:05 sync often runs before Yahoo has today's candle available.
-    # This late-evening run acts as a safety net, ensuring today's prices are
-    # in the DB well before midnight.
+    # Second NAV sync: 22:05 Athens (Mon\u2013Fri).
     scheduler.add_job(
         lambda: run_nav_sync(triggered_by="SCHEDULER_EVENING"),
         trigger="cron",
@@ -509,7 +536,6 @@ def main() -> None:
     )
 
     # Daily valuation: 23:05 Athens (every day).
-    # Runs after both NAV syncs have had a chance to complete.
     scheduler.add_job(
         run_valuation,
         trigger="cron",
@@ -521,9 +547,9 @@ def main() -> None:
 
     log.info(
         "Scheduler running:\n"
-        "  – Afternoon NAV sync  Mon–Fri 16:05 Europe/Athens\n"
-        "  – Evening NAV sync    Mon–Fri 22:05 Europe/Athens\n"
-        "  – Daily valuation     every day 23:05 Europe/Athens"
+        "  \u2013 Afternoon NAV sync  Mon\u2013Fri 16:05 Europe/Athens\n"
+        "  \u2013 Evening NAV sync    Mon\u2013Fri 22:05 Europe/Athens\n"
+        "  \u2013 Daily valuation     every day 23:05 Europe/Athens"
     )
 
     try:

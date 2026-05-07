@@ -146,7 +146,7 @@ export default function TemplatesPage() {
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="table-th">Fund</th>
-                        <th className="table-th">ISIN</th>
+                        <th className="table-th">ISIN / Ticker</th>
                         <th className="table-th">Class</th>
                         <th className="table-th">Weight</th>
                       </tr>
@@ -161,7 +161,9 @@ export default function TemplatesPage() {
                               {item.instrument?.name ?? item.instrumentId}
                             </td>
                             <td className="table-td font-mono text-xs text-gray-500">
-                              {item.instrument?.isin.trim() ?? '—'}
+                              {item.instrument
+                                ? (item.instrument.isin?.trim() ?? item.instrument.ticker ?? '—')
+                                : '—'}
                             </td>
                             <td className="table-td">
                               {item.instrument ? <AssetClassChip ac={item.instrument.assetClass} /> : '—'}

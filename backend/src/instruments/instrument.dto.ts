@@ -1,13 +1,31 @@
-import { IsString, IsEnum, IsInt, Min, Max, IsArray, IsOptional, Length } from 'class-validator';
+import {
+  IsString, IsEnum, IsInt, Min, Max,
+  IsArray, IsOptional, Length, ValidateIf,
+} from 'class-validator';
 import { AssetClass } from './instrument.entity';
 
 export class CreateInstrumentDto {
   @IsString()
   name: string;
 
+  /**
+   * ISIN (required for non-crypto instruments).
+   * Must be exactly 12 characters when provided.
+   * Either isin or ticker must be present.
+   */
+  @ValidateIf((o) => !o.ticker)
   @IsString()
   @Length(12, 12, { message: 'ISIN must be exactly 12 characters' })
-  isin: string;
+  isin?: string;
+
+  /**
+   * Direct Yahoo Finance ticker symbol (e.g. "BTC-USD", "ETH-USD").
+   * Required for CRYPTO instruments instead of an ISIN.
+   * Either isin or ticker must be present.
+   */
+  @ValidateIf((o) => !o.isin)
+  @IsString()
+  ticker?: string;
 
   @IsOptional()
   @IsString()
@@ -32,6 +50,25 @@ export class UpdateInstrumentDto {
   @IsOptional()
   @IsString()
   name?: string;
+
+  /**
+   * Update the ISIN. Pass null to clear it (only valid when a ticker is
+   * also present on the instrument so the identifier constraint is satisfied).
+   */
+  @IsOptional()
+  @ValidateIf((o) => o.isin !== null && o.isin !== undefined)
+  @IsString()
+  @Length(12, 12, { message: 'ISIN must be exactly 12 characters' })
+  isin?: string | null;
+
+  /**
+   * Update the direct Yahoo Finance ticker (e.g. "BTC-USD").
+   * Pass null to clear it (only valid when an ISIN is also present).
+   */
+  @IsOptional()
+  @ValidateIf((o) => o.ticker !== null && o.ticker !== undefined)
+  @IsString()
+  ticker?: string | null;
 
   @IsOptional()
   @IsEnum(AssetClass)
