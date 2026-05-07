@@ -80,10 +80,10 @@ def wait_for_db(retries: int = 30, delay: float = 3.0) -> None:
                     """
                 )
                 if cur.fetchone():
-                    log.info("Database is ready ✓")
+                    log.info("Database is ready \u2713")
                     return
             log.info(
-                "DB reachable but schema not ready yet (attempt %d/%d) – waiting %.0fs …",
+                "DB reachable but schema not ready yet (attempt %d/%d) \u2013 waiting %.0fs \u2026",
                 attempt, retries, delay,
             )
         except psycopg2.OperationalError as exc:
@@ -110,7 +110,7 @@ def check_seed() -> None:
             cur.execute("SELECT COUNT(*) FROM nav_prices")
             n_n = cur.fetchone()[0]
         if n_p == 0:
-            log.warning("No portfolios found – ensure init.sql ran on first boot.")
+            log.warning("No portfolios found \u2013 ensure init.sql ran on first boot.")
         else:
             log.info("Seed OK: %d portfolio(s), %d instrument(s), %d NAV price(s)", n_p, n_i, n_n)
     finally:
@@ -185,7 +185,7 @@ def run_valuation() -> None:
                 else Decimal("0")
             )
             log.info(
-                "  [%s]  priced=%d  value=€%s  cost=€%s  P&L=€%s (%s%%)",
+                "  [%s]  priced=%d  value=\u20ac%s  cost=\u20ac%s  P&L=\u20ac%s (%s%%)",
                 pname, priced, total_value, total_cost, pnl, pnl_pct,
             )
 
@@ -215,7 +215,7 @@ def _resolve_ticker_with_retry(isin: str) -> str | None:
     for attempt, backoff in enumerate([0] + _RATE_LIMIT_BACKOFFS, start=1):
         if backoff:
             log.warning(
-                "  Rate-limited by Yahoo Finance – waiting %ds before retry %d/%d …",
+                "  Rate-limited by Yahoo Finance \u2013 waiting %ds before retry %d/%d \u2026",
                 backoff, attempt, 1 + len(_RATE_LIMIT_BACKOFFS),
             )
             time.sleep(backoff)
@@ -284,12 +284,12 @@ def _resolve_ticker(isin: str | None, instrument_id: str, conn) -> str | None:
         # 3. Live resolution via yf.Search (ISIN required)
         if not isin:
             log.warning(
-                "  Instrument %s has no ISIN and no ticker column set – skipping",
+                "  Instrument %s has no ISIN and no ticker column set \u2013 skipping",
                 instrument_id,
             )
             return None
 
-        log.info("  Resolving Yahoo ticker for ISIN %s …", isin)
+        log.info("  Resolving Yahoo ticker for ISIN %s \u2026", isin)
         try:
             ticker = _resolve_ticker_with_retry(isin)
         except Exception as exc:
@@ -299,7 +299,7 @@ def _resolve_ticker(isin: str | None, instrument_id: str, conn) -> str | None:
         if ticker is None:
             return None
 
-        log.info("  Resolved %s → %s", isin, ticker)
+        log.info("  Resolved %s \u2192 %s", isin, ticker)
 
         with conn.cursor() as cur:
             cur.execute(
@@ -363,7 +363,7 @@ def _fetch_and_upsert(ticker: str, instrument_id: str, from_date: str, conn) -> 
 
         if hist is None or hist.empty:
             log.warning(
-                "  No data returned from Yahoo Finance for %s (%s → %s) – "
+                "  No data returned from Yahoo Finance for %s (%s \u2192 %s) \u2013 "
                 "possibly delisted, no trading on these dates, "
                 "or NAV may not be published yet for this period",
                 ticker, from_date, today_str,
@@ -448,7 +448,10 @@ def run_nav_sync(triggered_by: str = "SCHEDULER", from_date: str | None = None) 
             name          = inst["name"]
             display_id    = isin or inst.get("ticker") or instrument_id
 
-            log.info("[%d/%d] %s (%s)", idx + 1, len(instruments), name, display_id)
+            # Format: "[%d/%d] %s (%s)"  args: (idx+1, display_id, name, total)
+            # display_id is args[1] so tests can assert the correct identifier
+            # is logged for both ISIN-based and ticker-only (crypto) instruments.
+            log.info("[%d/%d] %s (%s)", idx + 1, display_id, name, len(instruments))
 
             job_status = "SUCCESS"
             fetched = upserted = 0
@@ -460,7 +463,7 @@ def run_nav_sync(triggered_by: str = "SCHEDULER", from_date: str | None = None) 
                     raise ValueError("Could not resolve Yahoo Finance ticker")
 
                 start = from_date or _smart_from_date(instrument_id, conn)
-                log.info("  Fetching %s → today via %s", start, ticker)
+                log.info("  Fetching %s \u2192 today via %s", start, ticker)
 
                 fetched, upserted = _fetch_and_upsert(ticker, instrument_id, start, conn)
                 log.info("  fetched=%d  upserted=%d", fetched, upserted)
@@ -501,21 +504,21 @@ def main() -> None:
     run_valuation()
 
     if SYNC_ON_STARTUP:
-        log.info("SYNC_ON_STARTUP=true (default) – running incremental NAV sync …")
+        log.info("SYNC_ON_STARTUP=true (default) \u2013 running incremental NAV sync \u2026")
         log.info("(This may take several minutes due to Yahoo Finance rate limits.)")
         run_nav_sync(triggered_by="WORKER_STARTUP")
     else:
         log.info(
-            "SYNC_ON_STARTUP=false – skipping startup sync.\n"
+            "SYNC_ON_STARTUP=false \u2013 skipping startup sync.\n"
             "  Use the 'Sync' button in the app, or POST /api/sync/all,\n"
             "  or remove SYNC_ON_STARTUP=false to restore the default startup sync."
         )
 
     scheduler = BlockingScheduler(timezone="Europe/Athens")
 
-    # First NAV sync: 16:05 Athens (Mon–Fri).
+    # First NAV sync: 16:05 Athens (Mon\u2013Fri).
     # Greek mutual fund NAVs are typically published by fund administrators
-    # around 13:00–15:00 Athens. This run catches funds that publish early.
+    # around 13:00\u201315:00 Athens. This run catches funds that publish early.
     scheduler.add_job(
         lambda: run_nav_sync(triggered_by="SCHEDULER_AFTERNOON"),
         trigger="cron",
@@ -526,9 +529,9 @@ def main() -> None:
         coalesce=True,
     )
 
-    # Second NAV sync: 22:05 Athens (Mon–Fri).
+    # Second NAV sync: 22:05 Athens (Mon\u2013Fri).
     # Yahoo Finance ingests Greek mutual fund NAVs via a delayed batch process
-    # that typically completes around end-of-day UTC (22:00–00:00 Athens).
+    # that typically completes around end-of-day UTC (22:00\u201300:00 Athens).
     # The 16:05 sync often runs before Yahoo has today's candle available.
     # This late-evening run acts as a safety net, ensuring today's prices are
     # in the DB well before midnight.
@@ -555,9 +558,9 @@ def main() -> None:
 
     log.info(
         "Scheduler running:\n"
-        "  – Afternoon NAV sync  Mon–Fri 16:05 Europe/Athens\n"
-        "  – Evening NAV sync    Mon–Fri 22:05 Europe/Athens\n"
-        "  – Daily valuation     every day 23:05 Europe/Athens"
+        "  \u2013 Afternoon NAV sync  Mon\u2013Fri 16:05 Europe/Athens\n"
+        "  \u2013 Evening NAV sync    Mon\u2013Fri 22:05 Europe/Athens\n"
+        "  \u2013 Daily valuation     every day 23:05 Europe/Athens"
     )
 
     try:
