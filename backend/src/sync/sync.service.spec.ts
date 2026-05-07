@@ -16,7 +16,7 @@ import { SyncJob, SyncStatus } from './sync-job.entity';
 import { YahooFinanceService } from './yahoo-finance.service';
 import { Instrument } from '../instruments/instrument.entity';
 import { AssetClass } from '../instruments/instrument.entity';
-import { NavPrice, NavSource } from '../nav-prices/nav-price.entity';
+import { NavPrice } from '../nav-prices/nav-price.entity';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
