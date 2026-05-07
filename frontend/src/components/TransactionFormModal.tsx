@@ -153,9 +153,12 @@ function NavTooltip({ variant = 'idle', children }: NavTooltipProps) {
   );
 }
 
-/** Returns the secondary identifier to show next to an instrument name in the dropdown. */
+/**
+ * Returns the secondary identifier to show next to an instrument name in the dropdown.
+ * Safely handles null isin/ticker (both can be null for existing instruments).
+ */
 function instrumentLabel(i: Instrument): string {
-  const id = i.isin?.trim() || i.ticker?.trim();
+  const id = (i.isin ?? '') .trim() || (i.ticker ?? '').trim();
   return id ? ` (${id})` : '';
 }
 
