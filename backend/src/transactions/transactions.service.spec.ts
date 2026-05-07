@@ -162,6 +162,84 @@ describe('TransactionsService', () => {
         } as any),
       ).resolves.toEqual(saved);
     });
+
+    // ── crypto transaction paths ─────────────────────────────────────────────
+
+    it('creates a BUY transaction for a crypto instrument (no isin on instrument)', async () => {
+      // Crypto instruments have no ISIN; the transaction references the
+      // instrument by its UUID — the service never touches ISIN directly.
+      const saved = makeTxn({
+        id: 'txn-crypto-1',
+        instrumentId: 'inst-btc',
+        type: TransactionType.BUY,
+        units: 0.5,
+        pricePerUnit: 60000,
+      });
+      txnRepo.save.mockResolvedValue(saved);
+      txnRepo.findOneOrFail.mockResolvedValue(saved);
+
+      const result = await service.create('port-1', {
+        instrumentId: 'inst-btc',
+        type: TransactionType.BUY,
+        tradeDate: '2026-01-10',
+        units: 0.5,
+        pricePerUnit: 60000,
+      } as any);
+
+      expect(txnRepo.save).toHaveBeenCalledTimes(1);
+      expect(portfolios.recalculateFromTransactions).toHaveBeenCalledWith('port-1');
+      expect(result.instrumentId).toBe('inst-btc');
+      expect(result.units).toBe(0.5);
+      expect(result.pricePerUnit).toBe(60000);
+    });
+
+    it('creates a SELL transaction for a crypto instrument', async () => {
+      const saved = makeTxn({
+        id: 'txn-crypto-sell',
+        instrumentId: 'inst-eth',
+        type: TransactionType.SELL,
+        units: 1,
+        pricePerUnit: 3000,
+      });
+      txnRepo.save.mockResolvedValue(saved);
+      txnRepo.findOneOrFail.mockResolvedValue(saved);
+
+      const result = await service.create('port-1', {
+        instrumentId: 'inst-eth',
+        type: TransactionType.SELL,
+        tradeDate: '2026-03-15',
+        units: 1,
+        pricePerUnit: 3000,
+      } as any);
+
+      expect(result.type).toBe(TransactionType.SELL);
+      expect(result.instrumentId).toBe('inst-eth');
+    });
+
+    it('rejects a crypto BUY with fractional units <= 0', async () => {
+      // Crypto allows fractional units but still must be > 0
+      await expect(
+        service.create('port-1', {
+          instrumentId: 'inst-btc',
+          type: TransactionType.BUY,
+          tradeDate: '2026-01-10',
+          units: 0,
+          pricePerUnit: 60000,
+        } as any),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects a crypto SELL with negative units', async () => {
+      await expect(
+        service.create('port-1', {
+          instrumentId: 'inst-btc',
+          type: TransactionType.SELL,
+          tradeDate: '2026-01-10',
+          units: -0.1,
+          pricePerUnit: 60000,
+        } as any),
+      ).rejects.toThrow(BadRequestException);
+    });
   });
 
   // ── update ──────────────────────────────────────────────────────────────────
@@ -199,6 +277,24 @@ describe('TransactionsService', () => {
         service.update('port-1', 'txn-1', { units: 0 }),
       ).rejects.toThrow(BadRequestException);
     });
+
+    it('updates pricePerUnit on a crypto BUY transaction', async () => {
+      // Verifies crypto transactions are treated identically to fund transactions
+      // on update — no special-casing needed.
+      const existing = makeTxn({
+        instrumentId: 'inst-btc',
+        type: TransactionType.BUY,
+        units: 0.5,
+        pricePerUnit: 60000,
+      });
+      txnRepo.findOne.mockResolvedValue(existing);
+      txnRepo.save.mockResolvedValue({ ...existing, pricePerUnit: 62000 });
+      txnRepo.findOneOrFail.mockResolvedValue({ ...existing, pricePerUnit: 62000 });
+
+      const result = await service.update('port-1', 'txn-1', { pricePerUnit: 62000 });
+      expect(result.pricePerUnit).toBe(62000);
+      expect(portfolios.recalculateFromTransactions).toHaveBeenCalledWith('port-1');
+    });
   });
 
   // ── remove ──────────────────────────────────────────────────────────────────
@@ -217,6 +313,16 @@ describe('TransactionsService', () => {
     it('throws NotFoundException for unknown transaction', async () => {
       txnRepo.findOne.mockResolvedValue(null);
       await expect(service.remove('port-1', 'ghost')).rejects.toThrow(NotFoundException);
+    });
+
+    it('removes a crypto transaction and triggers recalculation', async () => {
+      const txn = makeTxn({ instrumentId: 'inst-btc', units: 0.5, pricePerUnit: 60000 });
+      txnRepo.findOne.mockResolvedValue(txn);
+      txnRepo.remove.mockResolvedValue(txn);
+
+      await expect(service.remove('port-1', 'txn-1')).resolves.toBeUndefined();
+      expect(txnRepo.remove).toHaveBeenCalledWith(txn);
+      expect(portfolios.recalculateFromTransactions).toHaveBeenCalledWith('port-1');
     });
   });
 
@@ -277,7 +383,6 @@ describe('TransactionsService', () => {
           { instrumentId: 'inst-1', weight: '1', instrument: { name: 'Fund A' } },
         ],
       });
-      // nav is typed as number on the NavPrice entity
       navPrices.navOnDate.mockResolvedValue({ nav: 20, date: '2024-06-01' } as any);
 
       txnRepo.manager.transaction.mockImplementation(async (cb: any) =>
@@ -296,6 +401,57 @@ describe('TransactionsService', () => {
       expect(result.templateCode).toBe('T1');
       expect(result.created).toBe(1);
       expect(result.transactions).toEqual(createdTxns);
+      expect(portfolios.recalculateFromTransactions).toHaveBeenCalledWith('port-1');
+    });
+
+    it('throws BadRequestException when no price NAV is found for a crypto instrument', async () => {
+      // Crypto instruments use price-per-unit from Yahoo Finance just like
+      // fund NAVs — applyTemplateBuy treats them identically.
+      templateRepo.findOne.mockResolvedValue({
+        id: 'tmpl-1',
+        code: 'T1',
+        items: [
+          { instrumentId: 'inst-btc', weight: '1', instrument: { name: 'Bitcoin' } },
+        ],
+      });
+      navPrices.navOnDate.mockResolvedValue(null);
+      await expect(service.applyTemplateBuy('port-1', dto as any)).rejects.toThrow(BadRequestException);
+    });
+
+    it('creates a template BUY for a crypto instrument when price is available', async () => {
+      const cryptoTxn = makeTxn({
+        id: 'txn-new-0',
+        instrumentId: 'inst-btc',
+        units: 0.01,
+        pricePerUnit: 60000,
+      });
+      templateRepo.findOne.mockResolvedValue({
+        id: 'tmpl-1',
+        code: 'T1',
+        items: [
+          { instrumentId: 'inst-btc', weight: '1', instrument: { name: 'Bitcoin' } },
+        ],
+      });
+      navPrices.navOnDate.mockResolvedValue({ nav: 60000, date: '2026-01-10' } as any);
+
+      txnRepo.manager.transaction.mockImplementation(async (cb: any) =>
+        cb({
+          save: jest.fn(async (_cls: any, vals: any[]) =>
+            vals.map((v, i) => ({ ...v, id: `txn-new-${i}` }))
+          ),
+          create: jest.fn((_cls: any, vals: any) => vals),
+          find: jest.fn(async () => [cryptoTxn]),
+        })
+      );
+
+      const result = await service.applyTemplateBuy('port-1', {
+        templateId: 'tmpl-1',
+        totalAmount: 600,
+        tradeDate: '2026-01-10',
+      } as any);
+
+      expect(result.created).toBe(1);
+      expect(result.transactions[0].instrumentId).toBe('inst-btc');
       expect(portfolios.recalculateFromTransactions).toHaveBeenCalledWith('port-1');
     });
   });

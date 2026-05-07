@@ -246,9 +246,6 @@ class TestNavSync:
 
         monkeypatch.setattr(worker, "get_conn", lambda: conn)
         monkeypatch.setattr(worker.time, "sleep", lambda *_: None)
-        # For crypto, _resolve_ticker receives isin=None but returns the ticker
-        # from the ticker column (fast-path inside the real implementation).
-        # We simulate that here by returning "BTC-USD" regardless.
         monkeypatch.setattr(worker, "_resolve_ticker", lambda isin, _iid, _conn: "BTC-USD")
         monkeypatch.setattr(worker, "_smart_from_date", lambda *_: "2026-04-01")
         monkeypatch.setattr(
@@ -288,7 +285,7 @@ class TestNavSync:
         def fake_resolve(isin, iid, _conn):
             if iid == "inst-fund":
                 return "GRK.AT"
-            return "ETH-USD"   # crypto: ticker column provides this in real code
+            return "ETH-USD"
 
         monkeypatch.setattr(worker, "get_conn", lambda: conn)
         monkeypatch.setattr(worker.time, "sleep", lambda *_: None)
@@ -313,11 +310,14 @@ class TestNavSync:
         assert fetch_calls[0] == ("GRK.AT",  "inst-fund", "2026-04-01")
         assert fetch_calls[1] == ("ETH-USD",  "inst-eth",  "2026-04-01")
         assert statuses == [("inst-fund", "SUCCESS"), ("inst-eth", "SUCCESS")]
-        # display_id for the crypto instrument must use the ticker, not isin
+
+        # Progress log format: "[%d/%d] %s (%s)" → (idx+1, len, display_id, name)
+        # display_id is args[2] (0-based) — ISIN for fund, ticker for crypto.
         log_display_ids = [
-            args[1] for msg, args in log_calls if msg.startswith("[%d/%d]")
+            args[2] for msg, args in log_calls if msg.startswith("[%d/%d]")
         ]
-        assert "ETH-USD" in log_display_ids
+        assert "IE0001234567" in log_display_ids   # ISIN-based fund
+        assert "ETH-USD" in log_display_ids         # ticker-only crypto
         conn.close.assert_called_once()
 
 
@@ -348,9 +348,6 @@ class TestRollbackPaths:
         conn.rollback.assert_called_once()
 
     def test_resolve_ticker_rolls_back_on_db_error(self, monkeypatch):
-        # Row must include the ticker key (added in the crypto PR);
-        # missing it causes KeyError before reaching the UPDATE path,
-        # making the rollback assertion fire for the wrong reason.
         read_cur = _ctx_cursor(fetchone={"external_ids": {}, "ticker": None})
         write_cur = _ctx_cursor(execute_side_effect=RuntimeError("update failed"))
         conn = MagicMock()
