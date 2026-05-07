@@ -164,8 +164,8 @@ class TestValuationJob:
 class TestNavSync:
     def test_run_nav_sync_mixed_success_and_failure_records_statuses(self, monkeypatch):
         instruments = [
-            {"id": "inst-1", "isin": " ISIN-1 ", "name": "Fund A"},
-            {"id": "inst-2", "isin": "ISIN-2", "name": "Fund B"},
+            {"id": "inst-1", "isin": " ISIN-1 ", "ticker": None, "name": "Fund A"},
+            {"id": "inst-2", "isin": "ISIN-2",  "ticker": None, "name": "Fund B"},
         ]
         cur = _ctx_cursor(fetchall=instruments)
         conn = MagicMock()
@@ -203,7 +203,7 @@ class TestNavSync:
         conn.close.assert_called_once()
 
     def test_run_nav_sync_uses_explicit_from_date(self, monkeypatch):
-        instruments = [{"id": "inst-1", "isin": "ISIN-1", "name": "Fund A"}]
+        instruments = [{"id": "inst-1", "isin": "ISIN-1", "ticker": None, "name": "Fund A"}]
         cur = _ctx_cursor(fetchall=instruments)
         conn = MagicMock()
         conn.cursor.return_value = cur
@@ -227,6 +227,97 @@ class TestNavSync:
         worker.run_nav_sync(triggered_by="API", from_date="2026-02-01")
 
         assert fetch_args == [("AAA.AT", "inst-1", "2026-02-01")]
+        conn.close.assert_called_once()
+
+    def test_run_nav_sync_crypto_instrument_uses_ticker_column(self, monkeypatch):
+        """A crypto instrument (isin=None, ticker='BTC-USD') must be synced via
+        its ticker column.  _resolve_ticker is expected to return the ticker
+        directly (fast-path), and a SUCCESS record must be written."""
+        instruments = [
+            {"id": "inst-btc", "isin": None, "ticker": "BTC-USD", "name": "Bitcoin"},
+        ]
+        cur = _ctx_cursor(fetchall=instruments)
+        conn = MagicMock()
+        conn.cursor.return_value = cur
+        conn.close = MagicMock()
+
+        statuses = []
+        fetch_calls = []
+
+        monkeypatch.setattr(worker, "get_conn", lambda: conn)
+        monkeypatch.setattr(worker.time, "sleep", lambda *_: None)
+        # For crypto, _resolve_ticker receives isin=None but returns the ticker
+        # from the ticker column (fast-path inside the real implementation).
+        # We simulate that here by returning "BTC-USD" regardless.
+        monkeypatch.setattr(worker, "_resolve_ticker", lambda isin, _iid, _conn: "BTC-USD")
+        monkeypatch.setattr(worker, "_smart_from_date", lambda *_: "2026-04-01")
+        monkeypatch.setattr(
+            worker, "_fetch_and_upsert",
+            lambda t, iid, start, _conn: (fetch_calls.append((t, iid, start)) or (5, 5)),
+        )
+        monkeypatch.setattr(
+            worker, "_record_sync_job",
+            lambda _conn, iid, status, fetched, upserted, err, trig: statuses.append(
+                (iid, status, fetched, upserted, err, trig)
+            ),
+        )
+
+        worker.run_nav_sync(triggered_by="MANUAL")
+
+        assert fetch_calls == [("BTC-USD", "inst-btc", "2026-04-01")]
+        assert statuses[0] == ("inst-btc", "SUCCESS", 5, 5, None, "MANUAL")
+        conn.close.assert_called_once()
+
+    def test_run_nav_sync_mixed_isin_and_crypto(self, monkeypatch):
+        """A batch with one ISIN-based fund and one crypto instrument should
+        process both correctly.  The crypto instrument's display_id in the log
+        comes from its ticker column, not from isin (which is None)."""
+        instruments = [
+            {"id": "inst-fund", "isin": "IE0001234567", "ticker": None,      "name": "Greek Fund"},
+            {"id": "inst-eth",  "isin": None,           "ticker": "ETH-USD",  "name": "Ethereum"},
+        ]
+        cur = _ctx_cursor(fetchall=instruments)
+        conn = MagicMock()
+        conn.cursor.return_value = cur
+        conn.close = MagicMock()
+
+        statuses = []
+        fetch_calls = []
+        log_calls = []
+
+        def fake_resolve(isin, iid, _conn):
+            if iid == "inst-fund":
+                return "GRK.AT"
+            return "ETH-USD"   # crypto: ticker column provides this in real code
+
+        monkeypatch.setattr(worker, "get_conn", lambda: conn)
+        monkeypatch.setattr(worker.time, "sleep", lambda *_: None)
+        monkeypatch.setattr(worker, "_resolve_ticker", fake_resolve)
+        monkeypatch.setattr(worker, "_smart_from_date", lambda *_: "2026-04-01")
+        monkeypatch.setattr(
+            worker, "_fetch_and_upsert",
+            lambda t, iid, start, _conn: (fetch_calls.append((t, iid, start)) or (10, 10)),
+        )
+        monkeypatch.setattr(
+            worker, "_record_sync_job",
+            lambda _conn, iid, status, fetched, upserted, err, trig: statuses.append(
+                (iid, status)
+            ),
+        )
+        monkeypatch.setattr(worker.log, "info", lambda msg, *args: log_calls.append((msg, args)))
+        monkeypatch.setattr(worker.log, "error", MagicMock())
+
+        worker.run_nav_sync(triggered_by="SCHEDULER")
+
+        assert len(fetch_calls) == 2
+        assert fetch_calls[0] == ("GRK.AT",  "inst-fund", "2026-04-01")
+        assert fetch_calls[1] == ("ETH-USD",  "inst-eth",  "2026-04-01")
+        assert statuses == [("inst-fund", "SUCCESS"), ("inst-eth", "SUCCESS")]
+        # display_id for the crypto instrument must use the ticker, not isin
+        log_display_ids = [
+            args[1] for msg, args in log_calls if msg.startswith("[%d/%d]")
+        ]
+        assert "ETH-USD" in log_display_ids
         conn.close.assert_called_once()
 
 
@@ -257,7 +348,10 @@ class TestRollbackPaths:
         conn.rollback.assert_called_once()
 
     def test_resolve_ticker_rolls_back_on_db_error(self, monkeypatch):
-        read_cur = _ctx_cursor(fetchone={"external_ids": {}})
+        # Row must include the ticker key (added in the crypto PR);
+        # missing it causes KeyError before reaching the UPDATE path,
+        # making the rollback assertion fire for the wrong reason.
+        read_cur = _ctx_cursor(fetchone={"external_ids": {}, "ticker": None})
         write_cur = _ctx_cursor(execute_side_effect=RuntimeError("update failed"))
         conn = MagicMock()
         conn.cursor.side_effect = [read_cur, write_cur]
