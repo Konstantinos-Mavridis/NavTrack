@@ -44,6 +44,12 @@ function feeUnitsCls(units: number | string): string {
     : 'text-red-500 dark:text-red-400 font-medium';
 }
 
+/** Build a tooltip label for an instrument, omitting null identifiers. */
+function instrumentTooltip(name: string, isin: string | null, ticker: string | null): string {
+  const id = isin ?? ticker;
+  return id ? `${name} \u2013 ${id}` : name;
+}
+
 export default function PortfolioDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -288,7 +294,7 @@ export default function PortfolioDetail() {
                     <table className="w-full">
                       <thead className="bg-gray-50 dark:bg-gray-800/60">
                         <tr>
-                          {['Fund', 'Asset Class', 'Units', 'NAV (EUR)', 'Value (EUR)', 'Cost (EUR)', 'P&L (EUR)', 'Weight'].map((h) => (
+                          {['Instrument', 'Asset Class', 'Units', 'NAV (EUR)', 'Value (EUR)', 'Cost (EUR)', 'P&L (EUR)', 'Weight'].map((h) => (
                             <th key={h} className="table-th-pos">{h}</th>
                           ))}
                         </tr>
@@ -300,7 +306,7 @@ export default function PortfolioDetail() {
                               <Link
                                 to={`/instruments/${pos.instrumentId}`}
                                 className="truncate block text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                                title={`${pos.instrumentName} - ${pos.isin}`}
+                                title={instrumentTooltip(pos.instrumentName, pos.isin ?? null, pos.ticker ?? null)}
                               >
                                 {pos.instrumentName}
                               </Link>
@@ -338,7 +344,7 @@ export default function PortfolioDetail() {
                     <table className="w-full">
                       <thead className="bg-gray-50 dark:bg-gray-800/60">
                         <tr>
-                          {['Date', 'Fund', 'Type', 'Units', 'Price (EUR)', 'Fees (EUR)', 'Total (EUR)', ''].map((h) => (
+                          {['Date', 'Instrument', 'Type', 'Units', 'Price (EUR)', 'Fees (EUR)', 'Total (EUR)', ''].map((h) => (
                             <th key={h} className="table-th-pos">{h}</th>
                           ))}
                         </tr>
@@ -356,7 +362,7 @@ export default function PortfolioDetail() {
                                 <Link
                                   to={`/instruments/${tx.instrumentId}`}
                                   className="truncate block text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                                  title={tx.instrument ? `${tx.instrument.name} - ${tx.instrument.isin}` : undefined}
+                                  title={tx.instrument ? instrumentTooltip(tx.instrument.name, tx.instrument.isin ?? null, tx.instrument.ticker ?? null) : undefined}
                                 >
                                   {tx.instrument?.name ?? '—'}
                                 </Link>

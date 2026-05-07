@@ -15,7 +15,7 @@ function sourceLabelFromUrl(raw: string): { host: string; path: string } {
     const u = new URL(raw);
     const host = u.hostname.replace(/^www\./, '');
     const segments = u.pathname.split('/').filter(Boolean);
-    const path = segments.length ? '/' + segments.slice(0, 2).join('/') + (segments.length > 2 ? '/…' : '') : '';
+    const path = segments.length ? '/' + segments.slice(0, 2).join('/') + (segments.length > 2 ? '/\u2026' : '') : '';
     return { host, path };
   } catch {
     return { host: raw, path: '' };
@@ -131,7 +131,7 @@ export default function InstrumentDetail() {
       await api.instruments.addNav(id, [{ date: navDate, nav: parseFloat(navValue) }]);
       const fresh = await api.instruments.navHistory(id);
       setNavHistory(fresh);
-      setSaveMsg(`NAV €${navValue} saved for ${navDate}`);
+      setSaveMsg(`NAV \u20ac${navValue} saved for ${navDate}`);
       setNavValue('');
     } catch (e: any) {
       setSaveErr(e.message);
@@ -152,11 +152,12 @@ export default function InstrumentDetail() {
   if (!instrument) return null;
 
   const dataLinks = instrument.dataSources?.filter(Boolean) ?? [];
+  const isCrypto  = instrument.assetClass === 'CRYPTO';
 
   return (
     <div className="max-w-5xl mx-auto px-4 pt-6 pb-8">
 
-      {/* Breadcrumb — sits close to the navbar (pt-6) and tight above the page title (mb-2) */}
+      {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500 mb-2">
         <Link to="/strategies" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
           Strategies
@@ -165,13 +166,21 @@ export default function InstrumentDetail() {
         <span className="text-gray-700 dark:text-gray-200 font-medium truncate">{instrument.name}</span>
       </div>
 
-      {/* Remaining sections with consistent vertical rhythm */}
       <div className="space-y-8">
 
         <div className="flex items-start gap-4 flex-wrap">
           <div className="flex-1 min-w-0">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 leading-tight">{instrument.name}</h1>
-            <p className="font-mono text-sm text-gray-400 dark:text-gray-500 mt-1">{instrument.isin}</p>
+            {/* Show ISIN for traditional instruments, ticker for crypto */}
+            {instrument.isin && (
+              <p className="font-mono text-sm text-gray-400 dark:text-gray-500 mt-1">{instrument.isin}</p>
+            )}
+            {!instrument.isin && instrument.ticker && (
+              <p className="font-mono text-sm text-gray-400 dark:text-gray-500 mt-1">
+                <span className="text-xs text-gray-300 dark:text-gray-600 mr-1">TICKER</span>
+                {instrument.ticker}
+              </p>
+            )}
           </div>
           <div className="flex gap-2 items-center shrink-0 mt-1">
             <AssetClassChip ac={instrument.assetClass} />
@@ -183,8 +192,8 @@ export default function InstrumentDetail() {
           {[
             { label: 'Currency',    value: instrument.currency },
             { label: 'Asset Class', value: ASSET_CLASS_LABELS[instrument.assetClass] ?? instrument.assetClass },
-            { label: 'Risk Level',  value: instrument.riskLevel != null ? `SRI ${instrument.riskLevel} / 7` : '—' },
-            { label: 'Latest NAV',  value: latestNav ? `€${Number(latestNav.nav).toFixed(4)}` : '—', sub: latestNav?.date },
+            { label: 'Risk Level',  value: instrument.riskLevel != null ? `SRI ${instrument.riskLevel} / 7` : '\u2014' },
+            { label: 'Latest NAV',  value: latestNav ? `\u20ac${Number(latestNav.nav).toFixed(4)}` : '\u2014', sub: latestNav?.date },
           ].map((c) => (
             <div key={c.label} className="card p-4">
               <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{c.label}</p>
@@ -202,11 +211,13 @@ export default function InstrumentDetail() {
         {id && (
           <div className="card p-6">
             <SectionHeading title="Sync from Yahoo Finance">
-              <span className="text-xs text-gray-400 dark:text-gray-500">Fetches daily NAV history automatically</span>
+              <span className="text-xs text-gray-400 dark:text-gray-500">Fetches daily price history automatically</span>
             </SectionHeading>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-              Resolves this ISIN to a Yahoo Finance ticker and fetches all available daily
-              NAV prices, storing only dates not yet in the database (incremental).
+              {isCrypto
+                ? `Uses the stored ticker (${instrument.ticker ?? 'e.g. BTC-USD'}) to fetch all available daily prices from Yahoo Finance, storing only dates not yet in the database (incremental).`
+                : 'Resolves this ISIN to a Yahoo Finance ticker and fetches all available daily NAV prices, storing only dates not yet in the database (incremental).'
+              }
             </p>
             <SyncButton instrumentId={id} onSuccess={handleSyncSuccess} />
           </div>
@@ -242,7 +253,7 @@ export default function InstrumentDetail() {
               />
             </div>
             <button type="submit" disabled={saving} className="btn-primary">
-              {saving ? 'Saving…' : 'Save NAV'}
+              {saving ? 'Saving\u2026' : 'Save NAV'}
             </button>
           </form>
 
@@ -290,7 +301,7 @@ export default function InstrumentDetail() {
               <thead className="bg-gray-50 dark:bg-gray-800/60">
                 <tr>
                   <th className="table-th">Date</th>
-                  <th className="table-th">NAV (€)</th>
+                  <th className="table-th">NAV (\u20ac)</th>
                   <th className="table-th">Change</th>
                   <th className="table-th">Source</th>
                 </tr>
@@ -314,7 +325,7 @@ export default function InstrumentDetail() {
                             {change >= 0 ? '+' : ''}{change.toFixed(4)}
                             {changePct !== null && ` (${changePct.toFixed(2)}%)`}
                           </span>
-                        ) : '—'}
+                        ) : '\u2014'}
                       </td>
                       <td className="table-td text-gray-400 dark:text-gray-500 text-xs">{n.source}</td>
                     </tr>
