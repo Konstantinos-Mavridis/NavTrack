@@ -27,7 +27,8 @@ function validateIsoDate(date: string | undefined, fieldName: string): void {
 export interface SyncResult {
   jobId: string;
   instrumentId: string;
-  isin: string;
+  /** ISIN of the instrument, or null for crypto/ticker-only instruments. */
+  isin: string | null;
   yahooTicker: string | null;
   status: SyncStatus;
   recordsFetched: number;
@@ -72,14 +73,33 @@ export class SyncService {
       }),
     );
 
-    try {
-      // 1. Resolve ticker
-      let ticker: string | null =
-        !opts.forceTickerRefresh
-          ? (instrument.externalIds as any)?.yahoo_ticker ?? null
-          : null;
+    // Human-readable identifier for log messages and error strings.
+    // Prefer ISIN; fall back to ticker for crypto instruments.
+    const displayId = instrument.isin ?? instrument.ticker ?? instrumentId;
 
-      if (!ticker) {
+    try {
+      // 1. Resolve ticker.
+      //
+      //    Resolution order (mirrors worker.py _resolve_ticker):
+      //      a. instrument.ticker column  — crypto / pre-configured instruments.
+      //         Return immediately; no cache write needed, no ISIN search.
+      //      b. externalIds.yahoo_ticker  — cached result from a previous run.
+      //      c. Live yf.Search by ISIN    — ISIN-based instruments only.
+      //
+      let ticker: string | null = null;
+
+      // (a) Explicit ticker column — crypto instruments set this directly.
+      if (!opts.forceTickerRefresh && instrument.ticker) {
+        ticker = instrument.ticker;
+      }
+
+      // (b) Cached yahoo_ticker from a previous ISIN resolution.
+      if (!ticker && !opts.forceTickerRefresh) {
+        ticker = (instrument.externalIds as any)?.yahoo_ticker ?? null;
+      }
+
+      // (c) Live ISIN lookup — only when an ISIN is present.
+      if (!ticker && instrument.isin) {
         const info = await this.yahoo.resolveTickerForIsin(instrument.isin);
         ticker = info?.symbol ?? null;
 
@@ -100,7 +120,13 @@ export class SyncService {
       }
 
       if (!ticker) {
-        return await this.failJob(job, 'Could not resolve Yahoo Finance ticker for this ISIN', {
+        // Use a context-aware error message: crypto instruments have no ISIN,
+        // so saying "for this ISIN" is misleading when isin is null.
+        const reason = instrument.isin
+          ? `Could not resolve Yahoo Finance ticker for ISIN ${instrument.isin}`
+          : `No Yahoo Finance ticker configured for instrument "${instrument.name}" — set the ticker field`;
+
+        return await this.failJob(job, reason, {
           instrumentId,
           isin: instrument.isin,
           yahooTicker: null,
@@ -137,7 +163,7 @@ export class SyncService {
       // Since we use explicit UTC dates, this comparison is safe across timezones.
       if (fromDate && fromDate > effectiveToDate) {
         this.logger.log(
-          `No sync needed for ${instrument.isin}: latest NAV already up to date (${fromDate} > ${effectiveToDate})`,
+          `No sync needed for ${displayId}: latest NAV already up to date (${fromDate} > ${effectiveToDate})`,
         );
         return await this.completeJob(job, SyncStatus.SUCCESS, 0, {
           instrumentId,
@@ -152,7 +178,7 @@ export class SyncService {
 
       if (!points.length) {
         this.logger.log(
-          `No new prices for ${instrument.isin} in range ${fromDate} to ${effectiveToDate} (UTC).`,
+          `No new prices for ${displayId} in range ${fromDate} to ${effectiveToDate} (UTC).`,
         );
         return await this.completeJob(job, SyncStatus.SUCCESS, 0, {
           instrumentId,
@@ -188,7 +214,7 @@ export class SyncService {
         yahooTicker: ticker,
       });
     } catch (err: any) {
-      this.logger.error(`Sync failed for ${instrument.isin}: ${err.message}`);
+      this.logger.error(`Sync failed for ${displayId}: ${err.message}`);
       return await this.failJob(job, err.message, {
         instrumentId,
         isin: instrument.isin,
@@ -261,7 +287,7 @@ export class SyncService {
     return {
       jobId:            job.id,
       instrumentId:     extra.instrumentId!,
-      isin:             extra.isin!,
+      isin:             extra.isin ?? null,
       yahooTicker:      extra.yahooTicker ?? null,
       status,
       recordsFetched:   job.recordsFetched,
@@ -281,7 +307,7 @@ export class SyncService {
     return {
       jobId:           job.id,
       instrumentId:    extra.instrumentId!,
-      isin:            extra.isin!,
+      isin:            extra.isin ?? null,
       yahooTicker:     extra.yahooTicker ?? null,
       status:          SyncStatus.FAILED,
       recordsFetched:  job.recordsFetched,
