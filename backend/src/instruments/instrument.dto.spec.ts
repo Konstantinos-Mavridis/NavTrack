@@ -22,7 +22,7 @@ const BASE_CREATE = {
 };
 
 async function errorsFor(cls: any, plain: Record<string, unknown>) {
-  const instance = plainToInstance(cls, plain);
+  const instance = plainToInstance(cls, plain) as object;
   return validate(instance);
 }
 
