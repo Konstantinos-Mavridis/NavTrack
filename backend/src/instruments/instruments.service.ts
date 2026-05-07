@@ -85,8 +85,8 @@ export class InstrumentsService {
     const all = await this.repo.find({ order: { name: 'ASC' } });
     return all.map((i) => ({
       name: i.name,
-      isin: i.isin ?? null,
-      ticker: i.ticker ?? null,
+      isin: i.isin,
+      ticker: i.ticker,
       currency: i.currency,
       assetClass: i.assetClass,
       riskLevel: i.riskLevel,
@@ -125,12 +125,12 @@ export class InstrumentsService {
 
       if (!isin && !ticker) continue;
 
-      // Skip if already present (check both identifiers)
+      // Skip if already present (check both identifiers independently)
       if (isin) {
         const existing = await this.repo.findOneBy({ isin });
         if (existing) { skippedIsins.push(isin); continue; }
       }
-      if (ticker && !isin) {
+      if (ticker) {
         const existing = await this.repo.findOneBy({ ticker });
         if (existing) { skippedIsins.push(ticker); continue; }
       }

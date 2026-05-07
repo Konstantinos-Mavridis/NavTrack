@@ -338,6 +338,10 @@ def _smart_from_date(instrument_id: str, conn) -> str:
 
 def _fetch_and_upsert(ticker: str, instrument_id: str, from_date: str, conn) -> tuple[int, int]:
     today_str = date.today().isoformat()
+    if from_date > today_str:
+        log.info("  Already up-to-date")
+        return 0, 0
+
     try:
         # yfinance .history(end=X) is EXCLUSIVE — the candle for date X is NOT
         # included.  Passing end=today would silently drop today's price.
