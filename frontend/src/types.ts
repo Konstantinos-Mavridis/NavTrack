@@ -2,7 +2,10 @@
 export interface Instrument {
   id: string;
   name: string;
-  isin: string;
+  /** Null for crypto / ticker-only instruments. */
+  isin: string | null;
+  /** Yahoo Finance ticker symbol (e.g. "BTC-USD"). Null for ISIN-only instruments. */
+  ticker: string | null;
   assetClass: string;
   currency: string;
   domicile?: string | null;
@@ -27,7 +30,10 @@ export interface NavPrice {
 
 export interface CreateInstrumentPayload {
   name: string;
-  isin: string;
+  /** Required for non-crypto instruments. Either isin or ticker must be provided. */
+  isin?: string | null;
+  /** Required for crypto / ticker-only instruments. Either isin or ticker must be provided. */
+  ticker?: string | null;
   assetClass: string;
   currency: string;
   domicile?: string;
@@ -103,7 +109,8 @@ export interface PositionBreakdown {
   positionId: string;
   instrumentId: string;
   instrumentName: string;
-  isin: string;
+  /** Null for crypto / ticker-only instruments. */
+  isin: string | null;
   assetClass: string;
   units: number;
   nav: number | null;
@@ -210,7 +217,8 @@ export interface ApplyTemplateBuyResult {
 export interface TemplateNavPreviewItem {
   instrumentId: string;
   instrumentName: string;
-  isin: string;
+  /** Null for crypto / ticker-only instruments. */
+  isin: string | null;
   weight: number;
   nav: number | null;
   navDate: string | null;
