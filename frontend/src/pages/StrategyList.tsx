@@ -38,7 +38,11 @@ export default function StrategyList() {
     const q = search.toLowerCase();
     return (
       i.name.toLowerCase().includes(q) ||
-      i.isin.toLowerCase().includes(q) ||
+      // isin is null for crypto instruments; treat as empty string so they
+      // appear in unfiltered views but don't match an ISIN search term.
+      (i.isin ?? '').toLowerCase().includes(q) ||
+      // also search by ticker so crypto instruments are findable by symbol
+      (i.ticker ?? '').toLowerCase().includes(q) ||
       i.assetClass.toLowerCase().includes(q)
     );
   });
@@ -198,7 +202,7 @@ export default function StrategyList() {
                     <thead className="bg-gray-50 dark:bg-gray-800/60">
                       <tr>
                         <th className="table-th">Fund</th>
-                        <th className="table-th">ISIN</th>
+                        <th className="table-th">ISIN / Ticker</th>
                         <th className="table-th">Class</th>
                         <th className="table-th">Risk</th>
                         <th className="table-th">Weight</th>
@@ -223,7 +227,9 @@ export default function StrategyList() {
                               )}
                             </td>
                             <td className="table-td font-mono text-xs text-gray-500 dark:text-gray-400">
-                              {item.instrument?.isin.trim() ?? '—'}
+                              {item.instrument
+                                ? (item.instrument.isin?.trim() ?? item.instrument.ticker ?? '—')
+                                : '—'}
                             </td>
                             <td className="table-td">
                               {item.instrument ? <AssetClassChip ac={item.instrument.assetClass} /> : '—'}
@@ -253,7 +259,7 @@ export default function StrategyList() {
           <ImportExportModal config={instrumentImportExportConfig} onImported={loadInstruments} />
           <input
             type="search"
-            placeholder="Search by name, ISIN or class…"
+            placeholder="Search by name, ISIN, ticker or class…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="input w-64"
@@ -271,7 +277,7 @@ export default function StrategyList() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 dark:bg-gray-800/60">
                 <tr>
-                  {['Fund Name', 'ISIN', 'Asset Class', 'Risk', 'Currency'].map((h) => (
+                  {['Fund Name', 'ISIN / Ticker', 'Asset Class', 'Risk', 'Currency'].map((h) => (
                     <th key={h} className="table-th">{h}</th>
                   ))}
                 </tr>
@@ -289,7 +295,7 @@ export default function StrategyList() {
                       </Link>
                     </td>
                     <td className="table-td font-mono text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                      {inst.isin}
+                      {inst.isin ?? inst.ticker ?? '—'}
                     </td>
                     <td className="table-td"><AssetClassChip ac={inst.assetClass} /></td>
                     <td className="table-td"><RiskBadge level={inst.riskLevel ?? 0} /></td>
