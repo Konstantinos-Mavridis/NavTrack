@@ -111,6 +111,8 @@ export interface PositionBreakdown {
   instrumentName: string;
   /** Null for crypto / ticker-only instruments. */
   isin: string | null;
+  /** Yahoo Finance ticker symbol. Null for ISIN-only instruments. */
+  ticker: string | null;
   assetClass: string;
   units: number;
   nav: number | null;
