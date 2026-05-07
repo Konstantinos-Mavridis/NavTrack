@@ -448,10 +448,7 @@ def run_nav_sync(triggered_by: str = "SCHEDULER", from_date: str | None = None) 
             name          = inst["name"]
             display_id    = isin or inst.get("ticker") or instrument_id
 
-            # Format: "[%d/%d] %s (%s)"  args: (idx+1, display_id, name, total)
-            # display_id is args[1] so tests can assert the correct identifier
-            # is logged for both ISIN-based and ticker-only (crypto) instruments.
-            log.info("[%d/%d] %s (%s)", idx + 1, display_id, name, len(instruments))
+            log.info("[%d/%d] %s (%s)", idx + 1, len(instruments), display_id, name)
 
             job_status = "SUCCESS"
             fetched = upserted = 0
@@ -517,8 +514,6 @@ def main() -> None:
     scheduler = BlockingScheduler(timezone="Europe/Athens")
 
     # First NAV sync: 16:05 Athens (Mon\u2013Fri).
-    # Greek mutual fund NAVs are typically published by fund administrators
-    # around 13:00\u201315:00 Athens. This run catches funds that publish early.
     scheduler.add_job(
         lambda: run_nav_sync(triggered_by="SCHEDULER_AFTERNOON"),
         trigger="cron",
@@ -530,11 +525,6 @@ def main() -> None:
     )
 
     # Second NAV sync: 22:05 Athens (Mon\u2013Fri).
-    # Yahoo Finance ingests Greek mutual fund NAVs via a delayed batch process
-    # that typically completes around end-of-day UTC (22:00\u201300:00 Athens).
-    # The 16:05 sync often runs before Yahoo has today's candle available.
-    # This late-evening run acts as a safety net, ensuring today's prices are
-    # in the DB well before midnight.
     scheduler.add_job(
         lambda: run_nav_sync(triggered_by="SCHEDULER_EVENING"),
         trigger="cron",
@@ -546,7 +536,6 @@ def main() -> None:
     )
 
     # Daily valuation: 23:05 Athens (every day).
-    # Runs after both NAV syncs have had a chance to complete.
     scheduler.add_job(
         run_valuation,
         trigger="cron",
