@@ -1,3 +1,4 @@
+import { Component, type ReactNode } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './ThemeContext';
 import Navbar from './components/Navbar';
@@ -6,9 +7,30 @@ import PortfolioDetail  from './pages/PortfolioDetail';
 import StrategyList     from './pages/StrategyList';
 import InstrumentDetail from './pages/InstrumentDetail';
 
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900">
+          <div className="text-center p-8">
+            <p className="text-4xl mb-4">⚠️</p>
+            <p className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-2">Something went wrong</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{(this.state.error as Error).message}</p>
+            <button onClick={() => window.location.reload()} className="btn-primary">Reload page</button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
   return (
     <ThemeProvider>
+      <ErrorBoundary>
       <div className="min-h-screen flex flex-col">
         <Navbar />
         <main className="flex-1">
@@ -59,6 +81,7 @@ export default function App() {
           </div>
         </footer>
       </div>
+      </ErrorBoundary>
     </ThemeProvider>
   );
 }

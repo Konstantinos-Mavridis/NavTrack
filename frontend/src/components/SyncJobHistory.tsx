@@ -1,16 +1,6 @@
 import { useEffect, useState } from 'react';
-
-interface SyncJob {
-  id: string;
-  status: 'PENDING' | 'RUNNING' | 'SUCCESS' | 'PARTIAL' | 'FAILED';
-  source: string;
-  recordsFetched: number;
-  recordsUpserted: number;
-  errorMessage: string | null;
-  startedAt: string;
-  completedAt: string | null;
-  triggeredBy: string;
-}
+import { api } from '../api/client';
+import type { SyncJob } from '../types';
 
 interface Props {
   instrumentId: string;
@@ -23,22 +13,10 @@ export default function SyncJobHistory({ instrumentId, refreshKey = 0 }: Props) 
 
   useEffect(() => {
     setLoading(true);
-
-    async function fetchJobs() {
-      try {
-        const res = await fetch(`/api/instruments/${instrumentId}/sync/jobs?limit=10`, {
-          headers: { 'Content-Type': 'application/json' },
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        setJobs(await res.json());
-      } catch {
-        setJobs([]);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    void fetchJobs();
+    api.instruments.syncJobs(instrumentId)
+      .then(setJobs)
+      .catch(() => setJobs([]))
+      .finally(() => setLoading(false));
   }, [instrumentId, refreshKey]);
 
   if (loading) return null;

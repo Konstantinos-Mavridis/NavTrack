@@ -11,6 +11,7 @@ vi.mock('../api/client', () => ({
     instruments: {
       get: vi.fn(),
       navHistory: vi.fn(),
+      syncJobs: vi.fn().mockResolvedValue([]),
     },
   },
 }));

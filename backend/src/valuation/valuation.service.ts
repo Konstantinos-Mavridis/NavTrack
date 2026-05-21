@@ -57,7 +57,7 @@ export class ValuationService {
 
     // Fetch each instrument's latest NAV on or before the target date
     const navMap = new Map<string, number>();
-    await Promise.all(
+    await Promise.allSettled(
       positions.map(async (pos) => {
         const nav = await this.navPrices.navOnDate(pos.instrumentId, today);
         if (nav) navMap.set(pos.instrumentId, Number(nav.nav));

@@ -3,7 +3,7 @@ import {
   Param, Body, ParseUUIDPipe, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { TransactionsService } from './transactions.service';
-import { ApplyTemplateBuyDto, CreateTransactionDto } from './transaction.dto';
+import { ApplyTemplateBuyDto, CreateTransactionDto, UpdateTransactionDto } from './transaction.dto';
 
 @Controller('portfolios/:id/transactions')
 export class TransactionsController {
@@ -34,7 +34,7 @@ export class TransactionsController {
   update(
     @Param('id', ParseUUIDPipe)    id: string,
     @Param('txnId', ParseUUIDPipe) txnId: string,
-    @Body() dto: Partial<CreateTransactionDto>,
+    @Body() dto: UpdateTransactionDto,
   ) {
     return this.svc.update(id, txnId, dto);
   }

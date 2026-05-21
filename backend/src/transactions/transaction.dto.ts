@@ -37,6 +37,38 @@ export class CreateTransactionDto {
   notes?: string;
 }
 
+export class UpdateTransactionDto {
+  @IsOptional()
+  @IsEnum(TransactionType)
+  type?: TransactionType;
+
+  @IsOptional()
+  @IsDateString()
+  tradeDate?: string;
+
+  @IsOptional()
+  @IsDateString()
+  settlementDate?: string;
+
+  @IsOptional()
+  @IsNumber()
+  units?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  pricePerUnit?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  fees?: number;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
 export class ApplyTemplateBuyDto {
   @IsUUID()
   templateId: string;
