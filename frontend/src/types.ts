@@ -221,6 +221,18 @@ export interface TemplateNavPreview {
 }
 
 // ── Sync ──────────────────────────────────────────────────────────────────────
+export interface SyncJob {
+  id: string;
+  status: 'PENDING' | 'RUNNING' | 'SUCCESS' | 'PARTIAL' | 'FAILED';
+  source: string;
+  recordsFetched: number;
+  recordsUpserted: number;
+  errorMessage: string | null;
+  startedAt: string;
+  completedAt: string | null;
+  triggeredBy: string;
+}
+
 export interface SyncResult {
   jobId: string;
   status: 'PENDING' | 'RUNNING' | 'SUCCESS' | 'PARTIAL' | 'FAILED';

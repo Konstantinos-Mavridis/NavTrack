@@ -6,7 +6,7 @@ import type {
   AllocationTemplate, CreateAllocationTemplatePayload,
   ApplyTemplateBuyPayload, ApplyTemplateBuyResult, ImportSummary,
   TemplateNavPreview, TemplateNavSeriesPoint, TemplateRange,
-  TemplateNavAvailableRange, SyncResult,
+  TemplateNavAvailableRange, SyncResult, SyncJob,
 } from '../types';
 
 const BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '/api';
@@ -152,6 +152,7 @@ export const api = {
     addNav:     (id: string, entries: NavEntryPayload[]) =>
       request<{ upserted: number }>(`/instruments/${id}/nav`, { method: 'POST', body: JSON.stringify({ entries }) }),
     sync:       (id: string)                     => request<SyncResult>(`/instruments/${id}/sync`, { method: 'POST' }),
+    syncJobs:   (id: string, limit = 10)         => request<SyncJob[]>(`/instruments/${id}/sync/jobs?limit=${limit}`),
     exportJson: ()                               => request<any[]>('/instruments/export/json'),
     exportCsv:  ()                               => requestText('/instruments/export/csv'),
     importJson: (instruments: any[])             =>

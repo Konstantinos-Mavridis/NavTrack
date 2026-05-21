@@ -47,7 +47,7 @@ export default function TemplatePerformanceChart({ templateId, paused }: Props) 
         setCustomFrom(r.from);
         setCustomTo(r.to);
       })
-      .catch(() => {});
+      .catch(() => { /* available range is optional; Custom button stays disabled on failure */ });
   }, [templateId, paused]);
 
   // Fetch series whenever range / custom dates change.

@@ -44,7 +44,9 @@ export default function PortfolioImportExport({ onImported }: Props) {
     try {
       const portfolios = await api.portfolios.list();
       await Promise.all(portfolios.map((p) => api.positions.recalculate(p.id)));
-    } catch {}
+    } catch (e) {
+      console.error('Position recalculation after import failed:', e);
+    }
   }
 
   async function handleImportJson(file: File) {

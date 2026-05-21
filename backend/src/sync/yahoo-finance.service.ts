@@ -183,10 +183,17 @@ export class YahooFinanceService {
 
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
-        const res = await fetch(url, { headers: HEADERS });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30_000);
+
+        let res: Response;
+        try {
+          res = await fetch(url, { headers: HEADERS, signal: controller.signal });
+        } finally {
+          clearTimeout(timeoutId);
+        }
 
         if (res.status === 429) {
-          // Rate limited — back off and retry
           const wait = attempt * 3000;
           this.logger.warn(`Rate limited by Yahoo Finance, waiting ${wait}ms (attempt ${attempt})`);
           await sleep(wait);

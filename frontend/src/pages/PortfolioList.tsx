@@ -78,14 +78,14 @@ export default function PortfolioList() {
         setAggregateLoading(false);
         setAggregateError('');
       }
-      portfolios.forEach(async (p) => {
+      void Promise.all(portfolios.map(async (p) => {
         try {
           const v = await api.valuation.get(p.id, today());
           setRows((prev) => prev.map((r) => r.id === p.id ? { ...r, valuation: v, valLoading: false } : r));
         } catch (e: any) {
           setRows((prev) => prev.map((r) => r.id === p.id ? { ...r, valLoading: false, valError: e.message } : r));
         }
-      });
+      }));
     } catch (e: any) {
       setError(e.message);
       setLoading(false);
