@@ -19,10 +19,10 @@
     "@nestjs/typeorm": "^11.0.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
-    "pg": "^8.20.0",
+    "pg": "^8.21.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
-    "typeorm": "^0.3.28"
+    "typeorm": "^1.0.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.21",
