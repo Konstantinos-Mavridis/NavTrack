@@ -1,4 +1,4 @@
-FROM python:3.14.4-slim
+FROM python:3.14.6-slim
 
 # ENV (not ARG) is required so DEBIAN_FRONTEND reaches dpkg's subprocess
 # during the package configuration phase. It is explicitly unset at the
